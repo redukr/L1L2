@@ -113,6 +113,7 @@ class SearchService:
                     description=description.strip(' -'),
                     matched_text=matched_text,
                     relevance_score=-(row['score'] or 0)
+<<<<<<< ours
                 ))
 
         return results
@@ -141,6 +142,8 @@ class SearchService:
                     description=row['description'] or '',
                     matched_text=matched_text,
                     relevance_score=-(row['score'] or 0)
+=======
+>>>>>>> theirs
                 ))
 
         return results
@@ -280,7 +283,18 @@ class SearchService:
         """
         matched_parts = []
         for field in fields:
+<<<<<<< ours
             value = row[field] if field in row.keys() else None
+=======
+            value = None
+            if hasattr(row, 'keys'):
+                if field in row.keys():
+                    value = row[field]
+            elif isinstance(row, dict):
+                value = row.get(field)
+            else:
+                value = getattr(row, field, None)
+>>>>>>> theirs
             if value:
                 matched_parts.append(str(value))
         return ' | '.join(matched_parts)

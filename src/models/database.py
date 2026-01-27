@@ -624,7 +624,7 @@ class Database:
                     FROM teachers_fts f
                     JOIN teachers t ON t.id = f.rowid
                     WHERE teachers_fts MATCH ?
-                    ORDER BY rank
+                    ORDER BY bm25(teachers_fts)
                     LIMIT 50
                 """, (search_query,))
                 results.extend([dict(row) for row in cursor.fetchall()])
@@ -636,7 +636,7 @@ class Database:
                     FROM programs_fts f
                     JOIN educational_programs p ON p.id = f.rowid
                     WHERE programs_fts MATCH ?
-                    ORDER BY rank
+                    ORDER BY bm25(programs_fts)
                     LIMIT 50
                 """, (search_query,))
                 results.extend([dict(row) for row in cursor.fetchall()])
@@ -648,7 +648,7 @@ class Database:
                     FROM topics_fts f
                     JOIN topics t ON t.id = f.rowid
                     WHERE topics_fts MATCH ?
-                    ORDER BY rank
+                    ORDER BY bm25(topics_fts)
                     LIMIT 50
                 """, (search_query,))
                 results.extend([dict(row) for row in cursor.fetchall()])
@@ -660,7 +660,7 @@ class Database:
                     FROM lessons_fts f
                     JOIN lessons l ON l.id = f.rowid
                     WHERE lessons_fts MATCH ?
-                    ORDER BY rank
+                    ORDER BY bm25(lessons_fts)
                     LIMIT 50
                 """, (search_query,))
                 results.extend([dict(row) for row in cursor.fetchall()])
@@ -672,7 +672,7 @@ class Database:
                     FROM questions_fts f
                     JOIN questions q ON q.id = f.rowid
                     WHERE questions_fts MATCH ?
-                    ORDER BY rank
+                    ORDER BY bm25(questions_fts)
                     LIMIT 50
                 """, (search_query,))
                 results.extend([dict(row) for row in cursor.fetchall()])
@@ -685,7 +685,7 @@ class Database:
                     FROM materials_fts f
                     JOIN methodical_materials m ON m.id = f.rowid
                     WHERE materials_fts MATCH ?
-                    ORDER BY rank
+                    ORDER BY bm25(materials_fts)
                     LIMIT 50
                 """, (search_query,))
                 results.extend([dict(row) for row in cursor.fetchall()])
