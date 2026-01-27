@@ -27,7 +27,7 @@ class EducationalProgram:
     duration_hours: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    topics: List['Topic'] = field(default_factory=list)
+    disciplines: List['Discipline'] = field(default_factory=list)
 
 
 @dataclass
@@ -90,3 +90,13 @@ class SearchResult:
     description: str
     matched_text: str
     relevance_score: float = 0.0
+@dataclass
+class Discipline:
+    """Represents a discipline within an educational program."""
+    id: Optional[int] = None
+    name: str = ""
+    description: Optional[str] = None
+    order_index: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    topics: List['Topic'] = field(default_factory=list)

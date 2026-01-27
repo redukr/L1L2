@@ -317,6 +317,10 @@ class MaterialRepository:
                 cursor.execute("SELECT name FROM educational_programs WHERE id = ?", (entity_id,))
                 row = cursor.fetchone()
                 return row['name'] if row else f"Program #{entity_id}"
+            if entity_type == 'discipline':
+                cursor.execute("SELECT name FROM disciplines WHERE id = ?", (entity_id,))
+                row = cursor.fetchone()
+                return row['name'] if row else f"Discipline #{entity_id}"
             if entity_type == 'topic':
                 cursor.execute("SELECT title FROM topics WHERE id = ?", (entity_id,))
                 row = cursor.fetchone()

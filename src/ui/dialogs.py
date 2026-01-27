@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLabel,
 )
-from ..models.entities import Teacher, EducationalProgram, Topic, Lesson, Question, MethodicalMaterial
+from ..models.entities import Teacher, EducationalProgram, Discipline, Topic, Lesson, Question, MethodicalMaterial
 
 
 class PasswordDialog(QDialog):
@@ -20,9 +20,9 @@ class PasswordDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Admin Access")
+        self.setWindowTitle(self.tr("Admin Access"))
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Enter admin password:"))
+        layout.addWidget(QLabel(self.tr("Enter admin password:")))
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.password_input)
@@ -40,7 +40,7 @@ class TeacherDialog(QDialog):
 
     def __init__(self, teacher: Optional[Teacher] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Teacher")
+        self.setWindowTitle(self.tr("Teacher"))
         self._teacher = teacher
         layout = QFormLayout(self)
         self.full_name = QLineEdit(teacher.full_name if teacher else "")
@@ -48,11 +48,11 @@ class TeacherDialog(QDialog):
         self.department = QLineEdit(teacher.department if teacher else "")
         self.email = QLineEdit(teacher.email if teacher else "")
         self.phone = QLineEdit(teacher.phone if teacher else "")
-        layout.addRow("Full name", self.full_name)
-        layout.addRow("Position", self.position)
-        layout.addRow("Department", self.department)
-        layout.addRow("Email", self.email)
-        layout.addRow("Phone", self.phone)
+        layout.addRow(self.tr("Full name"), self.full_name)
+        layout.addRow(self.tr("Position"), self.position)
+        layout.addRow(self.tr("Department"), self.department)
+        layout.addRow(self.tr("Email"), self.email)
+        layout.addRow(self.tr("Phone"), self.phone)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -73,7 +73,7 @@ class ProgramDialog(QDialog):
 
     def __init__(self, program: Optional[EducationalProgram] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Educational Program")
+        self.setWindowTitle(self.tr("Educational Program"))
         self._program = program
         layout = QFormLayout(self)
         self.name = QLineEdit(program.name if program else "")
@@ -83,10 +83,10 @@ class ProgramDialog(QDialog):
         self.duration.setRange(1, 1000)
         if program and program.duration_hours:
             self.duration.setValue(program.duration_hours)
-        layout.addRow("Name", self.name)
-        layout.addRow("Description", self.description)
-        layout.addRow("Level", self.level)
-        layout.addRow("Duration (hours)", self.duration)
+        layout.addRow(self.tr("Name"), self.name)
+        layout.addRow(self.tr("Description"), self.description)
+        layout.addRow(self.tr("Level"), self.level)
+        layout.addRow(self.tr("Duration (hours)"), self.duration)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -101,12 +101,42 @@ class ProgramDialog(QDialog):
         return program
 
 
+class DisciplineDialog(QDialog):
+    """Dialog for creating or editing a discipline."""
+
+    def __init__(self, discipline: Optional[Discipline] = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Discipline"))
+        self._discipline = discipline
+        layout = QFormLayout(self)
+        self.name = QLineEdit(discipline.name if discipline else "")
+        self.description = QTextEdit(discipline.description if discipline else "")
+        self.order_index = QSpinBox()
+        self.order_index.setRange(0, 999)
+        if discipline:
+            self.order_index.setValue(discipline.order_index)
+        layout.addRow(self.tr("Name"), self.name)
+        layout.addRow(self.tr("Description"), self.description)
+        layout.addRow(self.tr("Order index"), self.order_index)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_discipline(self) -> Discipline:
+        discipline = self._discipline or Discipline()
+        discipline.name = self.name.text().strip()
+        discipline.description = self.description.toPlainText().strip() or None
+        discipline.order_index = self.order_index.value()
+        return discipline
+
+
 class TopicDialog(QDialog):
     """Dialog for creating or editing a topic."""
 
     def __init__(self, topic: Optional[Topic] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Topic")
+        self.setWindowTitle(self.tr("Topic"))
         self._topic = topic
         layout = QFormLayout(self)
         self.title = QLineEdit(topic.title if topic else "")
@@ -115,9 +145,9 @@ class TopicDialog(QDialog):
         self.order_index.setRange(0, 999)
         if topic:
             self.order_index.setValue(topic.order_index)
-        layout.addRow("Title", self.title)
-        layout.addRow("Description", self.description)
-        layout.addRow("Order index", self.order_index)
+        layout.addRow(self.tr("Title"), self.title)
+        layout.addRow(self.tr("Description"), self.description)
+        layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -136,7 +166,7 @@ class LessonDialog(QDialog):
 
     def __init__(self, lesson: Optional[Lesson] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Lesson")
+        self.setWindowTitle(self.tr("Lesson"))
         self._lesson = lesson
         layout = QFormLayout(self)
         self.title = QLineEdit(lesson.title if lesson else "")
@@ -150,10 +180,10 @@ class LessonDialog(QDialog):
         self.order_index.setRange(0, 999)
         if lesson:
             self.order_index.setValue(lesson.order_index)
-        layout.addRow("Title", self.title)
-        layout.addRow("Description", self.description)
-        layout.addRow("Duration (hours)", self.duration)
-        layout.addRow("Order index", self.order_index)
+        layout.addRow(self.tr("Title"), self.title)
+        layout.addRow(self.tr("Description"), self.description)
+        layout.addRow(self.tr("Duration (hours)"), self.duration)
+        layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -173,7 +203,7 @@ class QuestionDialog(QDialog):
 
     def __init__(self, question: Optional[Question] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Question")
+        self.setWindowTitle(self.tr("Question"))
         self._question = question
         layout = QFormLayout(self)
         self.content = QTextEdit(question.content if question else "")
@@ -186,10 +216,10 @@ class QuestionDialog(QDialog):
         self.order_index.setRange(0, 999)
         if question:
             self.order_index.setValue(question.order_index)
-        layout.addRow("Question", self.content)
-        layout.addRow("Answer", self.answer)
-        layout.addRow("Difficulty (1-5)", self.difficulty)
-        layout.addRow("Order index", self.order_index)
+        layout.addRow(self.tr("Question"), self.content)
+        layout.addRow(self.tr("Answer"), self.answer)
+        layout.addRow(self.tr("Difficulty (1-5)"), self.difficulty)
+        layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -209,23 +239,25 @@ class MaterialDialog(QDialog):
 
     def __init__(self, material: Optional[MethodicalMaterial] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Methodical Material")
+        self.setWindowTitle(self.tr("Methodical Material"))
         self._material = material
         layout = QFormLayout(self)
         self.title = QLineEdit(material.title if material else "")
         self.material_type = QComboBox()
-        self.material_type.addItems(["plan", "guide", "presentation", "attachment"])
+        self._material_types = ["plan", "guide", "presentation", "attachment"]
+        for material_type in self._material_types:
+            self.material_type.addItem(self.tr(material_type), material_type)
         if material:
-            idx = self.material_type.findText(material.material_type)
+            idx = self.material_type.findData(material.material_type)
             if idx >= 0:
                 self.material_type.setCurrentIndex(idx)
         self.description = QTextEdit(material.description if material else "")
         self.file_name = QLineEdit(material.file_name if material else "")
         self.file_name.setReadOnly(True)
-        layout.addRow("Title", self.title)
-        layout.addRow("Type", self.material_type)
-        layout.addRow("Description", self.description)
-        layout.addRow("Attached file", self.file_name)
+        layout.addRow(self.tr("Title"), self.title)
+        layout.addRow(self.tr("Type"), self.material_type)
+        layout.addRow(self.tr("Description"), self.description)
+        layout.addRow(self.tr("Attached file"), self.file_name)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -234,6 +266,6 @@ class MaterialDialog(QDialog):
     def get_material(self) -> MethodicalMaterial:
         material = self._material or MethodicalMaterial()
         material.title = self.title.text().strip()
-        material.material_type = self.material_type.currentText()
+        material.material_type = self.material_type.currentData()
         material.description = self.description.toPlainText().strip() or None
         return material

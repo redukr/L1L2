@@ -6,6 +6,7 @@ from ..models.database import Database
 from ..models.entities import (
     Teacher,
     EducationalProgram,
+    Discipline,
     Topic,
     Lesson,
     Question,
@@ -13,6 +14,7 @@ from ..models.entities import (
 )
 from ..repositories.teacher_repository import TeacherRepository
 from ..repositories.program_repository import ProgramRepository
+from ..repositories.discipline_repository import DisciplineRepository
 from ..repositories.topic_repository import TopicRepository
 from ..repositories.lesson_repository import LessonRepository
 from ..repositories.question_repository import QuestionRepository
@@ -28,6 +30,7 @@ class AdminController:
         self.db = database
         self.teacher_repo = TeacherRepository(database)
         self.program_repo = ProgramRepository(database)
+        self.discipline_repo = DisciplineRepository(database)
         self.topic_repo = TopicRepository(database)
         self.lesson_repo = LessonRepository(database)
         self.question_repo = QuestionRepository(database)
@@ -66,6 +69,15 @@ class AdminController:
     def get_program_topics(self, program_id: int) -> List[Topic]:
         return self.program_repo.get_program_topics(program_id)
 
+    def get_program_disciplines(self, program_id: int) -> List[Discipline]:
+        return self.program_repo.get_program_disciplines(program_id)
+
+    def add_discipline_to_program(self, program_id: int, discipline_id: int, order_index: int = 0) -> bool:
+        return self.program_repo.add_discipline_to_program(program_id, discipline_id, order_index)
+
+    def remove_discipline_from_program(self, program_id: int, discipline_id: int) -> bool:
+        return self.program_repo.remove_discipline_from_program(program_id, discipline_id)
+
     def add_topic_to_program(self, program_id: int, topic_id: int, order_index: int = 0) -> bool:
         return self.program_repo.add_topic_to_program(program_id, topic_id, order_index)
 
@@ -93,6 +105,28 @@ class AdminController:
 
     def remove_lesson_from_topic(self, topic_id: int, lesson_id: int) -> bool:
         return self.topic_repo.remove_lesson_from_topic(topic_id, lesson_id)
+
+    # Disciplines
+    def get_disciplines(self) -> List[Discipline]:
+        return self.discipline_repo.get_all()
+
+    def add_discipline(self, discipline: Discipline) -> Discipline:
+        return self.discipline_repo.add(discipline)
+
+    def update_discipline(self, discipline: Discipline) -> Discipline:
+        return self.discipline_repo.update(discipline)
+
+    def delete_discipline(self, discipline_id: int) -> bool:
+        return self.discipline_repo.delete(discipline_id)
+
+    def get_discipline_topics(self, discipline_id: int) -> List[Topic]:
+        return self.discipline_repo.get_discipline_topics(discipline_id)
+
+    def add_topic_to_discipline(self, discipline_id: int, topic_id: int, order_index: int = 0) -> bool:
+        return self.discipline_repo.add_topic_to_discipline(discipline_id, topic_id, order_index)
+
+    def remove_topic_from_discipline(self, discipline_id: int, topic_id: int) -> bool:
+        return self.discipline_repo.remove_topic_from_discipline(discipline_id, topic_id)
 
     # Lessons
     def get_lessons(self) -> List[Lesson]:

@@ -1,7 +1,7 @@
 """Educational program repository for database operations."""
 from typing import List, Optional
 from datetime import datetime
-from ..models.entities import EducationalProgram, Topic
+from ..models.entities import EducationalProgram, Topic, Discipline
 from ..models.database import Database
 
 
@@ -165,6 +165,29 @@ class ProgramRepository:
             except Exception:
                 return False
 
+    def add_discipline_to_program(self, program_id: int, discipline_id: int, order_index: int = 0) -> bool:
+        """
+        Add a discipline to an educational program.
+
+        Args:
+            program_id: ID of the program
+            discipline_id: ID of the discipline
+            order_index: Order index for the discipline in the program
+
+        Returns:
+            bool: True if added successfully
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT INTO program_disciplines (program_id, discipline_id, order_index)
+                    VALUES (?, ?, ?)
+                """, (program_id, discipline_id, order_index))
+                return True
+            except Exception:
+                return False
+
     def remove_topic_from_program(self, program_id: int, topic_id: int) -> bool:
         """
         Remove a topic from an educational program.
@@ -182,6 +205,25 @@ class ProgramRepository:
                 DELETE FROM program_topics 
                 WHERE program_id = ? AND topic_id = ?
             """, (program_id, topic_id))
+            return cursor.rowcount > 0
+
+    def remove_discipline_from_program(self, program_id: int, discipline_id: int) -> bool:
+        """
+        Remove a discipline from an educational program.
+
+        Args:
+            program_id: ID of the program
+            discipline_id: ID of the discipline
+
+        Returns:
+            bool: True if removed successfully
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                DELETE FROM program_disciplines
+                WHERE program_id = ? AND discipline_id = ?
+            """, (program_id, discipline_id))
             return cursor.rowcount > 0
 
     def get_program_topics(self, program_id: int) -> List[Topic]:
@@ -210,6 +252,32 @@ class ProgramRepository:
             topic_repo = TopicRepository(self.db)
             return [topic_repo._row_to_topic(row) for row in cursor.fetchall()]
 
+    def get_program_disciplines(self, program_id: int) -> List[Discipline]:
+        """
+        Get all disciplines for a specific program.
+
+        Args:
+            program_id: ID of the program
+
+        Returns:
+            List[Discipline]: List of disciplines in the program
+        """
+        from .discipline_repository import DisciplineRepository
+
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT d.id, d.name, d.description, pd.order_index as order_index,
+                       d.created_at, d.updated_at
+                FROM disciplines d
+                JOIN program_disciplines pd ON d.id = pd.discipline_id
+                WHERE pd.program_id = ?
+                ORDER BY pd.order_index
+            """, (program_id,))
+
+            discipline_repo = DisciplineRepository(self.db)
+            return [discipline_repo._row_to_discipline(row) for row in cursor.fetchall()]
+
     def get_programs_for_topic(self, topic_id: int) -> List[EducationalProgram]:
         """
         Get all programs that include a specific topic.
@@ -223,13 +291,36 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
+                SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
+                                p.created_at, p.updated_at
+                FROM educational_programs p
+                JOIN program_disciplines pd ON p.id = pd.program_id
+                JOIN discipline_topics dt ON pd.discipline_id = dt.discipline_id
+                WHERE dt.topic_id = ?
+                ORDER BY p.name
+            """, (topic_id,))
+            return [self._row_to_program(row) for row in cursor.fetchall()]
+
+    def get_programs_for_discipline(self, discipline_id: int) -> List[EducationalProgram]:
+        """
+        Get all programs that include a specific discipline.
+
+        Args:
+            discipline_id: ID of the discipline
+
+        Returns:
+            List[EducationalProgram]: Programs containing the discipline
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
                 SELECT p.id, p.name, p.description, p.level, p.duration_hours,
                        p.created_at, p.updated_at
                 FROM educational_programs p
-                JOIN program_topics pt ON p.id = pt.program_id
-                WHERE pt.topic_id = ?
+                JOIN program_disciplines pd ON p.id = pd.program_id
+                WHERE pd.discipline_id = ?
                 ORDER BY p.name
-            """, (topic_id,))
+            """, (discipline_id,))
             return [self._row_to_program(row) for row in cursor.fetchall()]
 
     def get_programs_for_lesson(self, lesson_id: int) -> List[EducationalProgram]:
@@ -248,8 +339,9 @@ class ProgramRepository:
                 SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
                                 p.created_at, p.updated_at
                 FROM educational_programs p
-                JOIN program_topics pt ON p.id = pt.program_id
-                JOIN topic_lessons tl ON pt.topic_id = tl.topic_id
+                JOIN program_disciplines pd ON p.id = pd.program_id
+                JOIN discipline_topics dt ON pd.discipline_id = dt.discipline_id
+                JOIN topic_lessons tl ON dt.topic_id = tl.topic_id
                 WHERE tl.lesson_id = ?
                 ORDER BY p.name
             """, (lesson_id,))
@@ -271,8 +363,9 @@ class ProgramRepository:
                 SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
                                 p.created_at, p.updated_at
                 FROM educational_programs p
-                JOIN program_topics pt ON p.id = pt.program_id
-                JOIN topic_lessons tl ON pt.topic_id = tl.topic_id
+                JOIN program_disciplines pd ON p.id = pd.program_id
+                JOIN discipline_topics dt ON pd.discipline_id = dt.discipline_id
+                JOIN topic_lessons tl ON dt.topic_id = tl.topic_id
                 JOIN lesson_questions lq ON tl.lesson_id = lq.lesson_id
                 WHERE lq.question_id = ?
                 ORDER BY p.name

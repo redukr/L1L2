@@ -3,7 +3,7 @@
 Offline desktop application for managing educational programs, topics, lessons, questions, teachers, and methodical materials. Built with Python 3.11+, PySide6, and SQLite.
 
 ## Features
-- Program browsing: Program -> Topic -> Lesson -> Question
+- Program browsing: Program -> Discipline -> Topic -> Lesson -> Question
 - Full-text search across all entities
 - Methodical material tracking with file attachments
 - Admin mode for CRUD and relationship management
@@ -39,6 +39,24 @@ pyinstaller --onefile --windowed --name "EducationalProgramManager" src/app.py
 ```
 
 The EXE will be in `dist/`. The app will create a `data/` folder next to the EXE on first run.
+
+## Database Migration (Discipline Level)
+On startup, the app checks the schema version and migrates existing data.
+- Existing Program -> Topic links are migrated into Program -> Discipline -> Topic.
+- A discipline is created per program using the program name (e.g., "Discipline for <Program Name>").
+
+## Translations (UA/EN)
+Translation sources are in `translations/` as `.ts` files. Compile them to `.qm`:
+```bash
+pyside6-lrelease translations/app_uk.ts -qm translations/app_uk.qm
+pyside6-lrelease translations/app_en.ts -qm translations/app_en.qm
+```
+
+When building with PyInstaller, include translation files:
+```bash
+pyinstaller --onefile --windowed --name "EducationalProgramManager" ^
+  --add-data "translations;translations" src/app.py
+```
 
 ## Data Storage
 All data is stored locally in a single SQLite file at `data/education.db`. Attached files are copied to `data/materials/` and referenced by the database.

@@ -1,7 +1,6 @@
 """Database management for educational program application."""
 import sqlite3
 import os
-from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import contextmanager
 from ..services.app_paths import get_data_dir
@@ -80,6 +79,18 @@ class Database:
                 )
             """)
 
+            # Disciplines table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS disciplines (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    order_index INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             # Topics table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS topics (
@@ -133,7 +144,35 @@ class Database:
                 )
             """)
 
-            # Program-Topic relationship (many-to-many)
+            # Program-Discipline relationship (many-to-many)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS program_disciplines (
+                    program_id INTEGER NOT NULL,
+                    discipline_id INTEGER NOT NULL,
+                    order_index INTEGER DEFAULT 0,
+                    PRIMARY KEY (program_id, discipline_id),
+                    FOREIGN KEY (program_id) REFERENCES educational_programs(id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
+                        ON DELETE CASCADE
+                )
+            """)
+
+            # Discipline-Topic relationship (many-to-many)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS discipline_topics (
+                    discipline_id INTEGER NOT NULL,
+                    topic_id INTEGER NOT NULL,
+                    order_index INTEGER DEFAULT 0,
+                    PRIMARY KEY (discipline_id, topic_id),
+                    FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (topic_id) REFERENCES topics(id)
+                        ON DELETE CASCADE
+                )
+            """)
+
+            # Program-Topic relationship (legacy, kept for compatibility)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS program_topics (
                     program_id INTEGER NOT NULL,
@@ -194,7 +233,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS material_associations (
                     material_id INTEGER NOT NULL,
                     entity_type TEXT NOT NULL CHECK(entity_type IN 
-                        ('program', 'topic', 'lesson')),
+                        ('program', 'discipline', 'topic', 'lesson')),
                     entity_id INTEGER NOT NULL,
                     PRIMARY KEY (material_id, entity_type, entity_id),
                     FOREIGN KEY (material_id) REFERENCES methodical_materials(id) 
@@ -216,6 +255,11 @@ class Database:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_topics_title 
                 ON topics(title)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_disciplines_name
+                ON disciplines(name)
             """)
 
             cursor.execute("""
@@ -256,6 +300,13 @@ class Database:
             """)
 
             cursor.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS disciplines_fts USING fts5(
+                    name, description,
+                    content='disciplines', content_rowid='id'
+                )
+            """)
+
+            cursor.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS lessons_fts USING fts5(
                     title, description,
                     content='lessons', content_rowid='id'
@@ -278,6 +329,116 @@ class Database:
 
             # Create triggers to keep FTS tables in sync
             self._create_fts_triggers(cursor)
+            self._ensure_schema_version(cursor)
+
+    def _ensure_schema_version(self, cursor) -> None:
+        """Ensure schema migrations are applied."""
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                version INTEGER NOT NULL
+            )
+        """)
+        cursor.execute("SELECT MAX(version) as version FROM schema_migrations")
+        row = cursor.fetchone()
+        current_version = row["version"] if row and row["version"] is not None else 1
+
+        if current_version < 2:
+            self._migrate_to_disciplines(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (2)")
+
+    def _migrate_to_disciplines(self, cursor) -> None:
+        """Migrate existing program->topic links into disciplines."""
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS disciplines (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                order_index INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS program_disciplines (
+                program_id INTEGER NOT NULL,
+                discipline_id INTEGER NOT NULL,
+                order_index INTEGER DEFAULT 0,
+                PRIMARY KEY (program_id, discipline_id),
+                FOREIGN KEY (program_id) REFERENCES educational_programs(id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
+                    ON DELETE CASCADE
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discipline_topics (
+                discipline_id INTEGER NOT NULL,
+                topic_id INTEGER NOT NULL,
+                order_index INTEGER DEFAULT 0,
+                PRIMARY KEY (discipline_id, topic_id),
+                FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (topic_id) REFERENCES topics(id)
+                    ON DELETE CASCADE
+            )
+        """)
+
+        cursor.execute("SELECT COUNT(*) as count FROM disciplines")
+        existing_disciplines = cursor.fetchone()["count"]
+        if existing_disciplines == 0:
+            cursor.execute("SELECT id, name FROM educational_programs")
+            programs = cursor.fetchall()
+            for program in programs:
+                discipline_name = f\"Discipline for {program['name']}\"
+                cursor.execute("""
+                    INSERT INTO disciplines (name, description, order_index)
+                    VALUES (?, ?, 0)
+                """, (discipline_name, ""))
+                discipline_id = cursor.lastrowid
+                cursor.execute("""
+                    INSERT INTO program_disciplines (program_id, discipline_id, order_index)
+                    VALUES (?, ?, 0)
+                """, (program["id"], discipline_id))
+                cursor.execute("""
+                    SELECT topic_id, order_index FROM program_topics
+                    WHERE program_id = ?
+                    ORDER BY order_index
+                """, (program["id"],))
+                for topic_row in cursor.fetchall():
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO discipline_topics (discipline_id, topic_id, order_index)
+                        VALUES (?, ?, ?)
+                    """, (discipline_id, topic_row["topic_id"], topic_row["order_index"]))
+
+        # Update material associations to allow discipline
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='material_associations'")
+        if cursor.fetchone():
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS material_associations_new (
+                    material_id INTEGER NOT NULL,
+                    entity_type TEXT NOT NULL CHECK(entity_type IN
+                        ('program', 'discipline', 'topic', 'lesson')),
+                    entity_id INTEGER NOT NULL,
+                    PRIMARY KEY (material_id, entity_type, entity_id),
+                    FOREIGN KEY (material_id) REFERENCES methodical_materials(id)
+                        ON DELETE CASCADE
+                )
+            """)
+            cursor.execute("""
+                INSERT OR IGNORE INTO material_associations_new (material_id, entity_type, entity_id)
+                SELECT material_id, entity_type, entity_id FROM material_associations
+            """)
+            cursor.execute("DROP TABLE material_associations")
+            cursor.execute("ALTER TABLE material_associations_new RENAME TO material_associations")
+
+        # Ensure discipline FTS and triggers exist
+        cursor.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS disciplines_fts USING fts5(
+                name, description,
+                content='disciplines', content_rowid='id'
+            )
+        """)
 
     def _create_fts_triggers(self, cursor):
         """Create triggers to maintain FTS tables."""
@@ -344,6 +505,28 @@ class Database:
             CREATE TRIGGER IF NOT EXISTS topics_au AFTER UPDATE ON topics BEGIN
                 UPDATE topics_fts 
                 SET title = NEW.title, description = NEW.description
+                WHERE rowid = NEW.id;
+            END
+        """)
+
+        # Disciplines triggers
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS disciplines_ai AFTER INSERT ON disciplines BEGIN
+                INSERT INTO disciplines_fts(rowid, name, description)
+                VALUES (NEW.id, NEW.name, NEW.description);
+            END
+        """)
+
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS disciplines_ad AFTER DELETE ON disciplines BEGIN
+                DELETE FROM disciplines_fts WHERE rowid = OLD.id;
+            END
+        """)
+
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS disciplines_au AFTER UPDATE ON disciplines BEGIN
+                UPDATE disciplines_fts
+                SET name = NEW.name, description = NEW.description
                 WHERE rowid = NEW.id;
             END
         """)

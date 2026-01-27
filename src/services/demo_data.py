@@ -3,6 +3,7 @@ from ..models.database import Database
 from ..models.entities import (
     Teacher,
     EducationalProgram,
+    Discipline,
     Topic,
     Lesson,
     Question,
@@ -10,6 +11,7 @@ from ..models.entities import (
 )
 from ..repositories.teacher_repository import TeacherRepository
 from ..repositories.program_repository import ProgramRepository
+from ..repositories.discipline_repository import DisciplineRepository
 from ..repositories.topic_repository import TopicRepository
 from ..repositories.lesson_repository import LessonRepository
 from ..repositories.question_repository import QuestionRepository
@@ -26,6 +28,7 @@ def seed_demo_data(database: Database) -> None:
 
     teacher_repo = TeacherRepository(database)
     program_repo = ProgramRepository(database)
+    discipline_repo = DisciplineRepository(database)
     topic_repo = TopicRepository(database)
     lesson_repo = LessonRepository(database)
     question_repo = QuestionRepository(database)
@@ -71,6 +74,25 @@ def seed_demo_data(database: Database) -> None:
         duration_hours=60,
     ))
 
+    disciplines = [
+        Discipline(
+            name="Data Foundations",
+            description="Core foundations for working with data responsibly.",
+            order_index=1,
+        ),
+        Discipline(
+            name="Communication and Visualization",
+            description="Presenting insights clearly and effectively.",
+            order_index=2,
+        ),
+        Discipline(
+            name="Statistical Reasoning",
+            description="Inference and probability for decision making.",
+            order_index=1,
+        ),
+    ]
+    disciplines = [discipline_repo.add(d) for d in disciplines]
+
     topics = [
         Topic(
             title="Data Collection and Ethics",
@@ -100,10 +122,15 @@ def seed_demo_data(database: Database) -> None:
     ]
     topics = [topic_repo.add(t) for t in topics]
 
-    for order, topic in enumerate(topics[:3], start=1):
-        program_repo.add_topic_to_program(program.id, topic.id, order)
-    for order, topic in enumerate(topics[3:], start=1):
-        program_repo.add_topic_to_program(program2.id, topic.id, order)
+    program_repo.add_discipline_to_program(program.id, disciplines[0].id, 1)
+    program_repo.add_discipline_to_program(program.id, disciplines[1].id, 2)
+    program_repo.add_discipline_to_program(program2.id, disciplines[2].id, 1)
+
+    discipline_repo.add_topic_to_discipline(disciplines[0].id, topics[0].id, 1)
+    discipline_repo.add_topic_to_discipline(disciplines[0].id, topics[1].id, 2)
+    discipline_repo.add_topic_to_discipline(disciplines[1].id, topics[2].id, 1)
+    discipline_repo.add_topic_to_discipline(disciplines[2].id, topics[3].id, 1)
+    discipline_repo.add_topic_to_discipline(disciplines[2].id, topics[4].id, 2)
 
     lessons = [
         Lesson(

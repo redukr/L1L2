@@ -37,6 +37,9 @@ class SearchService:
         # Search in educational programs
         results.extend(self._search_programs(keyword))
 
+        # Search in disciplines
+        results.extend(self._search_disciplines(keyword))
+
         # Search in topics
         results.extend(self._search_topics(keyword))
 
@@ -108,6 +111,34 @@ class SearchService:
                     entity_id=row['id'],
                     title=row['name'],
                     description=description.strip(' -'),
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
+
+        return results
+
+    def _search_disciplines(self, keyword: str) -> List[SearchResult]:
+        """Search in disciplines using FTS."""
+        results = []
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT d.id, d.name, d.description, bm25(disciplines_fts) as score
+                FROM disciplines d
+                JOIN disciplines_fts ON d.id = disciplines_fts.rowid
+                WHERE disciplines_fts MATCH ?
+                ORDER BY score
+            """, (keyword,))
+
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(
+                    row, ['name', 'description']
+                )
+                results.append(SearchResult(
+                    entity_type='discipline',
+                    entity_id=row['id'],
+                    title=row['name'],
+                    description=row['description'] or '',
                     matched_text=matched_text,
                     relevance_score=-(row['score'] or 0)
                 ))
