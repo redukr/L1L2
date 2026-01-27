@@ -113,7 +113,6 @@ class SearchService:
                     description=description.strip(' -'),
                     matched_text=matched_text,
                     relevance_score=-(row['score'] or 0)
-<<<<<<< ours
                 ))
 
         return results
@@ -142,8 +141,6 @@ class SearchService:
                     description=row['description'] or '',
                     matched_text=matched_text,
                     relevance_score=-(row['score'] or 0)
-=======
->>>>>>> theirs
                 ))
 
         return results
@@ -182,9 +179,11 @@ class SearchService:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT l.id, l.title, l.description, l.duration_hours, 
+                SELECT l.id, l.title, l.description, l.duration_hours,
+                       lt.name as lesson_type_name,
                        bm25(lessons_fts) as score
                 FROM lessons l
+                LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
                 JOIN lessons_fts ON l.id = lessons_fts.rowid
                 WHERE lessons_fts MATCH ?
                 ORDER BY score
@@ -192,9 +191,12 @@ class SearchService:
 
             for row in cursor.fetchall():
                 matched_text = self._get_matched_text(
-                    row, ['title', 'description']
+                    row, ['title', 'description', 'lesson_type_name']
                 )
+                lesson_type = row['lesson_type_name'] or ''
                 description = f"{row['description'] or ''} ({row['duration_hours']}h)"
+                if lesson_type:
+                    description = f"{lesson_type} | {description}"
                 results.append(SearchResult(
                     entity_type='lesson',
                     entity_id=row['id'],
@@ -283,18 +285,7 @@ class SearchService:
         """
         matched_parts = []
         for field in fields:
-<<<<<<< ours
             value = row[field] if field in row.keys() else None
-=======
-            value = None
-            if hasattr(row, 'keys'):
-                if field in row.keys():
-                    value = row[field]
-            elif isinstance(row, dict):
-                value = row.get(field)
-            else:
-                value = getattr(row, field, None)
->>>>>>> theirs
             if value:
                 matched_parts.append(str(value))
         return ' | '.join(matched_parts)

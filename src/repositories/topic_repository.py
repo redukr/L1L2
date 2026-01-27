@@ -197,9 +197,11 @@ class TopicRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT l.id, l.title, l.description, l.duration_hours, 
+                SELECT l.id, l.title, l.description, l.duration_hours,
+                       l.lesson_type_id, lt.name as lesson_type_name,
                        l.order_index, l.created_at, l.updated_at
                 FROM lessons l
+                LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
                 JOIN topic_lessons tl ON l.id = tl.lesson_id
                 WHERE tl.topic_id = ?
                 ORDER BY tl.order_index

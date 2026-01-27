@@ -218,6 +218,9 @@ class MainWindow(QMainWindow):
                 meta_lines.append(f"{self.tr('Duration')}: {meta.get('duration_hours')} {self.tr('hours')}")
             if "order_index" in meta:
                 meta_lines.append(f"{self.tr('Order')}: {meta.get('order_index')}")
+            if "lesson_type" in meta:
+                lesson_type = meta.get("lesson_type") or self.tr("N/A")
+                meta_lines.append(f"{self.tr('Lesson type')}: {lesson_type}")
             if "difficulty_level" in meta:
                 meta_lines.append(f"{self.tr('Difficulty')}: {meta.get('difficulty_level')}")
             if "answer" in meta:

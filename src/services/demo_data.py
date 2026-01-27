@@ -14,6 +14,7 @@ from ..repositories.program_repository import ProgramRepository
 from ..repositories.discipline_repository import DisciplineRepository
 from ..repositories.topic_repository import TopicRepository
 from ..repositories.lesson_repository import LessonRepository
+from ..repositories.lesson_type_repository import LessonTypeRepository
 from ..repositories.question_repository import QuestionRepository
 from ..repositories.material_repository import MaterialRepository
 
@@ -31,6 +32,7 @@ def seed_demo_data(database: Database) -> None:
     discipline_repo = DisciplineRepository(database)
     topic_repo = TopicRepository(database)
     lesson_repo = LessonRepository(database)
+    lesson_type_repo = LessonTypeRepository(database)
     question_repo = QuestionRepository(database)
     material_repo = MaterialRepository(database)
 
@@ -132,47 +134,55 @@ def seed_demo_data(database: Database) -> None:
     discipline_repo.add_topic_to_discipline(disciplines[2].id, topics[3].id, 1)
     discipline_repo.add_topic_to_discipline(disciplines[2].id, topics[4].id, 2)
 
+    lesson_types = {lt.name: lt.id for lt in lesson_type_repo.get_all()}
     lessons = [
         Lesson(
             title="Ethical Data Sourcing",
             description="Planning data collection with consent and transparency.",
             duration_hours=2.0,
+            lesson_type_id=lesson_types.get("Лекція"),
             order_index=1,
         ),
         Lesson(
             title="Survey Design Workshop",
             description="Drafting survey questions and avoiding bias.",
             duration_hours=2.5,
+            lesson_type_id=lesson_types.get("Практичне заняття"),
             order_index=2,
         ),
         Lesson(
             title="Data Types Overview",
             description="Identifying data types and choosing formats.",
             duration_hours=2.0,
+            lesson_type_id=lesson_types.get("Лекція"),
             order_index=1,
         ),
         Lesson(
             title="Tabular Data Structures",
             description="Designing clean tables and data dictionaries.",
             duration_hours=2.0,
+            lesson_type_id=lesson_types.get("Практичне заняття"),
             order_index=2,
         ),
         Lesson(
             title="Chart Selection",
             description="Choosing the right chart for the message.",
             duration_hours=1.5,
+            lesson_type_id=lesson_types.get("Семінар"),
             order_index=1,
         ),
         Lesson(
             title="Distributions and Expectations",
             description="Key distributions and expected values.",
             duration_hours=2.0,
+            lesson_type_id=lesson_types.get("Лекція"),
             order_index=1,
         ),
         Lesson(
             title="Hypothesis Testing",
             description="Designing and interpreting tests.",
             duration_hours=2.5,
+            lesson_type_id=lesson_types.get("Групове заняття"),
             order_index=2,
         ),
     ]

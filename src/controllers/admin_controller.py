@@ -9,6 +9,7 @@ from ..models.entities import (
     Discipline,
     Topic,
     Lesson,
+    LessonType,
     Question,
     MethodicalMaterial,
 )
@@ -17,6 +18,7 @@ from ..repositories.program_repository import ProgramRepository
 from ..repositories.discipline_repository import DisciplineRepository
 from ..repositories.topic_repository import TopicRepository
 from ..repositories.lesson_repository import LessonRepository
+from ..repositories.lesson_type_repository import LessonTypeRepository
 from ..repositories.question_repository import QuestionRepository
 from ..repositories.material_repository import MaterialRepository
 from ..services.app_paths import get_materials_dir
@@ -33,6 +35,7 @@ class AdminController:
         self.discipline_repo = DisciplineRepository(database)
         self.topic_repo = TopicRepository(database)
         self.lesson_repo = LessonRepository(database)
+        self.lesson_type_repo = LessonTypeRepository(database)
         self.question_repo = QuestionRepository(database)
         self.material_repo = MaterialRepository(database)
         self.auth_service = AuthService()
@@ -140,6 +143,19 @@ class AdminController:
 
     def delete_lesson(self, lesson_id: int) -> bool:
         return self.lesson_repo.delete(lesson_id)
+
+    # Lesson types
+    def get_lesson_types(self) -> List[LessonType]:
+        return self.lesson_type_repo.get_all()
+
+    def add_lesson_type(self, lesson_type: LessonType) -> LessonType:
+        return self.lesson_type_repo.add(lesson_type)
+
+    def update_lesson_type(self, lesson_type: LessonType) -> LessonType:
+        return self.lesson_type_repo.update(lesson_type)
+
+    def delete_lesson_type(self, lesson_type_id: int) -> bool:
+        return self.lesson_type_repo.delete(lesson_type_id)
 
     def get_lesson_questions(self, lesson_id: int) -> List[Question]:
         return self.lesson_repo.get_lesson_questions(lesson_id)

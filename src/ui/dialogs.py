@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLabel,
 )
-from ..models.entities import Teacher, EducationalProgram, Discipline, Topic, Lesson, Question, MethodicalMaterial
+from ..models.entities import Teacher, EducationalProgram, Discipline, Topic, Lesson, LessonType, Question, MethodicalMaterial
 
 
 class PasswordDialog(QDialog):
@@ -164,10 +164,11 @@ class TopicDialog(QDialog):
 class LessonDialog(QDialog):
     """Dialog for creating or editing a lesson."""
 
-    def __init__(self, lesson: Optional[Lesson] = None, parent=None):
+    def __init__(self, lesson: Optional[Lesson] = None, lesson_types: Optional[list[LessonType]] = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Lesson"))
         self._lesson = lesson
+        self._lesson_types = lesson_types or []
         layout = QFormLayout(self)
         self.title = QLineEdit(lesson.title if lesson else "")
         self.description = QTextEdit(lesson.description if lesson else "")
@@ -176,6 +177,13 @@ class LessonDialog(QDialog):
         self.duration.setSingleStep(0.5)
         if lesson:
             self.duration.setValue(lesson.duration_hours)
+        self.lesson_type = QComboBox()
+        for lesson_type in self._lesson_types:
+            self.lesson_type.addItem(lesson_type.name, lesson_type.id)
+        if lesson and lesson.lesson_type_id:
+            idx = self.lesson_type.findData(lesson.lesson_type_id)
+            if idx >= 0:
+                self.lesson_type.setCurrentIndex(idx)
         self.order_index = QSpinBox()
         self.order_index.setRange(0, 999)
         if lesson:
@@ -183,6 +191,7 @@ class LessonDialog(QDialog):
         layout.addRow(self.tr("Title"), self.title)
         layout.addRow(self.tr("Description"), self.description)
         layout.addRow(self.tr("Duration (hours)"), self.duration)
+        layout.addRow(self.tr("Lesson type"), self.lesson_type)
         layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -194,8 +203,30 @@ class LessonDialog(QDialog):
         lesson.title = self.title.text().strip()
         lesson.description = self.description.toPlainText().strip() or None
         lesson.duration_hours = self.duration.value()
+        lesson.lesson_type_id = self.lesson_type.currentData()
         lesson.order_index = self.order_index.value()
         return lesson
+
+
+class LessonTypeDialog(QDialog):
+    """Dialog for creating or editing a lesson type."""
+
+    def __init__(self, lesson_type: Optional[LessonType] = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Lesson type"))
+        self._lesson_type = lesson_type
+        layout = QFormLayout(self)
+        self.name = QLineEdit(lesson_type.name if lesson_type else "")
+        layout.addRow(self.tr("Name"), self.name)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_lesson_type(self) -> LessonType:
+        lesson_type = self._lesson_type or LessonType()
+        lesson_type.name = self.name.text().strip()
+        return lesson_type
 
 
 class QuestionDialog(QDialog):

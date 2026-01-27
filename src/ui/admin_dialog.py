@@ -27,6 +27,7 @@ from ..ui.dialogs import (
     DisciplineDialog,
     TopicDialog,
     LessonDialog,
+    LessonTypeDialog,
     QuestionDialog,
     MaterialDialog,
 )
@@ -66,6 +67,7 @@ class AdminDialog(QDialog):
         self.tabs.addTab(self._build_disciplines_tab(), self.tr("Disciplines"))
         self.tabs.addTab(self._build_topics_tab(), self.tr("Topics"))
         self.tabs.addTab(self._build_lessons_tab(), self.tr("Lessons"))
+        self.tabs.addTab(self._build_lesson_types_tab(), self.tr("Lesson types"))
         self.tabs.addTab(self._build_questions_tab(), self.tr("Questions"))
         self.tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
 
@@ -245,8 +247,10 @@ class AdminDialog(QDialog):
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
-        self.lessons_table = QTableWidget(0, 3)
-        self.lessons_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Duration"), self.tr("Order")])
+        self.lessons_table = QTableWidget(0, 4)
+        self.lessons_table.setHorizontalHeaderLabels(
+            [self.tr("Title"), self.tr("Duration"), self.tr("Type"), self.tr("Order")]
+        )
         self.lessons_table.horizontalHeader().setStretchLastSection(True)
         top_layout.addWidget(self.lessons_table)
         btn_layout = QHBoxLayout()
@@ -287,6 +291,28 @@ class AdminDialog(QDialog):
         self.lessons_table.itemSelectionChanged.connect(self._refresh_lesson_questions)
         self.lesson_question_add.clicked.connect(self._add_question_to_lesson)
         self.lesson_question_remove.clicked.connect(self._remove_question_from_lesson)
+        return tab
+
+    def _build_lesson_types_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        self.lesson_types_table = QTableWidget(0, 1)
+        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name")])
+        self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(self.lesson_types_table)
+        btn_layout = QHBoxLayout()
+        self.lesson_type_add = QPushButton(self.tr("Add"))
+        self.lesson_type_edit = QPushButton(self.tr("Edit"))
+        self.lesson_type_delete = QPushButton(self.tr("Delete"))
+        btn_layout.addWidget(self.lesson_type_add)
+        btn_layout.addWidget(self.lesson_type_edit)
+        btn_layout.addWidget(self.lesson_type_delete)
+        btn_layout.addStretch(1)
+        layout.addLayout(btn_layout)
+
+        self.lesson_type_add.clicked.connect(self._add_lesson_type)
+        self.lesson_type_edit.clicked.connect(self._edit_lesson_type)
+        self.lesson_type_delete.clicked.connect(self._delete_lesson_type)
         return tab
 
     def _build_questions_tab(self) -> QWidget:
@@ -394,6 +420,7 @@ class AdminDialog(QDialog):
         self._refresh_disciplines()
         self._refresh_topics()
         self._refresh_lessons()
+        self._refresh_lesson_types()
         self._refresh_questions()
         self._refresh_materials()
 
@@ -677,12 +704,13 @@ class AdminDialog(QDialog):
             self.lessons_table.insertRow(row)
             self.lessons_table.setItem(row, 0, QTableWidgetItem(lesson.title))
             self.lessons_table.setItem(row, 1, QTableWidgetItem(str(lesson.duration_hours)))
-            self.lessons_table.setItem(row, 2, QTableWidgetItem(str(lesson.order_index)))
+            self.lessons_table.setItem(row, 2, QTableWidgetItem(lesson.lesson_type_name or ""))
+            self.lessons_table.setItem(row, 3, QTableWidgetItem(str(lesson.order_index)))
             self.lessons_table.item(row, 0).setData(Qt.UserRole, lesson)
         self._refresh_lesson_questions()
 
     def _add_lesson(self) -> None:
-        dialog = LessonDialog(parent=self)
+        dialog = LessonDialog(lesson_types=self.controller.get_lesson_types(), parent=self)
         if dialog.exec() != QDialog.Accepted:
             return
         lesson = dialog.get_lesson()
@@ -696,7 +724,7 @@ class AdminDialog(QDialog):
         lesson = self._current_entity(self.lessons_table)
         if not lesson:
             return
-        dialog = LessonDialog(lesson, self)
+        dialog = LessonDialog(lesson, self.controller.get_lesson_types(), self)
         if dialog.exec() != QDialog.Accepted:
             return
         self.controller.update_lesson(dialog.get_lesson())
@@ -746,6 +774,48 @@ class AdminDialog(QDialog):
         question = item.data(Qt.UserRole)
         self.controller.remove_question_from_lesson(lesson.id, question.id)
         self._refresh_lesson_questions()
+
+    # Lesson types
+    def _refresh_lesson_types(self) -> None:
+        self.lesson_types_table.setRowCount(0)
+        for lesson_type in self.controller.get_lesson_types():
+            row = self.lesson_types_table.rowCount()
+            self.lesson_types_table.insertRow(row)
+            self.lesson_types_table.setItem(row, 0, QTableWidgetItem(lesson_type.name))
+            self.lesson_types_table.item(row, 0).setData(Qt.UserRole, lesson_type)
+
+    def _add_lesson_type(self) -> None:
+        dialog = LessonTypeDialog(parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        lesson_type = dialog.get_lesson_type()
+        if not lesson_type.name:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Name is required."))
+            return
+        self.controller.add_lesson_type(lesson_type)
+        self._refresh_lesson_types()
+        self._refresh_lessons()
+
+    def _edit_lesson_type(self) -> None:
+        lesson_type = self._current_entity(self.lesson_types_table)
+        if not lesson_type:
+            return
+        dialog = LessonTypeDialog(lesson_type, self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        self.controller.update_lesson_type(dialog.get_lesson_type())
+        self._refresh_lesson_types()
+        self._refresh_lessons()
+
+    def _delete_lesson_type(self) -> None:
+        lesson_type = self._current_entity(self.lesson_types_table)
+        if not lesson_type:
+            return
+        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected lesson type?")) != QMessageBox.Yes:
+            return
+        self.controller.delete_lesson_type(lesson_type.id)
+        self._refresh_lesson_types()
+        self._refresh_lessons()
 
     # Questions
     def _refresh_questions(self) -> None:
@@ -978,8 +1048,9 @@ class AdminDialog(QDialog):
         self.tabs.setTabText(2, self.tr("Disciplines"))
         self.tabs.setTabText(3, self.tr("Topics"))
         self.tabs.setTabText(4, self.tr("Lessons"))
-        self.tabs.setTabText(5, self.tr("Questions"))
-        self.tabs.setTabText(6, self.tr("Materials"))
+        self.tabs.setTabText(5, self.tr("Lesson types"))
+        self.tabs.setTabText(6, self.tr("Questions"))
+        self.tabs.setTabText(7, self.tr("Materials"))
 
         self.teachers_table.setHorizontalHeaderLabels(
             [self.tr("Full name"), self.tr("Position"), self.tr("Department"), self.tr("Email"), self.tr("Phone")]
@@ -987,7 +1058,10 @@ class AdminDialog(QDialog):
         self.programs_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Level"), self.tr("Duration")])
         self.disciplines_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Order")])
         self.topics_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Order")])
-        self.lessons_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Duration"), self.tr("Order")])
+        self.lessons_table.setHorizontalHeaderLabels(
+            [self.tr("Title"), self.tr("Duration"), self.tr("Type"), self.tr("Order")]
+        )
+        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name")])
         self.questions_table.setHorizontalHeaderLabels([self.tr("Question"), self.tr("Difficulty")])
         self.materials_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Type"), self.tr("File")])
 
@@ -1025,6 +1099,10 @@ class AdminDialog(QDialog):
         self.lesson_question_add.setText(self.tr("Add ->"))
         self.lesson_question_remove.setText(self.tr("<- Remove"))
         self.lesson_question_remove.setText(self.tr("<- Remove"))
+
+        self.lesson_type_add.setText(self.tr("Add"))
+        self.lesson_type_edit.setText(self.tr("Edit"))
+        self.lesson_type_delete.setText(self.tr("Delete"))
 
         self.question_add.setText(self.tr("Add"))
         self.question_edit.setText(self.tr("Edit"))

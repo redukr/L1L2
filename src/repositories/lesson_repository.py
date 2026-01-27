@@ -30,12 +30,13 @@ class LessonRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO lessons (title, description, duration_hours, order_index)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO lessons (title, description, duration_hours, lesson_type_id, order_index)
+                VALUES (?, ?, ?, ?, ?)
             """, (
                 lesson.title,
                 lesson.description,
                 lesson.duration_hours,
+                lesson.lesson_type_id,
                 lesson.order_index
             ))
             lesson.id = cursor.lastrowid
@@ -55,13 +56,14 @@ class LessonRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE lessons
-                SET title = ?, description = ?, duration_hours = ?, 
-                    order_index = ?, updated_at = CURRENT_TIMESTAMP
+                SET title = ?, description = ?, duration_hours = ?,
+                    lesson_type_id = ?, order_index = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
                 lesson.title,
                 lesson.description,
                 lesson.duration_hours,
+                lesson.lesson_type_id,
                 lesson.order_index,
                 lesson.id
             ))
@@ -95,9 +97,12 @@ class LessonRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, title, description, duration_hours, order_index, 
-                       created_at, updated_at
-                FROM lessons WHERE id = ?
+                SELECT l.id, l.title, l.description, l.duration_hours,
+                       l.lesson_type_id, lt.name as lesson_type_name,
+                       l.order_index, l.created_at, l.updated_at
+                FROM lessons l
+                LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
+                WHERE l.id = ?
             """, (lesson_id,))
             row = cursor.fetchone()
 
@@ -115,9 +120,12 @@ class LessonRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, title, description, duration_hours, order_index, 
-                       created_at, updated_at
-                FROM lessons ORDER BY title
+                SELECT l.id, l.title, l.description, l.duration_hours,
+                       l.lesson_type_id, lt.name as lesson_type_name,
+                       l.order_index, l.created_at, l.updated_at
+                FROM lessons l
+                LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
+                ORDER BY l.title
             """)
             return [self._row_to_lesson(row) for row in cursor.fetchall()]
 
@@ -134,11 +142,13 @@ class LessonRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, title, description, duration_hours, order_index, 
-                       created_at, updated_at
-                FROM lessons
-                WHERE title LIKE ? OR description LIKE ?
-                ORDER BY title
+                SELECT l.id, l.title, l.description, l.duration_hours,
+                       l.lesson_type_id, lt.name as lesson_type_name,
+                       l.order_index, l.created_at, l.updated_at
+                FROM lessons l
+                LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
+                WHERE l.title LIKE ? OR l.description LIKE ?
+                ORDER BY l.title
             """, (f"%{keyword}%", f"%{keyword}%"))
             return [self._row_to_lesson(row) for row in cursor.fetchall()]
 
@@ -224,8 +234,10 @@ class LessonRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT l.id, l.title, l.description, l.duration_hours,
+                       l.lesson_type_id, lt.name as lesson_type_name,
                        l.order_index, l.created_at, l.updated_at
                 FROM lessons l
+                LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
                 JOIN lesson_questions lq ON l.id = lq.lesson_id
                 WHERE lq.question_id = ?
                 ORDER BY l.title
@@ -247,6 +259,8 @@ class LessonRepository:
             title=row['title'],
             description=row['description'],
             duration_hours=row['duration_hours'],
+            lesson_type_id=row['lesson_type_id'],
+            lesson_type_name=row['lesson_type_name'],
             order_index=row['order_index'],
             created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
             updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None

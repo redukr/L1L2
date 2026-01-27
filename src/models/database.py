@@ -103,6 +103,16 @@ class Database:
                 )
             """)
 
+            # Lesson types table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS lesson_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             # Lessons table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS lessons (
@@ -110,9 +120,12 @@ class Database:
                     title TEXT NOT NULL,
                     description TEXT,
                     duration_hours REAL DEFAULT 1.0,
+                    lesson_type_id INTEGER,
                     order_index INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (lesson_type_id) REFERENCES lesson_types(id)
+                        ON DELETE SET NULL
                 )
             """)
 
@@ -330,6 +343,7 @@ class Database:
             # Create triggers to keep FTS tables in sync
             self._create_fts_triggers(cursor)
             self._ensure_schema_version(cursor)
+            self._ensure_default_lesson_types(cursor)
 
     def _ensure_schema_version(self, cursor) -> None:
         """Ensure schema migrations are applied."""
@@ -346,6 +360,11 @@ class Database:
         if current_version < 2:
             self._migrate_to_disciplines(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (2)")
+            current_version = 2
+
+        if current_version < 3:
+            self._migrate_to_lesson_types(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (3)")
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -390,7 +409,7 @@ class Database:
             cursor.execute("SELECT id, name FROM educational_programs")
             programs = cursor.fetchall()
             for program in programs:
-                discipline_name = f\"Discipline for {program['name']}\"
+                discipline_name = f"Discipline for {program['name']}"
                 cursor.execute("""
                     INSERT INTO disciplines (name, description, order_index)
                     VALUES (?, ?, 0)
@@ -440,6 +459,44 @@ class Database:
             )
         """)
 
+    def _ensure_default_lesson_types(self, cursor) -> None:
+        """Seed default lesson types if none exist."""
+        cursor.execute("SELECT COUNT(*) as count FROM lesson_types")
+        if cursor.fetchone()["count"] > 0:
+            return
+        default_types = [
+            "Самостійна робота",
+            "Лекція",
+            "Групове заняття",
+            "Практичне заняття",
+            "Семінар",
+        ]
+        for name in default_types:
+            cursor.execute("INSERT INTO lesson_types (name) VALUES (?)", (name,))
+
+    def _migrate_to_lesson_types(self, cursor) -> None:
+        """Add lesson types table and lesson_type_id column."""
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lesson_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("PRAGMA table_info(lessons)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "lesson_type_id" not in columns:
+            cursor.execute("ALTER TABLE lessons ADD COLUMN lesson_type_id INTEGER")
+        self._ensure_default_lesson_types(cursor)
+        cursor.execute("SELECT id FROM lesson_types ORDER BY id LIMIT 1")
+        row = cursor.fetchone()
+        if row:
+            cursor.execute("""
+                UPDATE lessons
+                SET lesson_type_id = ?
+                WHERE lesson_type_id IS NULL
+            """, (row["id"],))
     def _create_fts_triggers(self, cursor):
         """Create triggers to maintain FTS tables."""
         # Teachers triggers

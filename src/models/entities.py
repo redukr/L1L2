@@ -49,6 +49,8 @@ class Lesson:
     title: str = ""
     description: Optional[str] = None
     duration_hours: float = 1.0
+    lesson_type_id: Optional[int] = None
+    lesson_type_name: Optional[str] = None
     order_index: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -100,3 +102,12 @@ class Discipline:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     topics: List['Topic'] = field(default_factory=list)
+
+
+@dataclass
+class LessonType:
+    """Represents a lesson type."""
+    id: Optional[int] = None
+    name: str = ""
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

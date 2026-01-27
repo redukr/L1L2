@@ -84,6 +84,7 @@ class MainController:
                 "meta": {
                     "duration_hours": lesson.duration_hours,
                     "order_index": lesson.order_index,
+                    "lesson_type": lesson.lesson_type_name or "",
                 },
             }
         if entity_type == "question":
