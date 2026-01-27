@@ -79,7 +79,7 @@ class SearchService:
                     title=row['full_name'],
                     description=description.strip(' -'),
                     matched_text=matched_text,
-                    relevance_score=row['score'] or 0
+                    relevance_score=-(row['score'] or 0)
                 ))
 
         return results
@@ -109,7 +109,7 @@ class SearchService:
                     title=row['name'],
                     description=description.strip(' -'),
                     matched_text=matched_text,
-                    relevance_score=row['score'] or 0
+                    relevance_score=-(row['score'] or 0)
                 ))
 
         return results
@@ -137,7 +137,7 @@ class SearchService:
                     title=row['title'],
                     description=row['description'] or '',
                     matched_text=matched_text,
-                    relevance_score=row['score'] or 0
+                    relevance_score=-(row['score'] or 0)
                 ))
 
         return results
@@ -167,7 +167,7 @@ class SearchService:
                     title=row['title'],
                     description=description,
                     matched_text=matched_text,
-                    relevance_score=row['score'] or 0
+                    relevance_score=-(row['score'] or 0)
                 ))
 
         return results
@@ -199,7 +199,7 @@ class SearchService:
                     title=row['content'][:100] + '...' if len(row['content']) > 100 else row['content'],
                     description=description,
                     matched_text=matched_text,
-                    relevance_score=row['score'] or 0
+                    relevance_score=-(row['score'] or 0)
                 ))
 
         return results
@@ -231,7 +231,7 @@ class SearchService:
                     title=row['title'],
                     description=description.strip(' -'),
                     matched_text=matched_text,
-                    relevance_score=row['score'] or 0
+                    relevance_score=-(row['score'] or 0)
                 ))
 
         return results
@@ -249,7 +249,7 @@ class SearchService:
         """
         matched_parts = []
         for field in fields:
-            value = row.get(field)
+            value = row[field] if field in row.keys() else None
             if value:
                 matched_parts.append(str(value))
         return ' | '.join(matched_parts)

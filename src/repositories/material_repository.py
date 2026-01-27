@@ -272,6 +272,61 @@ class MaterialRepository:
             """, (teacher_id, material_id))
             return cursor.rowcount > 0
 
+    def get_material_associations(self, material_id: int) -> List[Tuple[str, int]]:
+        """
+        Get all entity associations for a material.
+
+        Args:
+            material_id: ID of the material
+
+        Returns:
+            List[Tuple[str, int]]: List of (entity_type, entity_id)
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT entity_type, entity_id
+                FROM material_associations
+                WHERE material_id = ?
+                ORDER BY entity_type, entity_id
+            """, (material_id,))
+            return [(row['entity_type'], row['entity_id']) for row in cursor.fetchall()]
+
+    def get_material_association_labels(self, material_id: int) -> List[Tuple[str, int, str]]:
+        """
+        Get all entity associations for a material with display titles.
+
+        Args:
+            material_id: ID of the material
+
+        Returns:
+            List[Tuple[str, int, str]]: (entity_type, entity_id, title)
+        """
+        associations = self.get_material_associations(material_id)
+        labeled = []
+        for entity_type, entity_id in associations:
+            title = self._resolve_entity_title(entity_type, entity_id)
+            labeled.append((entity_type, entity_id, title))
+        return labeled
+
+    def _resolve_entity_title(self, entity_type: str, entity_id: int) -> str:
+        """Resolve a human-readable title for an entity."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            if entity_type == 'program':
+                cursor.execute("SELECT name FROM educational_programs WHERE id = ?", (entity_id,))
+                row = cursor.fetchone()
+                return row['name'] if row else f"Program #{entity_id}"
+            if entity_type == 'topic':
+                cursor.execute("SELECT title FROM topics WHERE id = ?", (entity_id,))
+                row = cursor.fetchone()
+                return row['title'] if row else f"Topic #{entity_id}"
+            if entity_type == 'lesson':
+                cursor.execute("SELECT title FROM lessons WHERE id = ?", (entity_id,))
+                row = cursor.fetchone()
+                return row['title'] if row else f"Lesson #{entity_id}"
+        return f"{entity_type} #{entity_id}"
+
     def get_material_teachers(self, material_id: int) -> List[Teacher]:
         """
         Get all teachers associated with a material.

@@ -208,6 +208,51 @@ class TopicRepository:
             lesson_repo = LessonRepository(self.db)
             return [lesson_repo._row_to_lesson(row) for row in cursor.fetchall()]
 
+    def get_topics_for_lesson(self, lesson_id: int) -> List[Topic]:
+        """
+        Get all topics that include a specific lesson.
+
+        Args:
+            lesson_id: ID of the lesson
+
+        Returns:
+            List[Topic]: Topics containing the lesson
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT t.id, t.title, t.description, t.order_index,
+                       t.created_at, t.updated_at
+                FROM topics t
+                JOIN topic_lessons tl ON t.id = tl.topic_id
+                WHERE tl.lesson_id = ?
+                ORDER BY t.title
+            """, (lesson_id,))
+            return [self._row_to_topic(row) for row in cursor.fetchall()]
+
+    def get_topics_for_question(self, question_id: int) -> List[Topic]:
+        """
+        Get all topics that include a specific question through lesson associations.
+
+        Args:
+            question_id: ID of the question
+
+        Returns:
+            List[Topic]: Topics containing the question
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT t.id, t.title, t.description, t.order_index,
+                                t.created_at, t.updated_at
+                FROM topics t
+                JOIN topic_lessons tl ON t.id = tl.topic_id
+                JOIN lesson_questions lq ON tl.lesson_id = lq.lesson_id
+                WHERE lq.question_id = ?
+                ORDER BY t.title
+            """, (question_id,))
+            return [self._row_to_topic(row) for row in cursor.fetchall()]
+
     def _row_to_topic(self, row) -> Topic:
         """
         Convert database row to Topic entity.

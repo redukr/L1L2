@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import contextmanager
+from ..services.app_paths import get_data_dir
 
 class Database:
     """SQLite database manager for educational program data."""
@@ -16,10 +17,7 @@ class Database:
             db_path: Path to SQLite database file. If None, uses default path.
         """
         if db_path is None:
-            # Default to data directory in application root
-            app_dir = Path(__file__).parent.parent.parent
-            data_dir = app_dir / 'data'
-            data_dir.mkdir(exist_ok=True)
+            data_dir = get_data_dir()
             db_path = str(data_dir / 'education.db')
 
         self.db_path = db_path
@@ -35,6 +33,7 @@ class Database:
         """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         try:
             yield conn
             conn.commit()
@@ -47,7 +46,9 @@ class Database:
     def _ensure_database_exists(self):
         """Create database and tables if they don't exist."""
         if not os.path.exists(self.db_path):
-            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir:
+                os.makedirs(db_dir, exist_ok=True)
 
         with self.get_connection() as conn:
             cursor = conn.cursor()

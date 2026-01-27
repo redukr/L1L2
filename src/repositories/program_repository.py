@@ -210,6 +210,75 @@ class ProgramRepository:
             topic_repo = TopicRepository(self.db)
             return [topic_repo._row_to_topic(row) for row in cursor.fetchall()]
 
+    def get_programs_for_topic(self, topic_id: int) -> List[EducationalProgram]:
+        """
+        Get all programs that include a specific topic.
+
+        Args:
+            topic_id: ID of the topic
+
+        Returns:
+            List[EducationalProgram]: Programs containing the topic
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.id, p.name, p.description, p.level, p.duration_hours,
+                       p.created_at, p.updated_at
+                FROM educational_programs p
+                JOIN program_topics pt ON p.id = pt.program_id
+                WHERE pt.topic_id = ?
+                ORDER BY p.name
+            """, (topic_id,))
+            return [self._row_to_program(row) for row in cursor.fetchall()]
+
+    def get_programs_for_lesson(self, lesson_id: int) -> List[EducationalProgram]:
+        """
+        Get all programs that include a specific lesson through topic associations.
+
+        Args:
+            lesson_id: ID of the lesson
+
+        Returns:
+            List[EducationalProgram]: Programs containing the lesson
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
+                                p.created_at, p.updated_at
+                FROM educational_programs p
+                JOIN program_topics pt ON p.id = pt.program_id
+                JOIN topic_lessons tl ON pt.topic_id = tl.topic_id
+                WHERE tl.lesson_id = ?
+                ORDER BY p.name
+            """, (lesson_id,))
+            return [self._row_to_program(row) for row in cursor.fetchall()]
+
+    def get_programs_for_question(self, question_id: int) -> List[EducationalProgram]:
+        """
+        Get all programs that include a specific question through lesson associations.
+
+        Args:
+            question_id: ID of the question
+
+        Returns:
+            List[EducationalProgram]: Programs containing the question
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
+                                p.created_at, p.updated_at
+                FROM educational_programs p
+                JOIN program_topics pt ON p.id = pt.program_id
+                JOIN topic_lessons tl ON pt.topic_id = tl.topic_id
+                JOIN lesson_questions lq ON tl.lesson_id = lq.lesson_id
+                WHERE lq.question_id = ?
+                ORDER BY p.name
+            """, (question_id,))
+            return [self._row_to_program(row) for row in cursor.fetchall()]
+
     def _row_to_program(self, row) -> EducationalProgram:
         """
         Convert database row to EducationalProgram entity.

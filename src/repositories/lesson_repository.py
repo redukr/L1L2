@@ -210,6 +210,28 @@ class LessonRepository:
             question_repo = QuestionRepository(self.db)
             return [question_repo._row_to_question(row) for row in cursor.fetchall()]
 
+    def get_lessons_for_question(self, question_id: int) -> List[Lesson]:
+        """
+        Get all lessons that include a specific question.
+
+        Args:
+            question_id: ID of the question
+
+        Returns:
+            List[Lesson]: Lessons containing the question
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT l.id, l.title, l.description, l.duration_hours,
+                       l.order_index, l.created_at, l.updated_at
+                FROM lessons l
+                JOIN lesson_questions lq ON l.id = lq.lesson_id
+                WHERE lq.question_id = ?
+                ORDER BY l.title
+            """, (question_id,))
+            return [self._row_to_lesson(row) for row in cursor.fetchall()]
+
     def _row_to_lesson(self, row) -> Lesson:
         """
         Convert database row to Lesson entity.
