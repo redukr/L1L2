@@ -85,6 +85,8 @@ class MainController:
                     "duration_hours": lesson.duration_hours,
                     "order_index": lesson.order_index,
                     "lesson_type": lesson.lesson_type_name or "",
+                    "classroom_hours": lesson.classroom_hours,
+                    "self_study_hours": lesson.self_study_hours,
                 },
             }
         if entity_type == "question":

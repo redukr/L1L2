@@ -215,7 +215,15 @@ class MainWindow(QMainWindow):
             if "level" in meta:
                 meta_lines.append(f"{self.tr('Level')}: {meta.get('level') or self.tr('N/A')}")
             if "duration_hours" in meta:
-                meta_lines.append(f"{self.tr('Duration')}: {meta.get('duration_hours')} {self.tr('hours')}")
+                meta_lines.append(f"{self.tr('Total hours')}: {meta.get('duration_hours')} {self.tr('hours')}")
+            if "classroom_hours" in meta:
+                classroom = meta.get("classroom_hours")
+                if classroom is not None:
+                    meta_lines.append(f"{self.tr('Classroom hours')}: {classroom} {self.tr('hours')}")
+            if "self_study_hours" in meta:
+                self_study = meta.get("self_study_hours")
+                if self_study is not None:
+                    meta_lines.append(f"{self.tr('Self-study hours')}: {self_study} {self.tr('hours')}")
             if "order_index" in meta:
                 meta_lines.append(f"{self.tr('Order')}: {meta.get('order_index')}")
             if "lesson_type" in meta:

@@ -11,8 +11,15 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QVBoxLayout,
     QLabel,
+    QPlainTextEdit,
+    QFileDialog,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QHBoxLayout,
+    QMessageBox,
 )
 from ..models.entities import Teacher, EducationalProgram, Discipline, Topic, Lesson, LessonType, Question, MethodicalMaterial
+from ..services.import_service import parse_curriculum_text, CurriculumTopic
 
 
 class PasswordDialog(QDialog):
@@ -173,10 +180,20 @@ class LessonDialog(QDialog):
         self.title = QLineEdit(lesson.title if lesson else "")
         self.description = QTextEdit(lesson.description if lesson else "")
         self.duration = QDoubleSpinBox()
-        self.duration.setRange(0.5, 100.0)
+        self.duration.setRange(0.0, 1000.0)
         self.duration.setSingleStep(0.5)
         if lesson:
             self.duration.setValue(lesson.duration_hours)
+        self.classroom_hours = QDoubleSpinBox()
+        self.classroom_hours.setRange(0.0, 1000.0)
+        self.classroom_hours.setSingleStep(0.5)
+        if lesson and lesson.classroom_hours is not None:
+            self.classroom_hours.setValue(lesson.classroom_hours)
+        self.self_study_hours = QDoubleSpinBox()
+        self.self_study_hours.setRange(0.0, 1000.0)
+        self.self_study_hours.setSingleStep(0.5)
+        if lesson and lesson.self_study_hours is not None:
+            self.self_study_hours.setValue(lesson.self_study_hours)
         self.lesson_type = QComboBox()
         for lesson_type in self._lesson_types:
             self.lesson_type.addItem(lesson_type.name, lesson_type.id)
@@ -190,7 +207,9 @@ class LessonDialog(QDialog):
             self.order_index.setValue(lesson.order_index)
         layout.addRow(self.tr("Title"), self.title)
         layout.addRow(self.tr("Description"), self.description)
-        layout.addRow(self.tr("Duration (hours)"), self.duration)
+        layout.addRow(self.tr("Total hours"), self.duration)
+        layout.addRow(self.tr("Classroom hours"), self.classroom_hours)
+        layout.addRow(self.tr("Self-study hours"), self.self_study_hours)
         layout.addRow(self.tr("Lesson type"), self.lesson_type)
         layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -203,6 +222,8 @@ class LessonDialog(QDialog):
         lesson.title = self.title.text().strip()
         lesson.description = self.description.toPlainText().strip() or None
         lesson.duration_hours = self.duration.value()
+        lesson.classroom_hours = self.classroom_hours.value()
+        lesson.self_study_hours = self.self_study_hours.value()
         lesson.lesson_type_id = self.lesson_type.currentData()
         lesson.order_index = self.order_index.value()
         return lesson
@@ -300,3 +321,129 @@ class MaterialDialog(QDialog):
         material.material_type = self.material_type.currentData()
         material.description = self.description.toPlainText().strip() or None
         return material
+
+
+class ImportPreviewDialog(QDialog):
+    """Preview parsed curriculum structure."""
+
+    def __init__(self, topics: list[CurriculumTopic], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Import preview"))
+        layout = QVBoxLayout(self)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels([self.tr("Title"), self.tr("Details")])
+        self.tree.setColumnWidth(0, 420)
+        layout.addWidget(self.tree)
+        for topic in topics:
+            topic_item = QTreeWidgetItem([topic.title, self.tr("Topic")])
+            for lesson in topic.lessons:
+                details = []
+                if lesson.lesson_type_name:
+                    details.append(lesson.lesson_type_name)
+                if lesson.total_hours is not None:
+                    details.append(f"{lesson.total_hours}h")
+                lesson_item = QTreeWidgetItem([lesson.title, " | ".join(details)])
+                for question in lesson.questions:
+                    question_item = QTreeWidgetItem([question.text, self.tr("Question")])
+                    lesson_item.addChild(question_item)
+                topic_item.addChild(lesson_item)
+            self.tree.addTopLevelItem(topic_item)
+        self.tree.expandAll()
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+
+class ImportCurriculumDialog(QDialog):
+    """Dialog to collect import inputs and parse curriculum."""
+
+    def __init__(self, controller, parent=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.parsed_topics: Optional[list[CurriculumTopic]] = None
+        self.setWindowTitle(self.tr("Import curriculum structure"))
+        layout = QVBoxLayout(self)
+
+        form = QFormLayout()
+        self.program_combo = QComboBox()
+        self.discipline_combo = QComboBox()
+        self.new_discipline = QLineEdit()
+        self.new_discipline.setPlaceholderText(self.tr("New discipline name"))
+        self.new_discipline.setVisible(False)
+        form.addRow(self.tr("Program"), self.program_combo)
+        form.addRow(self.tr("Discipline"), self.discipline_combo)
+        form.addRow(self.tr("New discipline"), self.new_discipline)
+        layout.addLayout(form)
+
+        self.input_text = QPlainTextEdit()
+        self.input_text.setPlaceholderText(self.tr("Paste table text here..."))
+        layout.addWidget(self.input_text)
+
+        action_row = QHBoxLayout()
+        self.load_file = QPushButton(self.tr("Load file"))
+        self.preview_btn = QPushButton(self.tr("Preview"))
+        action_row.addWidget(self.load_file)
+        action_row.addWidget(self.preview_btn)
+        action_row.addStretch(1)
+        layout.addLayout(action_row)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self.load_file.clicked.connect(self._load_file)
+        self.preview_btn.clicked.connect(self._preview)
+        self.program_combo.currentIndexChanged.connect(self._refresh_disciplines)
+        self.discipline_combo.currentIndexChanged.connect(self._toggle_new_discipline)
+
+        self._load_programs()
+
+    def _load_programs(self) -> None:
+        self.program_combo.clear()
+        for program in self.controller.get_programs():
+            self.program_combo.addItem(program.name, program.id)
+        self._refresh_disciplines()
+
+    def _refresh_disciplines(self) -> None:
+        self.discipline_combo.clear()
+        program_id = self.program_combo.currentData()
+        if program_id is None:
+            return
+        disciplines = self.controller.get_program_disciplines(program_id)
+        for discipline in disciplines:
+            self.discipline_combo.addItem(discipline.name, discipline.id)
+        self.discipline_combo.addItem(self.tr("Create new..."), None)
+        self._toggle_new_discipline()
+
+    def _toggle_new_discipline(self) -> None:
+        self.new_discipline.setVisible(self.discipline_combo.currentData() is None)
+
+    def _load_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Open table file"),
+            "",
+            self.tr("Text files (*.txt *.tsv *.csv);;All files (*)"),
+        )
+        if not path:
+            return
+        with open(path, "r", encoding="utf-8") as file:
+            self.input_text.setPlainText(file.read())
+
+    def _preview(self) -> None:
+        try:
+            topics = parse_curriculum_text(self.input_text.toPlainText())
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        dialog = ImportPreviewDialog(topics, self)
+        if dialog.exec() == QDialog.Accepted:
+            self.parsed_topics = topics
+
+    def get_payload(self):
+        program_id = self.program_combo.currentData()
+        discipline_id = self.discipline_combo.currentData()
+        new_name = self.new_discipline.text().strip() if discipline_id is None else None
+        return program_id, discipline_id, new_name, self.input_text.toPlainText(), self.parsed_topics

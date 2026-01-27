@@ -51,6 +51,8 @@ class Lesson:
     duration_hours: float = 1.0
     lesson_type_id: Optional[int] = None
     lesson_type_name: Optional[str] = None
+    classroom_hours: Optional[float] = None
+    self_study_hours: Optional[float] = None
     order_index: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

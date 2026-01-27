@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QComboBox,
     QSplitter,
+    QMenuBar,
 )
 from ..controllers.admin_controller import AdminController
 from ..models.database import Database
@@ -28,9 +29,11 @@ from ..ui.dialogs import (
     TopicDialog,
     LessonDialog,
     LessonTypeDialog,
+    ImportCurriculumDialog,
     QuestionDialog,
     MaterialDialog,
 )
+from ..services.import_service import import_curriculum_structure
 
 
 class AdminDialog(QDialog):
@@ -60,6 +63,11 @@ class AdminDialog(QDialog):
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
+        self.menu_bar = QMenuBar()
+        import_menu = self.menu_bar.addMenu(self.tr("Import"))
+        self.import_curriculum_action = import_menu.addAction(self.tr("Import curriculum structure"))
+        self.import_curriculum_action.triggered.connect(self._on_import_curriculum)
+        layout.setMenuBar(self.menu_bar)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
         self.tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
@@ -249,7 +257,7 @@ class AdminDialog(QDialog):
         top_layout = QVBoxLayout(top)
         self.lessons_table = QTableWidget(0, 4)
         self.lessons_table.setHorizontalHeaderLabels(
-            [self.tr("Title"), self.tr("Duration"), self.tr("Type"), self.tr("Order")]
+            [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
         )
         self.lessons_table.horizontalHeader().setStretchLastSection(True)
         top_layout.addWidget(self.lessons_table)
@@ -1011,6 +1019,42 @@ class AdminDialog(QDialog):
         self.controller.remove_material_from_entity(material.id, entity_type, entity_id)
         self._refresh_materials()
 
+    def _on_import_curriculum(self) -> None:
+        dialog = ImportCurriculumDialog(self.controller, self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        program_id, discipline_id, new_name, raw_text, parsed_topics = dialog.get_payload()
+        if not raw_text.strip():
+            QMessageBox.warning(self, self.tr("Import error"), self.tr("No input text provided."))
+            return
+        if parsed_topics is None:
+            try:
+                from ..services.import_service import parse_curriculum_text
+
+                parsed_topics = parse_curriculum_text(raw_text)
+            except Exception as exc:
+                QMessageBox.warning(self, self.tr("Import error"), str(exc))
+                return
+        try:
+            topics_added, lessons_added, questions_added = import_curriculum_structure(
+                self.controller.db,
+                program_id,
+                discipline_id,
+                new_name,
+                parsed_topics,
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.tr("Import complete"),
+            self.tr("Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}").format(
+                topics_added, lessons_added, questions_added
+            ),
+        )
+        self._refresh_all()
+
     def _current_entity(self, table: QTableWidget):
         row = table.currentRow()
         if row < 0:
@@ -1043,6 +1087,10 @@ class AdminDialog(QDialog):
 
     def retranslate_ui(self, *_args) -> None:
         self.setWindowTitle(self.tr("Admin Panel"))
+        self.menu_bar.clear()
+        import_menu = self.menu_bar.addMenu(self.tr("Import"))
+        self.import_curriculum_action = import_menu.addAction(self.tr("Import curriculum structure"))
+        self.import_curriculum_action.triggered.connect(self._on_import_curriculum)
         self.tabs.setTabText(0, self.tr("Teachers"))
         self.tabs.setTabText(1, self.tr("Programs"))
         self.tabs.setTabText(2, self.tr("Disciplines"))
@@ -1059,7 +1107,7 @@ class AdminDialog(QDialog):
         self.disciplines_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Order")])
         self.topics_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Order")])
         self.lessons_table.setHorizontalHeaderLabels(
-            [self.tr("Title"), self.tr("Duration"), self.tr("Type"), self.tr("Order")]
+            [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
         )
         self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name")])
         self.questions_table.setHorizontalHeaderLabels([self.tr("Question"), self.tr("Difficulty")])

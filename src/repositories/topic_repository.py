@@ -199,6 +199,7 @@ class TopicRepository:
             cursor.execute("""
                 SELECT l.id, l.title, l.description, l.duration_hours,
                        l.lesson_type_id, lt.name as lesson_type_name,
+                       l.classroom_hours, l.self_study_hours,
                        l.order_index, l.created_at, l.updated_at
                 FROM lessons l
                 LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id

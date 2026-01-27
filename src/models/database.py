@@ -121,6 +121,8 @@ class Database:
                     description TEXT,
                     duration_hours REAL DEFAULT 1.0,
                     lesson_type_id INTEGER,
+                    classroom_hours REAL,
+                    self_study_hours REAL,
                     order_index INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -365,6 +367,11 @@ class Database:
         if current_version < 3:
             self._migrate_to_lesson_types(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (3)")
+            current_version = 3
+
+        if current_version < 4:
+            self._migrate_to_lesson_hours(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (4)")
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -470,6 +477,7 @@ class Database:
             "Групове заняття",
             "Практичне заняття",
             "Семінар",
+            "Контрольне заняття",
         ]
         for name in default_types:
             cursor.execute("INSERT INTO lesson_types (name) VALUES (?)", (name,))
@@ -497,6 +505,15 @@ class Database:
                 SET lesson_type_id = ?
                 WHERE lesson_type_id IS NULL
             """, (row["id"],))
+
+    def _migrate_to_lesson_hours(self, cursor) -> None:
+        """Add classroom/self-study hour columns to lessons."""
+        cursor.execute("PRAGMA table_info(lessons)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "classroom_hours" not in columns:
+            cursor.execute("ALTER TABLE lessons ADD COLUMN classroom_hours REAL")
+        if "self_study_hours" not in columns:
+            cursor.execute("ALTER TABLE lessons ADD COLUMN self_study_hours REAL")
     def _create_fts_triggers(self, cursor):
         """Create triggers to maintain FTS tables."""
         # Teachers triggers
