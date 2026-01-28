@@ -38,6 +38,7 @@ from ..services.import_service import (
     import_curriculum_structure_by_names,
     import_teachers_from_docx,
 )
+from ..services.file_storage import FileStorageManager
 
 
 class AdminDialog(QDialog):
@@ -47,6 +48,7 @@ class AdminDialog(QDialog):
         super().__init__(parent)
         self.controller = AdminController(database)
         self.i18n = i18n
+        self.file_storage = FileStorageManager()
         self.setWindowTitle(self.tr("Admin Panel"))
         self.resize(1200, 760)
         if not self._authorize():
@@ -370,10 +372,16 @@ class AdminDialog(QDialog):
         self.material_edit = QPushButton(self.tr("Edit"))
         self.material_delete = QPushButton(self.tr("Delete"))
         self.material_attach = QPushButton(self.tr("Attach File"))
+        self.material_open = QPushButton(self.tr("Open file"))
+        self.material_show = QPushButton(self.tr("Show in folder"))
+        self.material_copy = QPushButton(self.tr("Copy file as..."))
         btn_layout.addWidget(self.material_add)
         btn_layout.addWidget(self.material_edit)
         btn_layout.addWidget(self.material_delete)
         btn_layout.addWidget(self.material_attach)
+        btn_layout.addWidget(self.material_open)
+        btn_layout.addWidget(self.material_show)
+        btn_layout.addWidget(self.material_copy)
         btn_layout.addStretch(1)
         layout.addLayout(btn_layout)
 
@@ -433,6 +441,9 @@ class AdminDialog(QDialog):
         self.material_assoc_type.currentTextChanged.connect(self._refresh_material_associations)
         self.material_assoc_add.clicked.connect(self._link_material_association)
         self.material_assoc_remove.clicked.connect(self._unlink_material_association)
+        self.material_open.clicked.connect(self._open_material_file)
+        self.material_show.clicked.connect(self._show_material_folder)
+        self.material_copy.clicked.connect(self._copy_material_file)
         return tab
 
     def _refresh_all(self) -> None:
@@ -888,7 +899,8 @@ class AdminDialog(QDialog):
             self.materials_table.insertRow(row)
             self.materials_table.setItem(row, 0, QTableWidgetItem(material.title))
             self.materials_table.setItem(row, 1, QTableWidgetItem(self._translate_material_type(material.material_type)))
-            self.materials_table.setItem(row, 2, QTableWidgetItem(material.file_name or ""))
+            filename = material.original_filename or material.file_name or ""
+            self.materials_table.setItem(row, 2, QTableWidgetItem(filename))
             self.materials_table.item(row, 0).setData(Qt.UserRole, material)
         self._refresh_material_assignments()
 
@@ -934,9 +946,53 @@ class AdminDialog(QDialog):
         )
         if not path:
             return
-        updated = self.controller.attach_material_file(material, path)
+        try:
+            updated = self.controller.attach_material_file(material, path)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
         if updated:
             self._refresh_materials()
+
+    def _open_material_file(self) -> None:
+        material = self._current_entity(self.materials_table)
+        if not material:
+            return
+        if not material.relative_path:
+            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
+            return
+        if not self.file_storage.open_file(material.relative_path):
+            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+
+    def _show_material_folder(self) -> None:
+        material = self._current_entity(self.materials_table)
+        if not material:
+            return
+        if not material.relative_path:
+            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
+            return
+        if not self.file_storage.show_in_folder(material.relative_path):
+            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+
+    def _copy_material_file(self) -> None:
+        material = self._current_entity(self.materials_table)
+        if not material:
+            return
+        if not material.relative_path:
+            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
+            return
+        default_name = material.title
+        ext = f".{material.file_type}" if material.file_type else ""
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Copy file as..."),
+            f"{default_name}{ext}",
+            self.tr("All files (*)"),
+        )
+        if not path:
+            return
+        if not self.file_storage.copy_file_as(material.relative_path, path):
+            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
 
     def _refresh_material_assignments(self) -> None:
         material = self._current_entity(self.materials_table)
@@ -1241,6 +1297,9 @@ class AdminDialog(QDialog):
         self.material_edit.setText(self.tr("Edit"))
         self.material_delete.setText(self.tr("Delete"))
         self.material_attach.setText(self.tr("Attach File"))
+        self.material_open.setText(self.tr("Open file"))
+        self.material_show.setText(self.tr("Show in folder"))
+        self.material_copy.setText(self.tr("Copy file as..."))
         self.material_teachers_label.setText(self.tr("Material teachers"))
         self.material_teachers_available_label.setText(self.tr("Available"))
         self.material_teachers_assigned_label.setText(self.tr("Assigned"))

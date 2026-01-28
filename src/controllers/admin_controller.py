@@ -1,6 +1,4 @@
 """Admin controller for managing data and relationships."""
-from pathlib import Path
-import shutil
 from typing import List, Tuple
 from ..models.database import Database
 from ..models.entities import (
@@ -21,7 +19,7 @@ from ..repositories.lesson_repository import LessonRepository
 from ..repositories.lesson_type_repository import LessonTypeRepository
 from ..repositories.question_repository import QuestionRepository
 from ..repositories.material_repository import MaterialRepository
-from ..services.app_paths import get_materials_dir
+from ..services.file_storage import FileStorageManager
 from ..services.auth_service import AuthService
 
 
@@ -38,6 +36,7 @@ class AdminController:
         self.lesson_type_repo = LessonTypeRepository(database)
         self.question_repo = QuestionRepository(database)
         self.material_repo = MaterialRepository(database)
+        self.file_storage = FileStorageManager()
         self.auth_service = AuthService()
 
     def verify_password(self, password: str) -> bool:
@@ -190,17 +189,61 @@ class AdminController:
         return self.material_repo.update(material)
 
     def delete_material(self, material_id: int) -> bool:
+        material = self.material_repo.get_by_id(material_id)
+        if material and material.relative_path:
+            self.file_storage.delete_file(material.relative_path)
         return self.material_repo.delete(material_id)
 
     def attach_material_file(self, material: MethodicalMaterial, source_path: str) -> MethodicalMaterial:
-        source = Path(source_path)
-        materials_dir = get_materials_dir()
-        target_name = f"material_{material.id}_{source.name}"
-        target_path = materials_dir / target_name
-        shutil.copy2(source, target_path)
-        material.file_path = str(target_path)
-        material.file_name = source.name
-        return self.material_repo.update(material)
+        associations = self.material_repo.get_material_associations(material.id)
+        if not associations:
+            raise ValueError("Material must be linked to a program/discipline/topic/lesson before attaching a file.")
+        program_id, discipline_id = self._resolve_program_discipline(associations)
+        original_filename, stored_filename, relative_path, file_type = self.file_storage.store_material_file(
+            source_path, program_id, discipline_id, material.id
+        )
+        if material.relative_path and material.relative_path != relative_path:
+            self.file_storage.delete_file(material.relative_path)
+        material.original_filename = original_filename
+        material.stored_filename = stored_filename
+        material.relative_path = relative_path
+        material.file_type = file_type
+        material.file_name = original_filename
+        material.file_path = relative_path
+        try:
+            return self.material_repo.update(material)
+        except Exception:
+            self.file_storage.delete_file(relative_path)
+            raise
+
+    def _resolve_program_discipline(self, associations: List[Tuple[str, int]]) -> Tuple[int, int]:
+        entity_type, entity_id = associations[0]
+        if entity_type == "program":
+            programs = self.program_repo.get_by_id(entity_id)
+            if not programs:
+                raise ValueError("Program association not found.")
+            disciplines = self.program_repo.get_program_disciplines(entity_id)
+            if not disciplines:
+                raise ValueError("Program has no disciplines.")
+            return entity_id, disciplines[0].id
+        if entity_type == "discipline":
+            programs = self.program_repo.get_programs_for_discipline(entity_id)
+            if not programs:
+                raise ValueError("Discipline is not linked to any program.")
+            return programs[0].id, entity_id
+        if entity_type == "topic":
+            programs = self.program_repo.get_programs_for_topic(entity_id)
+            disciplines = self.discipline_repo.get_disciplines_for_topic(entity_id)
+            if not programs or not disciplines:
+                raise ValueError("Topic is not linked to program/discipline.")
+            return programs[0].id, disciplines[0].id
+        if entity_type == "lesson":
+            programs = self.program_repo.get_programs_for_lesson(entity_id)
+            disciplines = self.discipline_repo.get_disciplines_for_lesson(entity_id)
+            if not programs or not disciplines:
+                raise ValueError("Lesson is not linked to program/discipline.")
+            return programs[0].id, disciplines[0].id
+        raise ValueError("Unsupported material association.")
 
     def add_material_to_entity(self, material_id: int, entity_type: str, entity_id: int) -> bool:
         return self.material_repo.add_material_to_entity(material_id, entity_type, entity_id)

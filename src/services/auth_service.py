@@ -2,19 +2,24 @@
 import json
 import secrets
 import hashlib
-from typing import Dict
 from .app_paths import get_data_dir
+from typing import Dict
+from .app_paths import get_settings_dir
 
 
 class AuthService:
     """Handles admin password verification using local storage."""
 
     def __init__(self):
-        self.credentials_path = get_data_dir() / "admin_credentials.json"
+        self.credentials_path = get_settings_dir() / "admin_credentials.json"
         self._ensure_credentials()
 
     def _ensure_credentials(self) -> None:
         if self.credentials_path.exists():
+            return
+        legacy_path = get_data_dir() / "admin_credentials.json"
+        if legacy_path.exists():
+            self.credentials_path.write_bytes(legacy_path.read_bytes())
             return
         salt = secrets.token_hex(16)
         password_hash = self._hash_password("admin123", salt)

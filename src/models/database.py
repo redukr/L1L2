@@ -3,7 +3,7 @@ import sqlite3
 import os
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import contextmanager
-from ..services.app_paths import get_data_dir
+from ..services.app_paths import get_app_base_dir, get_database_dir
 
 class Database:
     """SQLite database manager for educational program data."""
@@ -16,8 +16,13 @@ class Database:
             db_path: Path to SQLite database file. If None, uses default path.
         """
         if db_path is None:
-            data_dir = get_data_dir()
-            db_path = str(data_dir / 'education.db')
+            database_dir = get_database_dir()
+            new_path = database_dir / "education.db"
+            legacy_path = get_app_base_dir() / "data" / "education.db"
+            if legacy_path.exists() and not new_path.exists():
+                new_path.parent.mkdir(parents=True, exist_ok=True)
+                new_path.write_bytes(legacy_path.read_bytes())
+            db_path = str(new_path)
 
         self.db_path = db_path
         self._ensure_database_exists()
@@ -153,6 +158,10 @@ class Database:
                     material_type TEXT NOT NULL CHECK(material_type IN 
                         ('plan', 'guide', 'presentation', 'attachment')),
                     description TEXT,
+                    original_filename TEXT,
+                    stored_filename TEXT,
+                    relative_path TEXT,
+                    file_type TEXT,
                     file_path TEXT,
                     file_name TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -378,6 +387,11 @@ class Database:
         if current_version < 5:
             self._migrate_to_teacher_ranks(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (5)")
+            current_version = 5
+
+        if current_version < 6:
+            self._migrate_to_material_storage(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (6)")
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -540,6 +554,19 @@ class Database:
             SELECT id, full_name, military_rank, position, department, email
             FROM teachers
         """)
+
+    def _migrate_to_material_storage(self, cursor) -> None:
+        """Add storage metadata fields to methodical materials."""
+        cursor.execute("PRAGMA table_info(methodical_materials)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "original_filename" not in columns:
+            cursor.execute("ALTER TABLE methodical_materials ADD COLUMN original_filename TEXT")
+        if "stored_filename" not in columns:
+            cursor.execute("ALTER TABLE methodical_materials ADD COLUMN stored_filename TEXT")
+        if "relative_path" not in columns:
+            cursor.execute("ALTER TABLE methodical_materials ADD COLUMN relative_path TEXT")
+        if "file_type" not in columns:
+            cursor.execute("ALTER TABLE methodical_materials ADD COLUMN file_type TEXT")
     def _create_fts_triggers(self, cursor):
         """Create triggers to maintain FTS tables."""
         # Teachers triggers

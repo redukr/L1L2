@@ -14,6 +14,9 @@
     <message><source>Details</source><translation>Деталі</translation></message>
     <message><source>Methodical Materials</source><translation>Методичні матеріали</translation></message>
     <message><source>Open Selected File</source><translation>Відкрити вибраний файл</translation></message>
+    <message><source>Show in folder</source><translation>Показати в папці</translation></message>
+    <message><source>Copy file as...</source><translation>Копіювати файл як...</translation></message>
+    <message><source>All files (*)</source><translation>Усі файли (*)</translation></message>
     <message><source>Title</source><translation>Назва</translation></message>
     <message><source>Type</source><translation>Тип</translation></message>
     <message><source>Description</source><translation>Опис</translation></message>
@@ -40,6 +43,7 @@
     <message><source>Not assigned</source><translation>Не призначено</translation></message>
     <message><source>No File</source><translation>Файлу немає</translation></message>
     <message><source>This material has no attached file.</source><translation>Цей матеріал не має прикріпленого файлу.</translation></message>
+    <message><source>File is missing in storage.</source><translation>Файл відсутній у сховищі.</translation></message>
     <message><source>plan</source><translation>план</translation></message>
     <message><source>guide</source><translation>методичний посібник</translation></message>
     <message><source>presentation</source><translation>презентація</translation></message>
@@ -84,6 +88,9 @@
     <message><source>Type</source><translation>Тип</translation></message>
     <message><source>File</source><translation>Файл</translation></message>
     <message><source>Attach File</source><translation>Прикріпити файл</translation></message>
+    <message><source>Open file</source><translation>Відкрити файл</translation></message>
+    <message><source>Show in folder</source><translation>Показати в папці</translation></message>
+    <message><source>Copy file as...</source><translation>Копіювати файл як...</translation></message>
     <message><source>Material teachers</source><translation>Викладачі матеріалу</translation></message>
     <message><source>Available</source><translation>Доступні</translation></message>
     <message><source>Assigned</source><translation>Призначені</translation></message>
@@ -93,6 +100,9 @@
     <message><source>Linked</source><translation>Пов&apos;язані</translation></message>
     <message><source>Access denied</source><translation>Доступ заборонено</translation></message>
     <message><source>Invalid admin password.</source><translation>Неправильний пароль адміністратора.</translation></message>
+    <message><source>No File</source><translation>Файлу немає</translation></message>
+    <message><source>This material has no attached file.</source><translation>Цей матеріал не має прикріпленого файлу.</translation></message>
+    <message><source>File is missing in storage.</source><translation>Файл відсутній у сховищі.</translation></message>
     <message><source>Validation</source><translation>Перевірка</translation></message>
     <message><source>Full name is required.</source><translation>Потрібне повне ім&apos;я.</translation></message>
     <message><source>Confirm</source><translation>Підтвердження</translation></message>
@@ -110,6 +120,7 @@
     <message><source>Material title is required.</source><translation>Потрібна назва матеріалу.</translation></message>
     <message><source>Delete selected material?</source><translation>Видалити вибраний матеріал?</translation></message>
     <message><source>Documents (*.pdf *.pptx *.docx)</source><translation>Документи (*.pdf *.pptx *.docx)</translation></message>
+    <message><source>All files (*)</source><translation>Усі файли (*)</translation></message>
     <message><source>Program</source><translation>Програма</translation></message>
     <message><source>Discipline</source><translation>Дисципліна</translation></message>
     <message><source>Topic</source><translation>Тема</translation></message>

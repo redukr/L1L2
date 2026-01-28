@@ -31,12 +31,17 @@ class MaterialRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO methodical_materials 
-                (title, material_type, description, file_path, file_name)
-                VALUES (?, ?, ?, ?, ?)
+                (title, material_type, description, original_filename, stored_filename,
+                 relative_path, file_type, file_path, file_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 material.title,
                 material.material_type,
                 material.description,
+                material.original_filename,
+                material.stored_filename,
+                material.relative_path,
+                material.file_type,
                 material.file_path,
                 material.file_name
             ))
@@ -58,12 +63,17 @@ class MaterialRepository:
             cursor.execute("""
                 UPDATE methodical_materials
                 SET title = ?, material_type = ?, description = ?, 
+                    original_filename = ?, stored_filename = ?, relative_path = ?, file_type = ?,
                     file_path = ?, file_name = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
                 material.title,
                 material.material_type,
                 material.description,
+                material.original_filename,
+                material.stored_filename,
+                material.relative_path,
+                material.file_type,
                 material.file_path,
                 material.file_name,
                 material.id
@@ -98,7 +108,8 @@ class MaterialRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, title, material_type, description, 
+                SELECT id, title, material_type, description,
+                       original_filename, stored_filename, relative_path, file_type,
                        file_path, file_name, created_at, updated_at
                 FROM methodical_materials WHERE id = ?
             """, (material_id,))
@@ -121,7 +132,8 @@ class MaterialRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, title, material_type, description, 
+                SELECT id, title, material_type, description,
+                       original_filename, stored_filename, relative_path, file_type,
                        file_path, file_name, created_at, updated_at
                 FROM methodical_materials ORDER BY title
             """)
@@ -145,12 +157,13 @@ class MaterialRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, title, material_type, description, 
+                SELECT id, title, material_type, description,
+                       original_filename, stored_filename, relative_path, file_type,
                        file_path, file_name, created_at, updated_at
                 FROM methodical_materials
-                WHERE title LIKE ? OR description LIKE ? OR file_name LIKE ?
+                WHERE title LIKE ? OR description LIKE ? OR file_name LIKE ? OR original_filename LIKE ?
                 ORDER BY title
-            """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
+            """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
             materials = []
             for row in cursor.fetchall():
                 material = self._row_to_material(row)
@@ -172,7 +185,8 @@ class MaterialRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT m.id, m.title, m.material_type, m.description, 
+                SELECT m.id, m.title, m.material_type, m.description,
+                       m.original_filename, m.stored_filename, m.relative_path, m.file_type,
                        m.file_path, m.file_name, m.created_at, m.updated_at
                 FROM methodical_materials m
                 JOIN material_associations ma ON m.id = ma.material_id
@@ -372,6 +386,10 @@ class MaterialRepository:
             title=row['title'],
             material_type=row['material_type'],
             description=row['description'],
+            original_filename=row['original_filename'],
+            stored_filename=row['stored_filename'],
+            relative_path=row['relative_path'],
+            file_type=row['file_type'],
             file_path=row['file_path'],
             file_name=row['file_name'],
             created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,

@@ -24,9 +24,30 @@ def get_data_dir() -> Path:
     return data_dir
 
 
+def get_database_dir() -> Path:
+    """Return the database directory, creating it if needed."""
+    database_dir = get_app_base_dir() / "database"
+    database_dir.mkdir(exist_ok=True)
+    return database_dir
+
+
+def get_files_dir() -> Path:
+    """Return the file storage directory, creating it if needed."""
+    files_dir = get_app_base_dir() / "files"
+    files_dir.mkdir(exist_ok=True)
+    return files_dir
+
+
+def get_settings_dir() -> Path:
+    """Return the settings directory, creating it if needed."""
+    settings_dir = get_app_base_dir() / "settings"
+    settings_dir.mkdir(exist_ok=True)
+    return settings_dir
+
+
 def get_materials_dir() -> Path:
     """Return the materials directory, creating it if needed."""
-    materials_dir = get_data_dir() / "materials"
+    materials_dir = get_files_dir() / "materials"
     materials_dir.mkdir(exist_ok=True)
     return materials_dir
 

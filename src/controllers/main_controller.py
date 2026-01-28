@@ -106,7 +106,7 @@ class MainController:
             if not material:
                 return {}
             teachers = ", ".join(t.full_name for t in material.teachers) or ""
-            file_name = material.file_name or ""
+            file_name = material.original_filename or material.file_name or ""
             return {
                 "title": material.title,
                 "description": material.description or "",

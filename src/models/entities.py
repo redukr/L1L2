@@ -79,6 +79,10 @@ class MethodicalMaterial:
     title: str = ""
     material_type: str = "guide"  # plan, guide, presentation, attachment
     description: Optional[str] = None
+    original_filename: Optional[str] = None
+    stored_filename: Optional[str] = None
+    relative_path: Optional[str] = None
+    file_type: Optional[str] = None
     file_path: Optional[str] = None
     file_name: Optional[str] = None
     created_at: Optional[datetime] = None

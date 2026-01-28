@@ -7,6 +7,7 @@ from .controllers.main_controller import MainController
 from .ui.main_window import MainWindow
 from .services.demo_data import seed_demo_data
 from .services.i18n import I18nManager
+from .services.file_storage import FileStorageManager
 
 
 def main() -> int:
@@ -18,6 +19,7 @@ def main() -> int:
     i18n = I18nManager(settings)
     i18n.load_from_settings()
     database = Database()
+    FileStorageManager().migrate_legacy_materials(database)
     seed_demo_data(database)
     controller = MainController(database)
     window = MainWindow(controller, i18n, settings)

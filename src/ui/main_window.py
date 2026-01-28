@@ -19,11 +19,13 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QMessageBox,
     QComboBox,
+    QFileDialog,
 )
 from PySide6.QtGui import QFont
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
 from ..services.i18n import I18nManager
+from ..services.file_storage import FileStorageManager
 
 
 class MainWindow(QMainWindow):
@@ -34,6 +36,7 @@ class MainWindow(QMainWindow):
         self.controller = controller
         self.i18n = i18n
         self.settings = settings
+        self.file_storage = FileStorageManager()
         self.program_items: Dict[int, QListWidgetItem] = {}
         self.tree_items: Dict[Tuple[str, int], QTreeWidgetItem] = {}
         self.last_program_id = None
@@ -109,7 +112,11 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self._wrap_with_label(self.materials_list, self.materials_label))
 
         self.open_material_button = QPushButton(self.tr("Open Selected File"))
+        self.show_material_button = QPushButton(self.tr("Show in folder"))
+        self.copy_material_button = QPushButton(self.tr("Copy file as..."))
         right_layout.addWidget(self.open_material_button)
+        right_layout.addWidget(self.show_material_button)
+        right_layout.addWidget(self.copy_material_button)
 
         self.main_splitter.addWidget(right_panel)
         self.main_splitter.setStretchFactor(1, 2)
@@ -125,6 +132,8 @@ class MainWindow(QMainWindow):
         self.search_results.cellDoubleClicked.connect(self._on_search_result_activated)
         self.admin_button.clicked.connect(self._on_open_admin)
         self.open_material_button.clicked.connect(self._on_open_material)
+        self.show_material_button.clicked.connect(self._on_show_material)
+        self.copy_material_button.clicked.connect(self._on_copy_material)
         self.language_combo.currentIndexChanged.connect(self._on_language_combo_changed)
         self.font_combo.currentTextChanged.connect(self._on_font_size_changed)
 
@@ -267,8 +276,9 @@ class MainWindow(QMainWindow):
         self.materials_list.clear()
         for material in self.controller.get_materials_for_entity(entity_type, entity_id):
             label = f"{material.title} ({material.material_type})"
-            if material.file_name:
-                label += f" | {material.file_name}"
+            filename = material.original_filename or material.file_name
+            if filename:
+                label += f" | {filename}"
             item = QListWidgetItem(label)
             item.setData(Qt.UserRole, material)
             self.materials_list.addItem(item)
@@ -332,13 +342,43 @@ class MainWindow(QMainWindow):
         if not item:
             return
         material = item.data(Qt.UserRole)
-        if not material.file_path:
+        if not material.relative_path:
             QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
             return
-        from PySide6.QtGui import QDesktopServices
-        from PySide6.QtCore import QUrl
+        if not self.file_storage.open_file(material.relative_path):
+            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
 
-        QDesktopServices.openUrl(QUrl.fromLocalFile(material.file_path))
+    def _on_show_material(self) -> None:
+        item = self.materials_list.currentItem()
+        if not item:
+            return
+        material = item.data(Qt.UserRole)
+        if not material.relative_path:
+            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
+            return
+        if not self.file_storage.show_in_folder(material.relative_path):
+            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+
+    def _on_copy_material(self) -> None:
+        item = self.materials_list.currentItem()
+        if not item:
+            return
+        material = item.data(Qt.UserRole)
+        if not material.relative_path:
+            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
+            return
+        default_name = material.title
+        ext = f".{material.file_type}" if material.file_type else ""
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Copy file as..."),
+            f"{default_name}{ext}",
+            self.tr("All files (*)"),
+        )
+        if not path:
+            return
+        if not self.file_storage.copy_file_as(material.relative_path, path):
+            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
 
     def _load_settings(self) -> None:
         geometry = self.settings.value("ui/main_geometry")
@@ -410,6 +450,8 @@ class MainWindow(QMainWindow):
         self.details_label.setText(self.tr("Details"))
         self.materials_label.setText(self.tr("Methodical Materials"))
         self.open_material_button.setText(self.tr("Open Selected File"))
+        self.show_material_button.setText(self.tr("Show in folder"))
+        self.copy_material_button.setText(self.tr("Copy file as..."))
         self.content_tree.setHeaderLabels([self.tr("Title"), self.tr("Type")])
         self.search_results.setHorizontalHeaderLabels([self.tr("Type"), self.tr("Title"), self.tr("Description")])
         self._load_program_structure(self.last_program_id) if self.last_program_id else None

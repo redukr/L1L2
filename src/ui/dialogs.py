@@ -308,7 +308,8 @@ class MaterialDialog(QDialog):
             if idx >= 0:
                 self.material_type.setCurrentIndex(idx)
         self.description = QTextEdit(material.description if material else "")
-        self.file_name = QLineEdit(material.file_name if material else "")
+        filename = material.original_filename if material and material.original_filename else (material.file_name if material else "")
+        self.file_name = QLineEdit(filename)
         self.file_name.setReadOnly(True)
         layout.addRow(self.tr("Title"), self.title)
         layout.addRow(self.tr("Type"), self.material_type)
