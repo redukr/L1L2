@@ -33,7 +33,11 @@ from ..ui.dialogs import (
     QuestionDialog,
     MaterialDialog,
 )
-from ..services.import_service import import_curriculum_structure
+from ..services.import_service import (
+    import_curriculum_structure,
+    import_curriculum_structure_by_names,
+    import_teachers_from_docx,
+)
 
 
 class AdminDialog(QDialog):
@@ -66,7 +70,9 @@ class AdminDialog(QDialog):
         self.menu_bar = QMenuBar()
         import_menu = self.menu_bar.addMenu(self.tr("Import"))
         self.import_curriculum_action = import_menu.addAction(self.tr("Import curriculum structure"))
+        self.import_teachers_action = import_menu.addAction(self.tr("Import teachers from DOCX"))
         self.import_curriculum_action.triggered.connect(self._on_import_curriculum)
+        self.import_teachers_action.triggered.connect(self._on_import_teachers)
         layout.setMenuBar(self.menu_bar)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
@@ -82,9 +88,16 @@ class AdminDialog(QDialog):
     def _build_teachers_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.teachers_table = QTableWidget(0, 5)
+        self.teachers_table = QTableWidget(0, 6)
         self.teachers_table.setHorizontalHeaderLabels(
-            [self.tr("Full name"), self.tr("Position"), self.tr("Department"), self.tr("Email"), self.tr("Phone")]
+            [
+                self.tr("Full name"),
+                self.tr("Military rank"),
+                self.tr("Position"),
+                self.tr("Department"),
+                self.tr("Email"),
+                self.tr("Phone"),
+            ]
         )
         self.teachers_table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.teachers_table)
@@ -439,10 +452,11 @@ class AdminDialog(QDialog):
             row = self.teachers_table.rowCount()
             self.teachers_table.insertRow(row)
             self.teachers_table.setItem(row, 0, QTableWidgetItem(teacher.full_name))
-            self.teachers_table.setItem(row, 1, QTableWidgetItem(teacher.position or ""))
-            self.teachers_table.setItem(row, 2, QTableWidgetItem(teacher.department or ""))
-            self.teachers_table.setItem(row, 3, QTableWidgetItem(teacher.email or ""))
-            self.teachers_table.setItem(row, 4, QTableWidgetItem(teacher.phone or ""))
+            self.teachers_table.setItem(row, 1, QTableWidgetItem(teacher.military_rank or ""))
+            self.teachers_table.setItem(row, 2, QTableWidgetItem(teacher.position or ""))
+            self.teachers_table.setItem(row, 3, QTableWidgetItem(teacher.department or ""))
+            self.teachers_table.setItem(row, 4, QTableWidgetItem(teacher.email or ""))
+            self.teachers_table.setItem(row, 5, QTableWidgetItem(teacher.phone or ""))
             self.teachers_table.item(row, 0).setData(Qt.UserRole, teacher)
 
     def _add_teacher(self) -> None:
@@ -1023,7 +1037,44 @@ class AdminDialog(QDialog):
         dialog = ImportCurriculumDialog(self.controller, self)
         if dialog.exec() != QDialog.Accepted:
             return
-        program_id, discipline_id, new_name, raw_text, parsed_topics = dialog.get_payload()
+        program_id, discipline_id, new_name, raw_text, parsed_topics, file_paths = dialog.get_payload()
+
+        if file_paths:
+            totals = {"topics": 0, "lessons": 0, "questions": 0}
+            errors = []
+            from ..services.import_service import extract_text_from_file, parse_curriculum_text, program_discipline_from_filename
+
+            for path in file_paths:
+                try:
+                    content = extract_text_from_file(path)
+                    topics = parse_curriculum_text(content)
+                    program_name, discipline_name = program_discipline_from_filename(path)
+                    if not discipline_name:
+                        discipline_name = program_name
+                    t_added, l_added, q_added = import_curriculum_structure_by_names(
+                        self.controller.db,
+                        program_name,
+                        discipline_name,
+                        topics,
+                    )
+                    totals["topics"] += t_added
+                    totals["lessons"] += l_added
+                    totals["questions"] += q_added
+                except Exception as exc:
+                    errors.append(f"{path}: {exc}")
+
+            if errors:
+                QMessageBox.warning(self, self.tr("Import error"), "\n".join(errors))
+            QMessageBox.information(
+                self,
+                self.tr("Import complete"),
+                self.tr("Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}").format(
+                    totals["topics"], totals["lessons"], totals["questions"]
+                ),
+            )
+            self._refresh_all()
+            return
+
         if not raw_text.strip():
             QMessageBox.warning(self, self.tr("Import error"), self.tr("No input text provided."))
             return
@@ -1054,6 +1105,27 @@ class AdminDialog(QDialog):
             ),
         )
         self._refresh_all()
+
+    def _on_import_teachers(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Import teachers"),
+            "",
+            self.tr("Word documents (*.docx);;All files (*)"),
+        )
+        if not path:
+            return
+        try:
+            added, skipped = import_teachers_from_docx(self.controller.db, path)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.tr("Import complete"),
+            self.tr("Added teachers: {0}\nSkipped: {1}").format(added, skipped),
+        )
+        self._refresh_teachers()
 
     def _current_entity(self, table: QTableWidget):
         row = table.currentRow()
@@ -1091,6 +1163,8 @@ class AdminDialog(QDialog):
         import_menu = self.menu_bar.addMenu(self.tr("Import"))
         self.import_curriculum_action = import_menu.addAction(self.tr("Import curriculum structure"))
         self.import_curriculum_action.triggered.connect(self._on_import_curriculum)
+        self.import_teachers_action = import_menu.addAction(self.tr("Import teachers from DOCX"))
+        self.import_teachers_action.triggered.connect(self._on_import_teachers)
         self.tabs.setTabText(0, self.tr("Teachers"))
         self.tabs.setTabText(1, self.tr("Programs"))
         self.tabs.setTabText(2, self.tr("Disciplines"))
@@ -1101,7 +1175,14 @@ class AdminDialog(QDialog):
         self.tabs.setTabText(7, self.tr("Materials"))
 
         self.teachers_table.setHorizontalHeaderLabels(
-            [self.tr("Full name"), self.tr("Position"), self.tr("Department"), self.tr("Email"), self.tr("Phone")]
+            [
+                self.tr("Full name"),
+                self.tr("Military rank"),
+                self.tr("Position"),
+                self.tr("Department"),
+                self.tr("Email"),
+                self.tr("Phone"),
+            ]
         )
         self.programs_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Level"), self.tr("Duration")])
         self.disciplines_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Order")])

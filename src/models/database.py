@@ -57,6 +57,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS teachers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     full_name TEXT NOT NULL,
+                    military_rank TEXT,
                     position TEXT,
                     department TEXT,
                     email TEXT,
@@ -295,7 +296,7 @@ class Database:
             # Create FTS5 virtual tables for full-text search
             cursor.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS teachers_fts USING fts5(
-                    full_name, position, department, email, 
+                    full_name, military_rank, position, department, email,
                     content='teachers', content_rowid='id'
                 )
             """)
@@ -372,6 +373,11 @@ class Database:
         if current_version < 4:
             self._migrate_to_lesson_hours(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (4)")
+            current_version = 4
+
+        if current_version < 5:
+            self._migrate_to_teacher_ranks(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (5)")
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -514,13 +520,33 @@ class Database:
             cursor.execute("ALTER TABLE lessons ADD COLUMN classroom_hours REAL")
         if "self_study_hours" not in columns:
             cursor.execute("ALTER TABLE lessons ADD COLUMN self_study_hours REAL")
+
+    def _migrate_to_teacher_ranks(self, cursor) -> None:
+        """Add military rank to teachers and rebuild teacher FTS."""
+        cursor.execute("PRAGMA table_info(teachers)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "military_rank" not in columns:
+            cursor.execute("ALTER TABLE teachers ADD COLUMN military_rank TEXT")
+
+        cursor.execute("DROP TABLE IF EXISTS teachers_fts")
+        cursor.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS teachers_fts USING fts5(
+                full_name, military_rank, position, department, email,
+                content='teachers', content_rowid='id'
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO teachers_fts(rowid, full_name, military_rank, position, department, email)
+            SELECT id, full_name, military_rank, position, department, email
+            FROM teachers
+        """)
     def _create_fts_triggers(self, cursor):
         """Create triggers to maintain FTS tables."""
         # Teachers triggers
         cursor.execute("""
             CREATE TRIGGER IF NOT EXISTS teachers_ai AFTER INSERT ON teachers BEGIN
-                INSERT INTO teachers_fts(rowid, full_name, position, department, email)
-                VALUES (NEW.id, NEW.full_name, NEW.position, NEW.department, NEW.email);
+                INSERT INTO teachers_fts(rowid, full_name, military_rank, position, department, email)
+                VALUES (NEW.id, NEW.full_name, NEW.military_rank, NEW.position, NEW.department, NEW.email);
             END
         """)
 
@@ -533,8 +559,8 @@ class Database:
         cursor.execute("""
             CREATE TRIGGER IF NOT EXISTS teachers_au AFTER UPDATE ON teachers BEGIN
                 UPDATE teachers_fts 
-                SET full_name = NEW.full_name, position = NEW.position, 
-                    department = NEW.department, email = NEW.email
+                SET full_name = NEW.full_name, military_rank = NEW.military_rank,
+                    position = NEW.position, department = NEW.department, email = NEW.email
                 WHERE rowid = NEW.id;
             END
         """)

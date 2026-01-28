@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QComboBox,
 )
+from PySide6.QtGui import QFont
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
 from ..services.i18n import I18nManager
@@ -56,10 +57,13 @@ class MainWindow(QMainWindow):
         self.language_combo = QComboBox()
         self.language_combo.addItem(self.tr("Ukrainian"), "uk")
         self.language_combo.addItem(self.tr("English"), "en")
+        self.font_combo = QComboBox()
+        self.font_combo.addItems(["10", "11", "12", "13", "14", "15", "16", "18"])
         self.admin_button = QPushButton(self.tr("Admin Mode"))
         top_bar.addWidget(self.search_input)
         top_bar.addWidget(self.search_button)
         top_bar.addWidget(self.language_combo)
+        top_bar.addWidget(self.font_combo)
         top_bar.addStretch(1)
         top_bar.addWidget(self.admin_button)
         layout.addLayout(top_bar)
@@ -122,6 +126,7 @@ class MainWindow(QMainWindow):
         self.admin_button.clicked.connect(self._on_open_admin)
         self.open_material_button.clicked.connect(self._on_open_material)
         self.language_combo.currentIndexChanged.connect(self._on_language_combo_changed)
+        self.font_combo.currentTextChanged.connect(self._on_font_size_changed)
 
     def _wrap_with_label(self, widget: QWidget, label: QLabel) -> QWidget:
         wrapper = QWidget()
@@ -248,6 +253,9 @@ class MainWindow(QMainWindow):
                 meta_lines.append(f"{self.tr('Email')}: {meta.get('email') or self.tr('N/A')}")
             if "phone" in meta:
                 meta_lines.append(f"{self.tr('Phone')}: {meta.get('phone') or self.tr('N/A')}")
+            if "rank" in meta:
+                rank = meta.get("rank") or self.tr("N/A")
+                meta_lines.append(f"{self.tr('Military rank')}: {rank}")
             if meta_lines:
                 lines.extend(["", " | ".join(meta_lines)])
         else:
@@ -355,6 +363,12 @@ class MainWindow(QMainWindow):
         if index >= 0:
             self.language_combo.setCurrentIndex(index)
 
+        font_size = self.settings.value("ui/font_size")
+        if font_size:
+            idx = self.font_combo.findText(str(font_size))
+            if idx >= 0:
+                self.font_combo.setCurrentIndex(idx)
+
     def closeEvent(self, event) -> None:
         self.settings.setValue("ui/main_geometry", self.saveGeometry())
         self.settings.setValue("ui/main_splitter", self.main_splitter.saveState())
@@ -369,6 +383,18 @@ class MainWindow(QMainWindow):
         language = self.language_combo.currentData()
         if language:
             self.i18n.set_language(language)
+
+    def _on_font_size_changed(self, value: str) -> None:
+        if not value:
+            return
+        try:
+            size = int(value)
+        except ValueError:
+            return
+        font = QFont(self.font())
+        font.setPointSize(size)
+        self.setFont(font)
+        self.settings.setValue("ui/font_size", size)
 
     def _on_language_changed(self, _language: str) -> None:
         self.retranslate_ui()

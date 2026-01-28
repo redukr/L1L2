@@ -346,7 +346,7 @@ class MaterialRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT t.id, t.full_name, t.position, t.department, 
+                SELECT t.id, t.full_name, t.military_rank, t.position, t.department, 
                        t.email, t.phone, t.created_at, t.updated_at
                 FROM teachers t
                 JOIN teacher_materials tm ON t.id = tm.teacher_id

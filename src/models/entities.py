@@ -9,6 +9,7 @@ class Teacher:
     """Represents a teacher in the system."""
     id: Optional[int] = None
     full_name: str = ""
+    military_rank: Optional[str] = None
     position: Optional[str] = None
     department: Optional[str] = None
     email: Optional[str] = None

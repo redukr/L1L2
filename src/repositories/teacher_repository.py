@@ -30,10 +30,11 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO teachers (full_name, position, department, email, phone)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO teachers (full_name, military_rank, position, department, email, phone)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 teacher.full_name,
+                teacher.military_rank,
                 teacher.position,
                 teacher.department,
                 teacher.email,
@@ -56,11 +57,12 @@ class TeacherRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE teachers
-                SET full_name = ?, position = ?, department = ?, 
+                SET full_name = ?, military_rank = ?, position = ?, department = ?, 
                     email = ?, phone = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
                 teacher.full_name,
+                teacher.military_rank,
                 teacher.position,
                 teacher.department,
                 teacher.email,
@@ -97,7 +99,7 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, full_name, position, department, email, phone, 
+                SELECT id, full_name, military_rank, position, department, email, phone, 
                        created_at, updated_at
                 FROM teachers WHERE id = ?
             """, (teacher_id,))
@@ -117,7 +119,7 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, full_name, position, department, email, phone, 
+                SELECT id, full_name, military_rank, position, department, email, phone, 
                        created_at, updated_at
                 FROM teachers ORDER BY full_name
             """)
@@ -136,12 +138,12 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, full_name, position, department, email, phone, 
+                SELECT id, full_name, military_rank, position, department, email, phone, 
                        created_at, updated_at
                 FROM teachers
-                WHERE full_name LIKE ? OR position LIKE ? OR department LIKE ?
+                WHERE full_name LIKE ? OR military_rank LIKE ? OR position LIKE ? OR department LIKE ? OR email LIKE ?
                 ORDER BY full_name
-            """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
+            """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
             return [self._row_to_teacher(row) for row in cursor.fetchall()]
 
     def _row_to_teacher(self, row) -> Teacher:
@@ -157,6 +159,7 @@ class TeacherRepository:
         return Teacher(
             id=row['id'],
             full_name=row['full_name'],
+            military_rank=row['military_rank'],
             position=row['position'],
             department=row['department'],
             email=row['email'],

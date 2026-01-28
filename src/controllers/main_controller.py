@@ -124,6 +124,7 @@ class MainController:
                 "title": teacher.full_name,
                 "description": f"{teacher.position or ''} {teacher.department or ''}".strip(),
                 "meta": {
+                    "rank": teacher.military_rank or "",
                     "email": teacher.email or "",
                     "phone": teacher.phone or "",
                 },

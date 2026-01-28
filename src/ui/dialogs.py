@@ -17,9 +17,10 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem,
     QHBoxLayout,
     QMessageBox,
+    QPushButton,
 )
 from ..models.entities import Teacher, EducationalProgram, Discipline, Topic, Lesson, LessonType, Question, MethodicalMaterial
-from ..services.import_service import parse_curriculum_text, CurriculumTopic
+from ..services.import_service import extract_text_from_file, parse_curriculum_text, CurriculumTopic
 
 
 class PasswordDialog(QDialog):
@@ -51,11 +52,13 @@ class TeacherDialog(QDialog):
         self._teacher = teacher
         layout = QFormLayout(self)
         self.full_name = QLineEdit(teacher.full_name if teacher else "")
+        self.military_rank = QLineEdit(teacher.military_rank if teacher else "")
         self.position = QLineEdit(teacher.position if teacher else "")
         self.department = QLineEdit(teacher.department if teacher else "")
         self.email = QLineEdit(teacher.email if teacher else "")
         self.phone = QLineEdit(teacher.phone if teacher else "")
         layout.addRow(self.tr("Full name"), self.full_name)
+        layout.addRow(self.tr("Military rank"), self.military_rank)
         layout.addRow(self.tr("Position"), self.position)
         layout.addRow(self.tr("Department"), self.department)
         layout.addRow(self.tr("Email"), self.email)
@@ -68,6 +71,7 @@ class TeacherDialog(QDialog):
     def get_teacher(self) -> Teacher:
         teacher = self._teacher or Teacher()
         teacher.full_name = self.full_name.text().strip()
+        teacher.military_rank = self.military_rank.text().strip() or None
         teacher.position = self.position.text().strip() or None
         teacher.department = self.department.text().strip() or None
         teacher.email = self.email.text().strip() or None
@@ -362,6 +366,7 @@ class ImportCurriculumDialog(QDialog):
         super().__init__(parent)
         self.controller = controller
         self.parsed_topics: Optional[list[CurriculumTopic]] = None
+        self.file_paths: list[str] = []
         self.setWindowTitle(self.tr("Import curriculum structure"))
         layout = QVBoxLayout(self)
 
@@ -382,8 +387,10 @@ class ImportCurriculumDialog(QDialog):
 
         action_row = QHBoxLayout()
         self.load_file = QPushButton(self.tr("Load file"))
+        self.load_files = QPushButton(self.tr("Load files (batch)"))
         self.preview_btn = QPushButton(self.tr("Preview"))
         action_row.addWidget(self.load_file)
+        action_row.addWidget(self.load_files)
         action_row.addWidget(self.preview_btn)
         action_row.addStretch(1)
         layout.addLayout(action_row)
@@ -394,6 +401,7 @@ class ImportCurriculumDialog(QDialog):
         layout.addWidget(buttons)
 
         self.load_file.clicked.connect(self._load_file)
+        self.load_files.clicked.connect(self._load_files)
         self.preview_btn.clicked.connect(self._preview)
         self.program_combo.currentIndexChanged.connect(self._refresh_disciplines)
         self.discipline_combo.currentIndexChanged.connect(self._toggle_new_discipline)
@@ -425,14 +433,38 @@ class ImportCurriculumDialog(QDialog):
             self,
             self.tr("Open table file"),
             "",
-            self.tr("Text files (*.txt *.tsv *.csv);;All files (*)"),
+            self.tr("Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)"),
         )
         if not path:
             return
-        with open(path, "r", encoding="utf-8") as file:
-            self.input_text.setPlainText(file.read())
+        self.file_paths = [path]
+        try:
+            content = extract_text_from_file(path)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        self.input_text.setPlainText(content)
+
+    def _load_files(self) -> None:
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            self.tr("Open table files"),
+            "",
+            self.tr("Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)"),
+        )
+        if not paths:
+            return
+        self.file_paths = paths
+        self.input_text.setPlainText("")
 
     def _preview(self) -> None:
+        if len(self.file_paths) > 1:
+            QMessageBox.information(
+                self,
+                self.tr("Preview"),
+                self.tr("Preview is available for single-file import only."),
+            )
+            return
         try:
             topics = parse_curriculum_text(self.input_text.toPlainText())
         except Exception as exc:
@@ -446,4 +478,4 @@ class ImportCurriculumDialog(QDialog):
         program_id = self.program_combo.currentData()
         discipline_id = self.discipline_combo.currentData()
         new_name = self.new_discipline.text().strip() if discipline_id is None else None
-        return program_id, discipline_id, new_name, self.input_text.toPlainText(), self.parsed_topics
+        return program_id, discipline_id, new_name, self.input_text.toPlainText(), self.parsed_topics, self.file_paths

@@ -44,6 +44,11 @@
     <message><source>guide</source><translation>методичний посібник</translation></message>
     <message><source>presentation</source><translation>презентація</translation></message>
     <message><source>attachment</source><translation>додаток</translation></message>
+    <message><source>Total hours</source><translation>Всього годин</translation></message>
+    <message><source>Classroom hours</source><translation>Аудиторні години</translation></message>
+    <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
+    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
+    <message><source>Military rank</source><translation>Військове звання</translation></message>
   </context>
   <context>
     <name>AdminDialog</name>
@@ -114,6 +119,19 @@
     <message><source>guide</source><translation>методичний посібник</translation></message>
     <message><source>presentation</source><translation>презентація</translation></message>
     <message><source>attachment</source><translation>додаток</translation></message>
+    <message><source>Lesson types</source><translation>Типи занять</translation></message>
+    <message><source>Military rank</source><translation>Військове звання</translation></message>
+    <message><source>Total hours</source><translation>Всього годин</translation></message>
+    <message><source>Import</source><translation>Імпорт</translation></message>
+    <message><source>Import curriculum structure</source><translation>Імпорт структури навчальної програми</translation></message>
+    <message><source>Import teachers from DOCX</source><translation>Імпорт викладачів з DOCX</translation></message>
+    <message><source>Import error</source><translation>Помилка імпорту</translation></message>
+    <message><source>Import complete</source><translation>Імпорт завершено</translation></message>
+    <message><source>Added topics: {0}&#10;Added lessons: {1}&#10;Added questions: {2}</source><translation>Додано тем: {0}&#10;Додано занять: {1}&#10;Додано питань: {2}</translation></message>
+    <message><source>No input text provided.</source><translation>Не введено текст для імпорту.</translation></message>
+    <message><source>Import teachers</source><translation>Імпорт викладачів</translation></message>
+    <message><source>Word documents (*.docx);;All files (*)</source><translation>Документи Word (*.docx);;Усі файли (*)</translation></message>
+    <message><source>Added teachers: {0}&#10;Skipped: {1}</source><translation>Додано викладачів: {0}&#10;Пропущено: {1}</translation></message>
   </context>
   <context>
     <name>PasswordDialog</name>
@@ -124,6 +142,7 @@
     <name>TeacherDialog</name>
     <message><source>Teacher</source><translation>Викладач</translation></message>
     <message><source>Full name</source><translation>Повне ім&apos;я</translation></message>
+    <message><source>Military rank</source><translation>Військове звання</translation></message>
     <message><source>Position</source><translation>Посада</translation></message>
     <message><source>Department</source><translation>Кафедра</translation></message>
     <message><source>Email</source><translation>Ел. пошта</translation></message>
@@ -157,6 +176,10 @@
     <message><source>Title</source><translation>Назва</translation></message>
     <message><source>Description</source><translation>Опис</translation></message>
     <message><source>Duration (hours)</source><translation>Тривалість (год)</translation></message>
+    <message><source>Total hours</source><translation>Всього годин</translation></message>
+    <message><source>Classroom hours</source><translation>Аудиторні години</translation></message>
+    <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
+    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
     <message><source>Order index</source><translation>Порядковий індекс</translation></message>
   </context>
   <context>
@@ -177,5 +200,35 @@
     <message><source>guide</source><translation>методичний посібник</translation></message>
     <message><source>presentation</source><translation>презентація</translation></message>
     <message><source>attachment</source><translation>додаток</translation></message>
+  </context>
+  <context>
+    <name>LessonTypeDialog</name>
+    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
+    <message><source>Name</source><translation>Назва</translation></message>
+  </context>
+  <context>
+    <name>ImportPreviewDialog</name>
+    <message><source>Import preview</source><translation>Перегляд імпорту</translation></message>
+    <message><source>Title</source><translation>Назва</translation></message>
+    <message><source>Details</source><translation>Деталі</translation></message>
+    <message><source>Topic</source><translation>Тема</translation></message>
+    <message><source>Question</source><translation>Питання</translation></message>
+  </context>
+  <context>
+    <name>ImportCurriculumDialog</name>
+    <message><source>Import curriculum structure</source><translation>Імпорт структури навчальної програми</translation></message>
+    <message><source>Program</source><translation>Програма</translation></message>
+    <message><source>Discipline</source><translation>Дисципліна</translation></message>
+    <message><source>New discipline</source><translation>Нова дисципліна</translation></message>
+    <message><source>Paste table text here...</source><translation>Вставте текст таблиці сюди...</translation></message>
+    <message><source>Load file</source><translation>Завантажити файл</translation></message>
+    <message><source>Load files (batch)</source><translation>Завантажити файли (пакетом)</translation></message>
+    <message><source>Preview</source><translation>Перегляд</translation></message>
+    <message><source>Open table file</source><translation>Відкрити файл таблиці</translation></message>
+    <message><source>Open table files</source><translation>Відкрити файли таблиць</translation></message>
+    <message><source>Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)</source><translation>Документи (*.txt *.tsv *.csv *.docx *.doc);;Усі файли (*)</translation></message>
+    <message><source>Create new...</source><translation>Створити нову...</translation></message>
+    <message><source>Preview is available for single-file import only.</source><translation>Перегляд доступний лише для імпорту одного файлу.</translation></message>
+    <message><source>Import error</source><translation>Помилка імпорту</translation></message>
   </context>
 </TS>
