@@ -182,6 +182,9 @@ class AdminController:
     def get_materials(self) -> List[MethodicalMaterial]:
         return self.material_repo.get_all()
 
+    def get_materials_for_entity(self, entity_type: str, entity_id: int) -> List[MethodicalMaterial]:
+        return self.material_repo.get_materials_for_entity(entity_type, entity_id)
+
     def add_material(self, material: MethodicalMaterial) -> MethodicalMaterial:
         return self.material_repo.add(material)
 
@@ -199,6 +202,11 @@ class AdminController:
         if not associations:
             raise ValueError("Material must be linked to a program/discipline/topic/lesson before attaching a file.")
         program_id, discipline_id = self._resolve_program_discipline(associations)
+        return self.attach_material_file_with_context(material, source_path, program_id, discipline_id)
+
+    def attach_material_file_with_context(
+        self, material: MethodicalMaterial, source_path: str, program_id: int, discipline_id: int
+    ) -> MethodicalMaterial:
         original_filename, stored_filename, relative_path, file_type = self.file_storage.store_material_file(
             source_path, program_id, discipline_id, material.id
         )
@@ -215,6 +223,20 @@ class AdminController:
         except Exception:
             self.file_storage.delete_file(relative_path)
             raise
+
+    def attach_existing_material_file(self, material: MethodicalMaterial, source_path: str) -> MethodicalMaterial:
+        original_filename, stored_filename, relative_path, file_type = self.file_storage.attach_existing_file(
+            source_path
+        )
+        if material.relative_path and material.relative_path != relative_path:
+            self.file_storage.delete_file(material.relative_path)
+        material.original_filename = original_filename
+        material.stored_filename = stored_filename
+        material.relative_path = relative_path
+        material.file_type = file_type
+        material.file_name = original_filename
+        material.file_path = relative_path
+        return self.material_repo.update(material)
 
     def _resolve_program_discipline(self, associations: List[Tuple[str, int]]) -> Tuple[int, int]:
         entity_type, entity_id = associations[0]
@@ -240,6 +262,12 @@ class AdminController:
         if entity_type == "lesson":
             programs = self.program_repo.get_programs_for_lesson(entity_id)
             disciplines = self.discipline_repo.get_disciplines_for_lesson(entity_id)
+            if not programs or not disciplines:
+                topics = self.topic_repo.get_topics_for_lesson(entity_id)
+                if topics:
+                    disciplines = self.discipline_repo.get_disciplines_for_topic(topics[0].id)
+                    if disciplines:
+                        programs = self.program_repo.get_programs_for_discipline(disciplines[0].id)
             if not programs or not disciplines:
                 raise ValueError("Lesson is not linked to program/discipline.")
             return programs[0].id, disciplines[0].id

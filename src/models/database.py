@@ -567,6 +567,23 @@ class Database:
             cursor.execute("ALTER TABLE methodical_materials ADD COLUMN relative_path TEXT")
         if "file_type" not in columns:
             cursor.execute("ALTER TABLE methodical_materials ADD COLUMN file_type TEXT")
+
+    def rebuild_materials_fts(self) -> None:
+        """Rebuild materials FTS index (repairs malformed FTS tables)."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DROP TABLE IF EXISTS materials_fts")
+            cursor.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS materials_fts USING fts5(
+                    title, description, file_name,
+                    content='methodical_materials', content_rowid='id'
+                )
+            """)
+            cursor.execute("""
+                INSERT INTO materials_fts(rowid, title, description, file_name)
+                SELECT id, title, description, file_name
+                FROM methodical_materials
+            """)
     def _create_fts_triggers(self, cursor):
         """Create triggers to maintain FTS tables."""
         # Teachers triggers

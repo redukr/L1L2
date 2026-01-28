@@ -1,6 +1,7 @@
 """Methodical material repository for database operations."""
 from typing import List, Optional, Tuple
 from datetime import datetime
+import sqlite3
 from ..models.entities import MethodicalMaterial, Teacher
 from ..models.database import Database
 
@@ -27,10 +28,52 @@ class MaterialRepository:
         Returns:
             MethodicalMaterial: Added material with assigned ID
         """
+        try:
+            return self._insert_material(material)
+        except sqlite3.DatabaseError as exc:
+            if "malformed" in str(exc).lower():
+                self.db.rebuild_materials_fts()
+                return self._insert_material(material)
+            raise
+
+    def update(self, material: MethodicalMaterial) -> MethodicalMaterial:
+        """
+        Update an existing methodical material.
+
+        Args:
+            material: MethodicalMaterial entity with updated data
+
+        Returns:
+            MethodicalMaterial: Updated material entity
+        """
+        try:
+            return self._update_material(material)
+        except sqlite3.DatabaseError as exc:
+            if "malformed" in str(exc).lower():
+                self.db.rebuild_materials_fts()
+                return self._update_material(material)
+            raise
+
+    def delete(self, material_id: int) -> bool:
+        """
+        Delete a methodical material by ID.
+
+        Args:
+            material_id: ID of material to delete
+
+        Returns:
+            bool: True if deleted, False otherwise
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM methodical_materials WHERE id = ?", (material_id,))
+            return cursor.rowcount > 0
+
+    def _insert_material(self, material: MethodicalMaterial) -> MethodicalMaterial:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO methodical_materials 
+                INSERT INTO methodical_materials
                 (title, material_type, description, original_filename, stored_filename,
                  relative_path, file_type, file_path, file_name)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -48,21 +91,12 @@ class MaterialRepository:
             material.id = cursor.lastrowid
             return material
 
-    def update(self, material: MethodicalMaterial) -> MethodicalMaterial:
-        """
-        Update an existing methodical material.
-
-        Args:
-            material: MethodicalMaterial entity with updated data
-
-        Returns:
-            MethodicalMaterial: Updated material entity
-        """
+    def _update_material(self, material: MethodicalMaterial) -> MethodicalMaterial:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE methodical_materials
-                SET title = ?, material_type = ?, description = ?, 
+                SET title = ?, material_type = ?, description = ?,
                     original_filename = ?, stored_filename = ?, relative_path = ?, file_type = ?,
                     file_path = ?, file_name = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -79,21 +113,6 @@ class MaterialRepository:
                 material.id
             ))
             return material
-
-    def delete(self, material_id: int) -> bool:
-        """
-        Delete a methodical material by ID.
-
-        Args:
-            material_id: ID of material to delete
-
-        Returns:
-            bool: True if deleted, False otherwise
-        """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM methodical_materials WHERE id = ?", (material_id,))
-            return cursor.rowcount > 0
 
     def get_by_id(self, material_id: int) -> Optional[MethodicalMaterial]:
         """

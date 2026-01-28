@@ -7,16 +7,17 @@ import shutil
 from typing import Optional, Tuple
 
 from .app_paths import get_app_base_dir, get_files_dir
+from .storage_settings import get_materials_root, set_materials_root
 
 
 MAX_PATH_WINDOWS = 260
 
 
 class FileStorageManager:
-    """Controls file storage lifecycle under data/files."""
+    """Controls file storage lifecycle under files root."""
 
     def __init__(self, files_root: Optional[Path] = None):
-        self._files_root = files_root or get_files_dir()
+        self._files_root = files_root or get_materials_root()
         self._files_root.mkdir(parents=True, exist_ok=True)
 
     @property
@@ -30,8 +31,8 @@ class FileStorageManager:
         program_folder = f"p{program_id:02d}"
         discipline_folder = f"d{discipline_id:02d}"
         stored_filename = f"m_{material_id:06d}{ext}"
-        relative_path = Path("files") / program_folder / discipline_folder / stored_filename
-        absolute_path = get_app_base_dir() / relative_path
+        relative_path = Path(program_folder) / discipline_folder / stored_filename
+        absolute_path = self._files_root / relative_path
         self._ensure_under_max_path(absolute_path)
         return absolute_path, str(relative_path).replace("\\", "/")
 
@@ -57,7 +58,7 @@ class FileStorageManager:
 
     def open_file(self, relative_path: str) -> bool:
         """Open file with default OS application."""
-        absolute = get_app_base_dir() / relative_path
+        absolute = self._resolve_path(relative_path)
         if not absolute.exists():
             return False
         os.startfile(str(absolute))
@@ -65,7 +66,7 @@ class FileStorageManager:
 
     def show_in_folder(self, relative_path: str) -> bool:
         """Show file folder in Explorer."""
-        absolute = get_app_base_dir() / relative_path
+        absolute = self._resolve_path(relative_path)
         if not absolute.exists():
             return False
         os.startfile(str(absolute.parent))
@@ -73,17 +74,35 @@ class FileStorageManager:
 
     def copy_file_as(self, relative_path: str, dest_path: str) -> bool:
         """Copy file to a user-selected destination."""
-        absolute = get_app_base_dir() / relative_path
+        absolute = self._resolve_path(relative_path)
         if not absolute.exists():
             return False
         shutil.copyfile(absolute, dest_path)
         return True
 
+    def attach_existing_file(self, source_path: str) -> Tuple[str, str, str, str]:
+        """
+        Attach an existing file already inside storage.
+        Returns: (original_filename, stored_filename, relative_path, file_type)
+        """
+        source = Path(source_path).resolve()
+        files_root = self.files_root.resolve()
+        try:
+            source.relative_to(files_root)
+        except ValueError as exc:
+            raise ValueError("Selected file must be inside the storage folder.") from exc
+        if not source.exists():
+            raise ValueError("Selected file does not exist.")
+        relative_path = str(source.relative_to(self._files_root).as_posix())
+        ext = source.suffix.lower()
+        self._ensure_under_max_path(source)
+        return source.name, source.name, relative_path, ext.lstrip(".")
+
     def delete_file(self, relative_path: Optional[str]) -> None:
         """Delete a stored file if it exists."""
         if not relative_path:
             return
-        absolute = get_app_base_dir() / relative_path
+        absolute = self._resolve_path(relative_path)
         if absolute.exists():
             absolute.unlink()
 
@@ -200,6 +219,37 @@ class FileStorageManager:
                 if row:
                     return association["entity_id"], row["discipline_id"]
         return None, None
+
+    def move_storage(self, database, new_root: Path) -> None:
+        """Move all stored files to a new root and persist the setting."""
+        old_root = self._files_root
+        new_root.mkdir(parents=True, exist_ok=True)
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, relative_path
+                FROM methodical_materials
+                WHERE relative_path IS NOT NULL
+            """)
+            for row in cursor.fetchall():
+                relative = self._normalize_relative_path(row["relative_path"])
+                source = old_root / relative
+                target = new_root / relative
+                if source.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(source), str(target))
+        self._files_root = new_root
+        set_materials_root(new_root)
+
+    def _resolve_path(self, relative_path: str) -> Path:
+        relative = self._normalize_relative_path(relative_path)
+        return self._files_root / relative
+
+    def _normalize_relative_path(self, relative_path: str) -> Path:
+        cleaned = relative_path.replace("\\", "/").lstrip("/")
+        if cleaned.startswith("files/"):
+            cleaned = cleaned[len("files/"):]
+        return Path(cleaned)
 
     def _ensure_under_max_path(self, path: Path) -> None:
         if len(str(path)) >= MAX_PATH_WINDOWS:

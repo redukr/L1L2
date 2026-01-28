@@ -64,6 +64,7 @@
     <message><source>Lessons</source><translation>Заняття</translation></message>
     <message><source>Questions</source><translation>Питання</translation></message>
     <message><source>Materials</source><translation>Матеріали</translation></message>
+    <message><source>Settings</source><translation>Налаштування</translation></message>
     <message><source>Full name</source><translation>Повне ім&apos;я</translation></message>
     <message><source>Position</source><translation>Посада</translation></message>
     <message><source>Department</source><translation>Кафедра</translation></message>
@@ -82,15 +83,31 @@
     <message><source>Discipline topics</source><translation>Теми дисципліни</translation></message>
     <message><source>Title</source><translation>Назва</translation></message>
     <message><source>Topic lessons</source><translation>Заняття теми</translation></message>
+    <message><source>Topic materials</source><translation>Матеріали теми</translation></message>
     <message><source>Lesson questions</source><translation>Питання заняття</translation></message>
+    <message><source>Lesson materials</source><translation>Матеріали заняття</translation></message>
     <message><source>Question</source><translation>Питання</translation></message>
     <message><source>Difficulty</source><translation>Складність</translation></message>
     <message><source>Type</source><translation>Тип</translation></message>
     <message><source>File</source><translation>Файл</translation></message>
     <message><source>Attach File</source><translation>Прикріпити файл</translation></message>
+    <message><source>Attach existing file</source><translation>Прикріпити наявний файл</translation></message>
     <message><source>Open file</source><translation>Відкрити файл</translation></message>
     <message><source>Show in folder</source><translation>Показати в папці</translation></message>
     <message><source>Copy file as...</source><translation>Копіювати файл як...</translation></message>
+    <message><source>Materials location</source><translation>Розташування матеріалів</translation></message>
+    <message><source>Change...</source><translation>Змінити...</translation></message>
+    <message><source>Export database</source><translation>Експорт бази даних</translation></message>
+    <message><source>Import database</source><translation>Імпорт бази даних</translation></message>
+    <message><source>Export database</source><translation>Експорт бази даних</translation></message>
+    <message><source>Select material location</source><translation>Вибір місця збереження</translation></message>
+    <message><source>OK</source><translation>OK</translation></message>
+    <message><source>Cancel</source><translation>Скасувати</translation></message>
+    <message><source>Select materials folder</source><translation>Вибрати папку матеріалів</translation></message>
+    <message><source>Database (*.db);;All files (*)</source><translation>База даних (*.db);;Усі файли (*)</translation></message>
+    <message><source>Database exported.</source><translation>Базу даних експортовано.</translation></message>
+    <message><source>Replace the current database with the selected file?</source><translation>Замінити поточну базу даних вибраним файлом?</translation></message>
+    <message><source>Database imported. Restart the app.</source><translation>Базу даних імпортовано. Перезапустіть застосунок.</translation></message>
     <message><source>Material teachers</source><translation>Викладачі матеріалу</translation></message>
     <message><source>Available</source><translation>Доступні</translation></message>
     <message><source>Assigned</source><translation>Призначені</translation></message>

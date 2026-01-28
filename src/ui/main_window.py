@@ -334,8 +334,13 @@ class MainWindow(QMainWindow):
 
     def _on_open_admin(self) -> None:
         dialog = AdminDialog(self.controller.db, self.i18n, self)
-        if dialog.exec():
-            self._load_programs()
+        dialog.exec()
+        # Always refresh after admin dialog closes to sync UI state.
+        self._load_programs()
+        if self.last_program_id and self.last_program_id in self.program_items:
+            self.program_list.setCurrentItem(self.program_items[self.last_program_id])
+        else:
+            self._load_program_structure(self.last_program_id) if self.last_program_id else None
 
     def _on_open_material(self) -> None:
         item = self.materials_list.currentItem()

@@ -17,7 +17,11 @@ from PySide6.QtWidgets import (
     QComboBox,
     QSplitter,
     QMenuBar,
+    QAbstractItemView,
+    QLineEdit,
+    QDialog,
 )
+from pathlib import Path
 from ..controllers.admin_controller import AdminController
 from ..models.database import Database
 from ..services.i18n import I18nManager
@@ -86,6 +90,7 @@ class AdminDialog(QDialog):
         self.tabs.addTab(self._build_lesson_types_tab(), self.tr("Lesson types"))
         self.tabs.addTab(self._build_questions_tab(), self.tr("Questions"))
         self.tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
+        self.tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
 
     def _build_teachers_tab(self) -> QWidget:
         tab = QWidget()
@@ -102,6 +107,8 @@ class AdminDialog(QDialog):
             ]
         )
         self.teachers_table.horizontalHeader().setStretchLastSection(True)
+        self.teachers_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.teachers_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         layout.addWidget(self.teachers_table)
         btn_layout = QHBoxLayout()
         self.teacher_add = QPushButton(self.tr("Add"))
@@ -126,6 +133,8 @@ class AdminDialog(QDialog):
         self.programs_table = QTableWidget(0, 3)
         self.programs_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Level"), self.tr("Duration")])
         self.programs_table.horizontalHeader().setStretchLastSection(True)
+        self.programs_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.programs_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         top_layout.addWidget(self.programs_table)
         btn_layout = QHBoxLayout()
         self.program_add = QPushButton(self.tr("Add"))
@@ -162,7 +171,7 @@ class AdminDialog(QDialog):
         self.program_add.clicked.connect(self._add_program)
         self.program_edit.clicked.connect(self._edit_program)
         self.program_delete.clicked.connect(self._delete_program)
-        self.programs_table.itemSelectionChanged.connect(self._refresh_program_disciplines)
+        self.programs_table.itemSelectionChanged.connect(self._on_program_selection_changed)
         self.program_discipline_add.clicked.connect(self._add_discipline_to_program)
         self.program_discipline_remove.clicked.connect(self._remove_discipline_from_program)
         return tab
@@ -175,6 +184,8 @@ class AdminDialog(QDialog):
         self.disciplines_table = QTableWidget(0, 2)
         self.disciplines_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Order")])
         self.disciplines_table.horizontalHeader().setStretchLastSection(True)
+        self.disciplines_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.disciplines_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         top_layout.addWidget(self.disciplines_table)
         btn_layout = QHBoxLayout()
         self.discipline_add = QPushButton(self.tr("Add"))
@@ -211,7 +222,7 @@ class AdminDialog(QDialog):
         self.discipline_add.clicked.connect(self._add_discipline)
         self.discipline_edit.clicked.connect(self._edit_discipline)
         self.discipline_delete.clicked.connect(self._delete_discipline)
-        self.disciplines_table.itemSelectionChanged.connect(self._refresh_discipline_topics)
+        self.disciplines_table.itemSelectionChanged.connect(self._on_discipline_selection_changed)
         self.discipline_topic_add.clicked.connect(self._add_topic_to_discipline)
         self.discipline_topic_remove.clicked.connect(self._remove_topic_from_discipline)
         return tab
@@ -224,6 +235,8 @@ class AdminDialog(QDialog):
         self.topics_table = QTableWidget(0, 2)
         self.topics_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Order")])
         self.topics_table.horizontalHeader().setStretchLastSection(True)
+        self.topics_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.topics_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         top_layout.addWidget(self.topics_table)
         btn_layout = QHBoxLayout()
         self.topic_add = QPushButton(self.tr("Add"))
@@ -254,15 +267,35 @@ class AdminDialog(QDialog):
         bottom_layout.addWidget(self.topic_lessons_assigned)
         splitter.addWidget(bottom)
 
+        materials_group = QWidget()
+        materials_layout = QHBoxLayout(materials_group)
+        self.topic_materials_label = QLabel(self.tr("Topic materials"))
+        materials_layout.addWidget(self.topic_materials_label)
+        self.topic_materials_available = QListWidget()
+        self.topic_materials_assigned = QListWidget()
+        materials_mid = QVBoxLayout()
+        self.topic_material_add = QPushButton(self.tr("Add ->"))
+        self.topic_material_remove = QPushButton(self.tr("<- Remove"))
+        materials_mid.addStretch(1)
+        materials_mid.addWidget(self.topic_material_add)
+        materials_mid.addWidget(self.topic_material_remove)
+        materials_mid.addStretch(1)
+        materials_layout.addWidget(self.topic_materials_available)
+        materials_layout.addLayout(materials_mid)
+        materials_layout.addWidget(self.topic_materials_assigned)
+
         wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
+        wrapper.addWidget(materials_group)
 
         self.topic_add.clicked.connect(self._add_topic)
         self.topic_edit.clicked.connect(self._edit_topic)
         self.topic_delete.clicked.connect(self._delete_topic)
-        self.topics_table.itemSelectionChanged.connect(self._refresh_topic_lessons)
+        self.topics_table.itemSelectionChanged.connect(self._on_topic_selection_changed)
         self.topic_lesson_add.clicked.connect(self._add_lesson_to_topic)
         self.topic_lesson_remove.clicked.connect(self._remove_lesson_from_topic)
+        self.topic_material_add.clicked.connect(self._add_material_to_topic)
+        self.topic_material_remove.clicked.connect(self._remove_material_from_topic)
         return tab
 
     def _build_lessons_tab(self) -> QWidget:
@@ -275,6 +308,8 @@ class AdminDialog(QDialog):
             [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
         )
         self.lessons_table.horizontalHeader().setStretchLastSection(True)
+        self.lessons_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.lessons_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         top_layout.addWidget(self.lessons_table)
         btn_layout = QHBoxLayout()
         self.lesson_add = QPushButton(self.tr("Add"))
@@ -305,15 +340,35 @@ class AdminDialog(QDialog):
         bottom_layout.addWidget(self.lesson_questions_assigned)
         splitter.addWidget(bottom)
 
+        materials_group = QWidget()
+        materials_layout = QHBoxLayout(materials_group)
+        self.lesson_materials_label = QLabel(self.tr("Lesson materials"))
+        materials_layout.addWidget(self.lesson_materials_label)
+        self.lesson_materials_available = QListWidget()
+        self.lesson_materials_assigned = QListWidget()
+        materials_mid = QVBoxLayout()
+        self.lesson_material_add = QPushButton(self.tr("Add ->"))
+        self.lesson_material_remove = QPushButton(self.tr("<- Remove"))
+        materials_mid.addStretch(1)
+        materials_mid.addWidget(self.lesson_material_add)
+        materials_mid.addWidget(self.lesson_material_remove)
+        materials_mid.addStretch(1)
+        materials_layout.addWidget(self.lesson_materials_available)
+        materials_layout.addLayout(materials_mid)
+        materials_layout.addWidget(self.lesson_materials_assigned)
+
         wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
+        wrapper.addWidget(materials_group)
 
         self.lesson_add.clicked.connect(self._add_lesson)
         self.lesson_edit.clicked.connect(self._edit_lesson)
         self.lesson_delete.clicked.connect(self._delete_lesson)
-        self.lessons_table.itemSelectionChanged.connect(self._refresh_lesson_questions)
+        self.lessons_table.itemSelectionChanged.connect(self._on_lesson_selection_changed)
         self.lesson_question_add.clicked.connect(self._add_question_to_lesson)
         self.lesson_question_remove.clicked.connect(self._remove_question_from_lesson)
+        self.lesson_material_add.clicked.connect(self._add_material_to_lesson)
+        self.lesson_material_remove.clicked.connect(self._remove_material_from_lesson)
         return tab
 
     def _build_lesson_types_tab(self) -> QWidget:
@@ -322,6 +377,8 @@ class AdminDialog(QDialog):
         self.lesson_types_table = QTableWidget(0, 1)
         self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name")])
         self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
+        self.lesson_types_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.lesson_types_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         layout.addWidget(self.lesson_types_table)
         btn_layout = QHBoxLayout()
         self.lesson_type_add = QPushButton(self.tr("Add"))
@@ -344,6 +401,8 @@ class AdminDialog(QDialog):
         self.questions_table = QTableWidget(0, 2)
         self.questions_table.setHorizontalHeaderLabels([self.tr("Question"), self.tr("Difficulty")])
         self.questions_table.horizontalHeader().setStretchLastSection(True)
+        self.questions_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.questions_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         layout.addWidget(self.questions_table)
         btn_layout = QHBoxLayout()
         self.question_add = QPushButton(self.tr("Add"))
@@ -366,12 +425,15 @@ class AdminDialog(QDialog):
         self.materials_table = QTableWidget(0, 3)
         self.materials_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Type"), self.tr("File")])
         self.materials_table.horizontalHeader().setStretchLastSection(True)
+        self.materials_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.materials_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         layout.addWidget(self.materials_table)
         btn_layout = QHBoxLayout()
         self.material_add = QPushButton(self.tr("Add"))
         self.material_edit = QPushButton(self.tr("Edit"))
         self.material_delete = QPushButton(self.tr("Delete"))
         self.material_attach = QPushButton(self.tr("Attach File"))
+        self.material_attach_existing = QPushButton(self.tr("Attach existing file"))
         self.material_open = QPushButton(self.tr("Open file"))
         self.material_show = QPushButton(self.tr("Show in folder"))
         self.material_copy = QPushButton(self.tr("Copy file as..."))
@@ -379,6 +441,7 @@ class AdminDialog(QDialog):
         btn_layout.addWidget(self.material_edit)
         btn_layout.addWidget(self.material_delete)
         btn_layout.addWidget(self.material_attach)
+        btn_layout.addWidget(self.material_attach_existing)
         btn_layout.addWidget(self.material_open)
         btn_layout.addWidget(self.material_show)
         btn_layout.addWidget(self.material_copy)
@@ -444,6 +507,39 @@ class AdminDialog(QDialog):
         self.material_open.clicked.connect(self._open_material_file)
         self.material_show.clicked.connect(self._show_material_folder)
         self.material_copy.clicked.connect(self._copy_material_file)
+        self.material_attach_existing.clicked.connect(self._attach_existing_material_file)
+        return tab
+
+    def _build_settings_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        storage_group = QWidget()
+        storage_layout = QHBoxLayout(storage_group)
+        self.materials_location_label = QLabel(self.tr("Materials location"))
+        self.materials_location = QLineEdit()
+        self.materials_location.setReadOnly(True)
+        self.materials_location_browse = QPushButton(self.tr("Change..."))
+        storage_layout.addWidget(self.materials_location_label)
+        storage_layout.addWidget(self.materials_location, 1)
+        storage_layout.addWidget(self.materials_location_browse)
+        layout.addWidget(storage_group)
+
+        db_group = QWidget()
+        db_layout = QHBoxLayout(db_group)
+        self.db_export = QPushButton(self.tr("Export database"))
+        self.db_import = QPushButton(self.tr("Import database"))
+        db_layout.addWidget(self.db_export)
+        db_layout.addWidget(self.db_import)
+        db_layout.addStretch(1)
+        layout.addWidget(db_group)
+        layout.addStretch(1)
+
+        self.materials_location_browse.clicked.connect(self._change_materials_location)
+        self.db_export.clicked.connect(self._export_database)
+        self.db_import.clicked.connect(self._import_database)
+
+        self._refresh_settings()
         return tab
 
     def _refresh_all(self) -> None:
@@ -492,12 +588,18 @@ class AdminDialog(QDialog):
         self._refresh_teachers()
 
     def _delete_teacher(self) -> None:
-        teacher = self._current_entity(self.teachers_table)
-        if not teacher:
+        teachers = self._selected_entities(self.teachers_table)
+        if not teachers:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected teacher?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected teacher?")
+            if len(teachers) == 1
+            else self.tr("Delete selected teacher?") + f" ({len(teachers)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_teacher(teacher.id)
+        for teacher in teachers:
+            self.controller.delete_teacher(teacher.id)
         self._refresh_teachers()
 
     # Programs
@@ -511,6 +613,13 @@ class AdminDialog(QDialog):
             self.programs_table.setItem(row, 2, QTableWidgetItem(str(program.duration_hours or "")))
             self.programs_table.item(row, 0).setData(Qt.UserRole, program)
         self._refresh_program_disciplines()
+
+    def _on_program_selection_changed(self) -> None:
+        self._refresh_program_disciplines()
+        self._refresh_disciplines()
+        self._refresh_topics()
+        self._refresh_lessons()
+        self._refresh_questions()
 
     def _add_program(self) -> None:
         dialog = ProgramDialog(parent=self)
@@ -534,12 +643,18 @@ class AdminDialog(QDialog):
         self._refresh_programs()
 
     def _delete_program(self) -> None:
-        program = self._current_entity(self.programs_table)
-        if not program:
+        programs = self._selected_entities(self.programs_table)
+        if not programs:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected program?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected program?")
+            if len(programs) == 1
+            else self.tr("Delete selected program?") + f" ({len(programs)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_program(program.id)
+        for program in programs:
+            self.controller.delete_program(program.id)
         self._refresh_programs()
 
     def _refresh_program_disciplines(self) -> None:
@@ -580,13 +695,19 @@ class AdminDialog(QDialog):
     # Disciplines
     def _refresh_disciplines(self) -> None:
         self.disciplines_table.setRowCount(0)
-        for discipline in self.controller.get_disciplines():
+        for discipline in self._filtered_disciplines():
             row = self.disciplines_table.rowCount()
             self.disciplines_table.insertRow(row)
             self.disciplines_table.setItem(row, 0, QTableWidgetItem(discipline.name))
             self.disciplines_table.setItem(row, 1, QTableWidgetItem(str(discipline.order_index)))
             self.disciplines_table.item(row, 0).setData(Qt.UserRole, discipline)
         self._refresh_discipline_topics()
+
+    def _on_discipline_selection_changed(self) -> None:
+        self._refresh_discipline_topics()
+        self._refresh_topics()
+        self._refresh_lessons()
+        self._refresh_questions()
 
     def _add_discipline(self) -> None:
         dialog = DisciplineDialog(parent=self)
@@ -610,12 +731,18 @@ class AdminDialog(QDialog):
         self._refresh_disciplines()
 
     def _delete_discipline(self) -> None:
-        discipline = self._current_entity(self.disciplines_table)
-        if not discipline:
+        disciplines = self._selected_entities(self.disciplines_table)
+        if not disciplines:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected discipline?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected discipline?")
+            if len(disciplines) == 1
+            else self.tr("Delete selected discipline?") + f" ({len(disciplines)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_discipline(discipline.id)
+        for discipline in disciplines:
+            self.controller.delete_discipline(discipline.id)
         self._refresh_disciplines()
 
     def _refresh_discipline_topics(self) -> None:
@@ -656,13 +783,20 @@ class AdminDialog(QDialog):
     # Topics
     def _refresh_topics(self) -> None:
         self.topics_table.setRowCount(0)
-        for topic in self.controller.get_topics():
+        for topic in self._filtered_topics():
             row = self.topics_table.rowCount()
             self.topics_table.insertRow(row)
             self.topics_table.setItem(row, 0, QTableWidgetItem(topic.title))
             self.topics_table.setItem(row, 1, QTableWidgetItem(str(topic.order_index)))
             self.topics_table.item(row, 0).setData(Qt.UserRole, topic)
         self._refresh_topic_lessons()
+        self._refresh_topic_materials()
+
+    def _on_topic_selection_changed(self) -> None:
+        self._refresh_topic_lessons()
+        self._refresh_topic_materials()
+        self._refresh_lessons()
+        self._refresh_questions()
 
     def _add_topic(self) -> None:
         dialog = TopicDialog(parent=self)
@@ -686,12 +820,18 @@ class AdminDialog(QDialog):
         self._refresh_topics()
 
     def _delete_topic(self) -> None:
-        topic = self._current_entity(self.topics_table)
-        if not topic:
+        topics = self._selected_entities(self.topics_table)
+        if not topics:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected topic?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected topic?")
+            if len(topics) == 1
+            else self.tr("Delete selected topic?") + f" ({len(topics)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_topic(topic.id)
+        for topic in topics:
+            self.controller.delete_topic(topic.id)
         self._refresh_topics()
 
     def _refresh_topic_lessons(self) -> None:
@@ -710,6 +850,7 @@ class AdminDialog(QDialog):
                 self.topic_lessons_assigned.addItem(item)
             else:
                 self.topic_lessons_available.addItem(item)
+        self._refresh_topic_materials()
 
     def _add_lesson_to_topic(self) -> None:
         topic = self._current_entity(self.topics_table)
@@ -729,10 +870,46 @@ class AdminDialog(QDialog):
         self.controller.remove_lesson_from_topic(topic.id, lesson.id)
         self._refresh_topic_lessons()
 
+    def _refresh_topic_materials(self) -> None:
+        self.topic_materials_assigned.clear()
+        self.topic_materials_available.clear()
+        topic = self._current_entity(self.topics_table)
+        if not topic:
+            return
+        materials = self.controller.get_materials()
+        assigned = self.controller.get_materials_for_entity("topic", topic.id)
+        assigned_ids = {m.id for m in assigned}
+        for material in materials:
+            label = material.title
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, material)
+            if material.id in assigned_ids:
+                self.topic_materials_assigned.addItem(item)
+            else:
+                self.topic_materials_available.addItem(item)
+
+    def _add_material_to_topic(self) -> None:
+        topic = self._current_entity(self.topics_table)
+        item = self.topic_materials_available.currentItem()
+        if not topic or not item:
+            return
+        material = item.data(Qt.UserRole)
+        self.controller.add_material_to_entity(material.id, "topic", topic.id)
+        self._refresh_topic_materials()
+
+    def _remove_material_from_topic(self) -> None:
+        topic = self._current_entity(self.topics_table)
+        item = self.topic_materials_assigned.currentItem()
+        if not topic or not item:
+            return
+        material = item.data(Qt.UserRole)
+        self.controller.remove_material_from_entity(material.id, "topic", topic.id)
+        self._refresh_topic_materials()
+
     # Lessons
     def _refresh_lessons(self) -> None:
         self.lessons_table.setRowCount(0)
-        for lesson in self.controller.get_lessons():
+        for lesson in self._filtered_lessons():
             row = self.lessons_table.rowCount()
             self.lessons_table.insertRow(row)
             self.lessons_table.setItem(row, 0, QTableWidgetItem(lesson.title))
@@ -741,6 +918,12 @@ class AdminDialog(QDialog):
             self.lessons_table.setItem(row, 3, QTableWidgetItem(str(lesson.order_index)))
             self.lessons_table.item(row, 0).setData(Qt.UserRole, lesson)
         self._refresh_lesson_questions()
+        self._refresh_lesson_materials()
+
+    def _on_lesson_selection_changed(self) -> None:
+        self._refresh_lesson_questions()
+        self._refresh_lesson_materials()
+        self._refresh_questions()
 
     def _add_lesson(self) -> None:
         dialog = LessonDialog(lesson_types=self.controller.get_lesson_types(), parent=self)
@@ -764,12 +947,18 @@ class AdminDialog(QDialog):
         self._refresh_lessons()
 
     def _delete_lesson(self) -> None:
-        lesson = self._current_entity(self.lessons_table)
-        if not lesson:
+        lessons = self._selected_entities(self.lessons_table)
+        if not lessons:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected lesson?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected lesson?")
+            if len(lessons) == 1
+            else self.tr("Delete selected lesson?") + f" ({len(lessons)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_lesson(lesson.id)
+        for lesson in lessons:
+            self.controller.delete_lesson(lesson.id)
         self._refresh_lessons()
 
     def _refresh_lesson_questions(self) -> None:
@@ -789,6 +978,7 @@ class AdminDialog(QDialog):
                 self.lesson_questions_assigned.addItem(item)
             else:
                 self.lesson_questions_available.addItem(item)
+        self._refresh_lesson_materials()
 
     def _add_question_to_lesson(self) -> None:
         lesson = self._current_entity(self.lessons_table)
@@ -807,6 +997,42 @@ class AdminDialog(QDialog):
         question = item.data(Qt.UserRole)
         self.controller.remove_question_from_lesson(lesson.id, question.id)
         self._refresh_lesson_questions()
+
+    def _refresh_lesson_materials(self) -> None:
+        self.lesson_materials_assigned.clear()
+        self.lesson_materials_available.clear()
+        lesson = self._current_entity(self.lessons_table)
+        if not lesson:
+            return
+        materials = self.controller.get_materials()
+        assigned = self.controller.get_materials_for_entity("lesson", lesson.id)
+        assigned_ids = {m.id for m in assigned}
+        for material in materials:
+            label = material.title
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, material)
+            if material.id in assigned_ids:
+                self.lesson_materials_assigned.addItem(item)
+            else:
+                self.lesson_materials_available.addItem(item)
+
+    def _add_material_to_lesson(self) -> None:
+        lesson = self._current_entity(self.lessons_table)
+        item = self.lesson_materials_available.currentItem()
+        if not lesson or not item:
+            return
+        material = item.data(Qt.UserRole)
+        self.controller.add_material_to_entity(material.id, "lesson", lesson.id)
+        self._refresh_lesson_materials()
+
+    def _remove_material_from_lesson(self) -> None:
+        lesson = self._current_entity(self.lessons_table)
+        item = self.lesson_materials_assigned.currentItem()
+        if not lesson or not item:
+            return
+        material = item.data(Qt.UserRole)
+        self.controller.remove_material_from_entity(material.id, "lesson", lesson.id)
+        self._refresh_lesson_materials()
 
     # Lesson types
     def _refresh_lesson_types(self) -> None:
@@ -841,25 +1067,102 @@ class AdminDialog(QDialog):
         self._refresh_lessons()
 
     def _delete_lesson_type(self) -> None:
-        lesson_type = self._current_entity(self.lesson_types_table)
-        if not lesson_type:
+        lesson_types = self._selected_entities(self.lesson_types_table)
+        if not lesson_types:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected lesson type?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected lesson type?")
+            if len(lesson_types) == 1
+            else self.tr("Delete selected lesson type?") + f" ({len(lesson_types)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_lesson_type(lesson_type.id)
+        for lesson_type in lesson_types:
+            self.controller.delete_lesson_type(lesson_type.id)
         self._refresh_lesson_types()
         self._refresh_lessons()
 
     # Questions
     def _refresh_questions(self) -> None:
         self.questions_table.setRowCount(0)
-        for question in self.controller.get_questions():
+        for question in self._filtered_questions():
             row = self.questions_table.rowCount()
             self.questions_table.insertRow(row)
             title = question.content if len(question.content) <= 80 else f"{question.content[:80]}..."
             self.questions_table.setItem(row, 0, QTableWidgetItem(title))
             self.questions_table.setItem(row, 1, QTableWidgetItem(str(question.difficulty_level)))
             self.questions_table.item(row, 0).setData(Qt.UserRole, question)
+
+    def _filtered_disciplines(self):
+        program = self._current_entity(self.programs_table)
+        if program:
+            return self.controller.get_program_disciplines(program.id)
+        return self.controller.get_disciplines()
+
+    def _filtered_topics(self):
+        discipline = self._current_entity(self.disciplines_table)
+        if discipline:
+            return self.controller.get_discipline_topics(discipline.id)
+        program = self._current_entity(self.programs_table)
+        if program:
+            return self.controller.get_program_topics(program.id)
+        return self.controller.get_topics()
+
+    def _filtered_lessons(self):
+        topic = self._current_entity(self.topics_table)
+        if topic:
+            return self.controller.get_topic_lessons(topic.id)
+        discipline = self._current_entity(self.disciplines_table)
+        if discipline:
+            topics = self.controller.get_discipline_topics(discipline.id)
+            return self._lessons_for_topics(topics)
+        program = self._current_entity(self.programs_table)
+        if program:
+            topics = self.controller.get_program_topics(program.id)
+            return self._lessons_for_topics(topics)
+        return self.controller.get_lessons()
+
+    def _filtered_questions(self):
+        lesson = self._current_entity(self.lessons_table)
+        if lesson:
+            return self.controller.get_lesson_questions(lesson.id)
+        topic = self._current_entity(self.topics_table)
+        if topic:
+            lessons = self.controller.get_topic_lessons(topic.id)
+            return self._questions_for_lessons(lessons)
+        discipline = self._current_entity(self.disciplines_table)
+        if discipline:
+            topics = self.controller.get_discipline_topics(discipline.id)
+            lessons = self._lessons_for_topics(topics)
+            return self._questions_for_lessons(lessons)
+        program = self._current_entity(self.programs_table)
+        if program:
+            topics = self.controller.get_program_topics(program.id)
+            lessons = self._lessons_for_topics(topics)
+            return self._questions_for_lessons(lessons)
+        return self.controller.get_questions()
+
+    def _lessons_for_topics(self, topics):
+        lessons = []
+        seen = set()
+        for topic in topics:
+            for lesson in self.controller.get_topic_lessons(topic.id):
+                if lesson.id in seen:
+                    continue
+                seen.add(lesson.id)
+                lessons.append(lesson)
+        return lessons
+
+    def _questions_for_lessons(self, lessons):
+        questions = []
+        seen = set()
+        for lesson in lessons:
+            for question in self.controller.get_lesson_questions(lesson.id):
+                if question.id in seen:
+                    continue
+                seen.add(question.id)
+                questions.append(question)
+        return questions
 
     def _add_question(self) -> None:
         dialog = QuestionDialog(parent=self)
@@ -883,12 +1186,18 @@ class AdminDialog(QDialog):
         self._refresh_questions()
 
     def _delete_question(self) -> None:
-        question = self._current_entity(self.questions_table)
-        if not question:
+        questions = self._selected_entities(self.questions_table)
+        if not questions:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected question?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected question?")
+            if len(questions) == 1
+            else self.tr("Delete selected question?") + f" ({len(questions)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_question(question.id)
+        for question in questions:
+            self.controller.delete_question(question.id)
         self._refresh_questions()
 
     # Materials
@@ -926,12 +1235,18 @@ class AdminDialog(QDialog):
         self._refresh_materials()
 
     def _delete_material(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
+        materials = self._selected_entities(self.materials_table)
+        if not materials:
             return
-        if QMessageBox.question(self, self.tr("Confirm"), self.tr("Delete selected material?")) != QMessageBox.Yes:
+        confirm_text = (
+            self.tr("Delete selected material?")
+            if len(materials) == 1
+            else self.tr("Delete selected material?") + f" ({len(materials)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
             return
-        self.controller.delete_material(material.id)
+        for material in materials:
+            self.controller.delete_material(material.id)
         self._refresh_materials()
 
     def _attach_material_file(self) -> None:
@@ -949,10 +1264,84 @@ class AdminDialog(QDialog):
         try:
             updated = self.controller.attach_material_file(material, path)
         except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            selection = self._prompt_material_location()
+            if not selection:
+                QMessageBox.warning(self, self.tr("Import error"), f"{exc}\n\n{self._database_diagnostics()}")
+                return
+            program_id, discipline_id = selection
+            try:
+                updated = self.controller.attach_material_file_with_context(
+                    material, path, program_id, discipline_id
+                )
+            except Exception as inner_exc:
+                QMessageBox.warning(self, self.tr("Import error"), f"{inner_exc}\n\n{self._database_diagnostics()}")
+                return
+        if updated:
+            self._refresh_materials()
+
+    def _attach_existing_material_file(self) -> None:
+        material = self._current_entity(self.materials_table)
+        if not material:
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Attach existing file"),
+            "",
+            self.tr("All files (*)"),
+        )
+        if not path:
+            return
+        try:
+            updated = self.controller.attach_existing_material_file(material, path)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), f"{exc}\n\n{self._database_diagnostics()}")
             return
         if updated:
             self._refresh_materials()
+
+    def _prompt_material_location(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Select material location"))
+        layout = QVBoxLayout(dialog)
+        form = QHBoxLayout()
+        program_label = QLabel(self.tr("Program"))
+        program_combo = QComboBox()
+        discipline_label = QLabel(self.tr("Discipline"))
+        discipline_combo = QComboBox()
+        form.addWidget(program_label)
+        form.addWidget(program_combo)
+        form.addWidget(discipline_label)
+        form.addWidget(discipline_combo)
+        layout.addLayout(form)
+
+        for program in self.controller.get_programs():
+            program_combo.addItem(program.name, program.id)
+
+        def refresh_disciplines():
+            discipline_combo.clear()
+            program_id = program_combo.currentData()
+            if program_id is None:
+                return
+            for discipline in self.controller.get_program_disciplines(program_id):
+                discipline_combo.addItem(discipline.name, discipline.id)
+
+        program_combo.currentIndexChanged.connect(refresh_disciplines)
+        refresh_disciplines()
+
+        buttons = QHBoxLayout()
+        ok_btn = QPushButton(self.tr("OK"))
+        cancel_btn = QPushButton(self.tr("Cancel"))
+        buttons.addStretch(1)
+        buttons.addWidget(ok_btn)
+        buttons.addWidget(cancel_btn)
+        layout.addLayout(buttons)
+
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+
+        if dialog.exec() != QDialog.Accepted:
+            return None
+        return program_combo.currentData(), discipline_combo.currentData()
 
     def _open_material_file(self) -> None:
         material = self._current_entity(self.materials_table)
@@ -994,6 +1383,24 @@ class AdminDialog(QDialog):
         if not self.file_storage.copy_file_as(material.relative_path, path):
             QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
 
+    def _database_diagnostics(self) -> str:
+        import sqlite3
+
+        path = self.controller.db.db_path
+        status = "unknown"
+        try:
+            con = sqlite3.connect(path)
+            rows = con.execute("PRAGMA integrity_check;").fetchall()
+            status = ", ".join(row[0] for row in rows)
+        except Exception as exc:
+            status = f"error: {exc}"
+        finally:
+            try:
+                con.close()
+            except Exception:
+                pass
+        return f"DB: {path}\nIntegrity: {status}"
+
     def _refresh_material_assignments(self) -> None:
         material = self._current_entity(self.materials_table)
         self.material_teachers_available.clear()
@@ -1020,6 +1427,73 @@ class AdminDialog(QDialog):
             self.material_assoc_assigned.addItem(item)
 
         self._refresh_material_associations()
+
+    def _refresh_settings(self) -> None:
+        self.materials_location.setText(str(self.file_storage.files_root))
+
+    def _change_materials_location(self) -> None:
+        path = QFileDialog.getExistingDirectory(
+            self,
+            self.tr("Select materials folder"),
+            str(self.file_storage.files_root),
+        )
+        if not path:
+            return
+        new_root = Path(path)
+        try:
+            self.file_storage.move_storage(self.controller.db, new_root)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        self._refresh_settings()
+
+    def _export_database(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export database"),
+            "education.db",
+            self.tr("Database (*.db);;All files (*)"),
+        )
+        if not path:
+            return
+        try:
+            from pathlib import Path as _Path
+            import shutil
+
+            shutil.copyfile(self.controller.db.db_path, _Path(path))
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        QMessageBox.information(self, self.tr("Export database"), self.tr("Database exported."))
+
+    def _import_database(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Import database"),
+            "",
+            self.tr("Database (*.db);;All files (*)"),
+        )
+        if not path:
+            return
+        if QMessageBox.question(
+            self,
+            self.tr("Confirm"),
+            self.tr("Replace the current database with the selected file?"),
+        ) != QMessageBox.Yes:
+            return
+        try:
+            from pathlib import Path as _Path
+            import shutil
+
+            shutil.copyfile(_Path(path), self.controller.db.db_path)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.tr("Import database"),
+            self.tr("Database imported. Restart the app."),
+        )
 
     def _refresh_material_associations(self) -> None:
         material = self._current_entity(self.materials_table)
@@ -1192,6 +1666,17 @@ class AdminDialog(QDialog):
             return None
         return item.data(Qt.UserRole)
 
+    def _selected_entities(self, table: QTableWidget):
+        entities = []
+        rows = {index.row() for index in table.selectionModel().selectedRows()}
+        for row in sorted(rows):
+            item = table.item(row, 0)
+            if item:
+                entity = item.data(Qt.UserRole)
+                if entity:
+                    entities.append(entity)
+        return entities
+
     def _translate_entity_type(self, entity_type: str) -> str:
         mapping = {
             "program": self.tr("Program"),
@@ -1229,6 +1714,7 @@ class AdminDialog(QDialog):
         self.tabs.setTabText(5, self.tr("Lesson types"))
         self.tabs.setTabText(6, self.tr("Questions"))
         self.tabs.setTabText(7, self.tr("Materials"))
+        self.tabs.setTabText(8, self.tr("Settings"))
 
         self.teachers_table.setHorizontalHeaderLabels(
             [
@@ -1276,6 +1762,9 @@ class AdminDialog(QDialog):
         self.topic_lesson_add.setText(self.tr("Add ->"))
         self.topic_lesson_remove.setText(self.tr("<- Remove"))
         self.topic_lesson_remove.setText(self.tr("<- Remove"))
+        self.topic_materials_label.setText(self.tr("Topic materials"))
+        self.topic_material_add.setText(self.tr("Add ->"))
+        self.topic_material_remove.setText(self.tr("<- Remove"))
 
         self.lesson_add.setText(self.tr("Add"))
         self.lesson_edit.setText(self.tr("Edit"))
@@ -1284,6 +1773,9 @@ class AdminDialog(QDialog):
         self.lesson_question_add.setText(self.tr("Add ->"))
         self.lesson_question_remove.setText(self.tr("<- Remove"))
         self.lesson_question_remove.setText(self.tr("<- Remove"))
+        self.lesson_materials_label.setText(self.tr("Lesson materials"))
+        self.lesson_material_add.setText(self.tr("Add ->"))
+        self.lesson_material_remove.setText(self.tr("<- Remove"))
 
         self.lesson_type_add.setText(self.tr("Add"))
         self.lesson_type_edit.setText(self.tr("Edit"))
@@ -1297,6 +1789,7 @@ class AdminDialog(QDialog):
         self.material_edit.setText(self.tr("Edit"))
         self.material_delete.setText(self.tr("Delete"))
         self.material_attach.setText(self.tr("Attach File"))
+        self.material_attach_existing.setText(self.tr("Attach existing file"))
         self.material_open.setText(self.tr("Open file"))
         self.material_show.setText(self.tr("Show in folder"))
         self.material_copy.setText(self.tr("Copy file as..."))
@@ -1317,3 +1810,8 @@ class AdminDialog(QDialog):
         self.material_assoc_type.setItemText(1, self.tr("Discipline"))
         self.material_assoc_type.setItemText(2, self.tr("Topic"))
         self.material_assoc_type.setItemText(3, self.tr("Lesson"))
+
+        self.materials_location_label.setText(self.tr("Materials location"))
+        self.materials_location_browse.setText(self.tr("Change..."))
+        self.db_export.setText(self.tr("Export database"))
+        self.db_import.setText(self.tr("Import database"))
