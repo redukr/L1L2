@@ -26,6 +26,8 @@ from PySide6.QtWidgets import (
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QStyle,
+    QAbstractScrollArea,
+    QMenu,
 )
 from PySide6.QtGui import QTextDocument
 from pathlib import Path
@@ -41,6 +43,7 @@ from ..ui.dialogs import (
     TopicDialog,
     LessonDialog,
     LessonTypeDialog,
+    MaterialTypeDialog,
     ImportCurriculumDialog,
     QuestionDialog,
     MaterialDialog,
@@ -82,13 +85,6 @@ class AdminDialog(QDialog):
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        self.menu_bar = QMenuBar()
-        import_menu = self.menu_bar.addMenu(self.tr("Import"))
-        self.import_curriculum_action = import_menu.addAction(self.tr("Import curriculum structure"))
-        self.import_teachers_action = import_menu.addAction(self.tr("Import teachers from DOCX"))
-        self.import_curriculum_action.triggered.connect(self._on_import_curriculum)
-        self.import_teachers_action.triggered.connect(self._on_import_teachers)
-        layout.setMenuBar(self.menu_bar)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
         self.tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
@@ -115,26 +111,34 @@ class AdminDialog(QDialog):
         self.teachers_table.horizontalHeader().setStretchLastSection(True)
         self.teachers_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.teachers_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.teachers_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.teachers_table.customContextMenuRequested.connect(
+            lambda pos: self._show_context_menu(self.teachers_table, pos, self._edit_teacher, self._delete_teacher)
+        )
         layout.addWidget(self.teachers_table)
         btn_layout = QHBoxLayout()
         self.teacher_add = QPushButton(self.tr("Add"))
         self.teacher_edit = QPushButton(self.tr("Edit"))
         self.teacher_delete = QPushButton(self.tr("Delete"))
+        self.teacher_import = QPushButton(self.tr("Import teachers from DOCX"))
         btn_layout.addWidget(self.teacher_add)
         btn_layout.addWidget(self.teacher_edit)
         btn_layout.addWidget(self.teacher_delete)
+        btn_layout.addWidget(self.teacher_import)
         btn_layout.addStretch(1)
         layout.addLayout(btn_layout)
 
         self.teacher_add.clicked.connect(self._add_teacher)
         self.teacher_edit.clicked.connect(self._edit_teacher)
         self.teacher_delete.clicked.connect(self._delete_teacher)
+        self.teacher_import.clicked.connect(self._on_import_teachers)
         return tab
 
     def _apply_word_wrap(self) -> None:
         table_names = [
             "teachers_table",
             "lesson_types_table",
+            "material_types_table",
             "materials_table",
             "questions_table",
             "lessons_table",
@@ -202,7 +206,7 @@ class AdminDialog(QDialog):
                 table.resizeRowsToContents()
         tree = getattr(self, "structure_tree", None)
         if tree:
-            tree.doItemsLayout()
+            self._resize_structure_tree()
         for name in [
             "program_disciplines_assigned",
             "program_disciplines_available",
@@ -233,6 +237,9 @@ class AdminDialog(QDialog):
         self.structure_tree.setHeaderLabels([self.tr("Structure")])
         self.structure_tree.header().setSectionResizeMode(QHeaderView.Stretch)
         self.structure_tree.setItemDelegateForColumn(0, _WrapItemDelegate(self.structure_tree))
+        self.structure_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        self.structure_tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.structure_tree.customContextMenuRequested.connect(self._show_structure_context_menu)
         self.structure_tree.itemSelectionChanged.connect(self._on_structure_selection_changed)
         splitter.addWidget(self.structure_tree)
 
@@ -250,6 +257,7 @@ class AdminDialog(QDialog):
         self.structure_add_topic = QPushButton(self.tr("Add topic"))
         self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
         self.structure_add_question = QPushButton(self.tr("Add question"))
+        self.structure_import = QPushButton(self.tr("Import curriculum structure"))
         self.structure_edit = QPushButton(self.tr("Edit"))
         self.structure_delete = QPushButton(self.tr("Delete"))
         btn_row.addWidget(self.structure_add_program)
@@ -257,10 +265,45 @@ class AdminDialog(QDialog):
         btn_row.addWidget(self.structure_add_topic)
         btn_row.addWidget(self.structure_add_lesson)
         btn_row.addWidget(self.structure_add_question)
+        btn_row.addWidget(self.structure_import)
         btn_row.addWidget(self.structure_edit)
         btn_row.addWidget(self.structure_delete)
         btn_row.addStretch(1)
         details_layout.addLayout(btn_row)
+
+        materials_group = QWidget()
+        materials_layout = QVBoxLayout(materials_group)
+        self.materials_table = QTableWidget(0, 4)
+        self.materials_table.setHorizontalHeaderLabels(
+            [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
+        )
+        self.materials_table.horizontalHeader().setStretchLastSection(True)
+        self.materials_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.materials_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.materials_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.materials_table.customContextMenuRequested.connect(
+            lambda pos: self._show_context_menu(self.materials_table, pos, self._edit_material, self._delete_material)
+        )
+        materials_layout.addWidget(self.materials_table)
+
+        materials_btns = QHBoxLayout()
+        self.material_add = QPushButton(self.tr("Add"))
+        self.material_edit = QPushButton(self.tr("Edit"))
+        self.material_delete = QPushButton(self.tr("Delete"))
+        self.material_open = QPushButton(self.tr("Open file"))
+        self.material_show = QPushButton(self.tr("Show in folder"))
+        self.material_copy = QPushButton(self.tr("Copy file as..."))
+        materials_btns.addWidget(self.material_add)
+        materials_btns.addWidget(self.material_edit)
+        materials_btns.addWidget(self.material_delete)
+        materials_btns.addWidget(self.material_open)
+        materials_btns.addWidget(self.material_show)
+        materials_btns.addWidget(self.material_copy)
+        materials_btns.addStretch(1)
+        materials_layout.addLayout(materials_btns)
+
+        details_layout.addWidget(QLabel(self.tr("Lesson materials")))
+        details_layout.addWidget(materials_group)
         details_layout.addStretch(1)
         splitter.addWidget(details)
         splitter.setStretchFactor(0, 2)
@@ -274,8 +317,15 @@ class AdminDialog(QDialog):
         self.structure_add_topic.clicked.connect(self._add_structure_topic)
         self.structure_add_lesson.clicked.connect(self._add_structure_lesson)
         self.structure_add_question.clicked.connect(self._add_structure_question)
+        self.structure_import.clicked.connect(self._on_import_curriculum)
         self.structure_edit.clicked.connect(self._edit_structure_selected)
         self.structure_delete.clicked.connect(self._delete_structure_selected)
+        self.material_add.clicked.connect(self._add_material)
+        self.material_edit.clicked.connect(self._edit_material)
+        self.material_delete.clicked.connect(self._delete_material)
+        self.material_open.clicked.connect(self._open_material_file)
+        self.material_show.clicked.connect(self._show_material_folder)
+        self.material_copy.clicked.connect(self._copy_material_file)
         return tab
 
     def _build_programs_tab(self) -> QWidget:
@@ -532,6 +582,12 @@ class AdminDialog(QDialog):
         self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
         self.lesson_types_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.lesson_types_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.lesson_types_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lesson_types_table.customContextMenuRequested.connect(
+            lambda pos: self._show_context_menu(
+                self.lesson_types_table, pos, self._edit_lesson_type, self._delete_lesson_type
+            )
+        )
         layout.addWidget(self.lesson_types_table)
         btn_layout = QHBoxLayout()
         self.lesson_type_add = QPushButton(self.tr("Add"))
@@ -575,92 +631,33 @@ class AdminDialog(QDialog):
     def _build_materials_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.materials_table = QTableWidget(0, 3)
-        self.materials_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Type"), self.tr("File")])
-        self.materials_table.horizontalHeader().setStretchLastSection(True)
-        self.materials_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.materials_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        layout.addWidget(self.materials_table)
+        self.material_types_table = QTableWidget(0, 1)
+        self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
+        self.material_types_table.horizontalHeader().setStretchLastSection(True)
+        self.material_types_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.material_types_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.material_types_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.material_types_table.customContextMenuRequested.connect(
+            lambda pos: self._show_context_menu(
+                self.material_types_table, pos, self._edit_material_type, self._delete_material_type
+            )
+        )
+        layout.addWidget(self.material_types_table)
         btn_layout = QHBoxLayout()
-        self.material_add = QPushButton(self.tr("Add"))
-        self.material_edit = QPushButton(self.tr("Edit"))
-        self.material_delete = QPushButton(self.tr("Delete"))
-        self.material_attach = QPushButton(self.tr("Attach File"))
-        self.material_attach_existing = QPushButton(self.tr("Attach existing file"))
-        self.material_open = QPushButton(self.tr("Open file"))
-        self.material_show = QPushButton(self.tr("Show in folder"))
-        self.material_copy = QPushButton(self.tr("Copy file as..."))
-        btn_layout.addWidget(self.material_add)
-        btn_layout.addWidget(self.material_edit)
-        btn_layout.addWidget(self.material_delete)
-        btn_layout.addWidget(self.material_attach)
-        btn_layout.addWidget(self.material_attach_existing)
-        btn_layout.addWidget(self.material_open)
-        btn_layout.addWidget(self.material_show)
-        btn_layout.addWidget(self.material_copy)
+        self.material_type_add = QPushButton(self.tr("Add"))
+        self.material_type_edit = QPushButton(self.tr("Edit"))
+        self.material_type_delete = QPushButton(self.tr("Delete"))
+        btn_layout.addWidget(self.material_type_add)
+        btn_layout.addWidget(self.material_type_edit)
+        btn_layout.addWidget(self.material_type_delete)
         btn_layout.addStretch(1)
         layout.addLayout(btn_layout)
 
-        assignment_layout = QHBoxLayout()
-        teacher_group = QVBoxLayout()
-        self.material_teachers_label = QLabel(self.tr("Material teachers"))
-        teacher_group.addWidget(self.material_teachers_label)
-        self.material_teachers_available = QListWidget()
-        self.material_teachers_assigned = QListWidget()
-        teacher_btns = QHBoxLayout()
-        self.material_teacher_add = QPushButton(self.tr("Add ->"))
-        self.material_teacher_remove = QPushButton(self.tr("<- Remove"))
-        teacher_btns.addWidget(self.material_teacher_add)
-        teacher_btns.addWidget(self.material_teacher_remove)
-        self.material_teachers_available_label = QLabel(self.tr("Available"))
-        teacher_group.addWidget(self.material_teachers_available_label)
-        teacher_group.addWidget(self.material_teachers_available)
-        teacher_group.addLayout(teacher_btns)
-        self.material_teachers_assigned_label = QLabel(self.tr("Assigned"))
-        teacher_group.addWidget(self.material_teachers_assigned_label)
-        teacher_group.addWidget(self.material_teachers_assigned)
-        assignment_layout.addLayout(teacher_group)
+        self.material_type_add.clicked.connect(self._add_material_type)
+        self.material_type_edit.clicked.connect(self._edit_material_type)
+        self.material_type_delete.clicked.connect(self._delete_material_type)
 
-        association_group = QVBoxLayout()
-        self.material_associations_label = QLabel(self.tr("Associations"))
-        association_group.addWidget(self.material_associations_label)
-        self.material_assoc_type = QComboBox()
-        self.material_assoc_type.addItem(self.tr("Program"), "program")
-        self.material_assoc_type.addItem(self.tr("Discipline"), "discipline")
-        self.material_assoc_type.addItem(self.tr("Topic"), "topic")
-        self.material_assoc_type.addItem(self.tr("Lesson"), "lesson")
-        self.material_assoc_available = QListWidget()
-        self.material_assoc_assigned = QListWidget()
-        assoc_btns = QHBoxLayout()
-        self.material_assoc_add = QPushButton(self.tr("Link ->"))
-        self.material_assoc_remove = QPushButton(self.tr("<- Unlink"))
-        assoc_btns.addWidget(self.material_assoc_add)
-        assoc_btns.addWidget(self.material_assoc_remove)
-        association_group.addWidget(self.material_assoc_type)
-        self.material_assoc_available_label = QLabel(self.tr("Available"))
-        association_group.addWidget(self.material_assoc_available_label)
-        association_group.addWidget(self.material_assoc_available)
-        association_group.addLayout(assoc_btns)
-        self.material_assoc_linked_label = QLabel(self.tr("Linked"))
-        association_group.addWidget(self.material_assoc_linked_label)
-        association_group.addWidget(self.material_assoc_assigned)
-        assignment_layout.addLayout(association_group)
-        layout.addLayout(assignment_layout)
-
-        self.material_add.clicked.connect(self._add_material)
-        self.material_edit.clicked.connect(self._edit_material)
-        self.material_delete.clicked.connect(self._delete_material)
-        self.material_attach.clicked.connect(self._attach_material_file)
-        self.materials_table.itemSelectionChanged.connect(self._refresh_material_assignments)
-        self.material_teacher_add.clicked.connect(self._add_teacher_to_material)
-        self.material_teacher_remove.clicked.connect(self._remove_teacher_from_material)
-        self.material_assoc_type.currentTextChanged.connect(self._refresh_material_associations)
-        self.material_assoc_add.clicked.connect(self._link_material_association)
-        self.material_assoc_remove.clicked.connect(self._unlink_material_association)
-        self.material_open.clicked.connect(self._open_material_file)
-        self.material_show.clicked.connect(self._show_material_folder)
-        self.material_copy.clicked.connect(self._copy_material_file)
-        self.material_attach_existing.clicked.connect(self._attach_existing_material_file)
+        self._refresh_material_types()
         return tab
 
     def _build_settings_tab(self) -> QWidget:
@@ -691,8 +688,10 @@ class AdminDialog(QDialog):
         user_settings_layout = QHBoxLayout(user_settings_group)
         self.user_settings_export = QPushButton(self.tr("Export user settings"))
         self.user_settings_import = QPushButton(self.tr("Import user settings"))
+        self.user_settings_save = QPushButton(self.tr("Save user settings"))
         user_settings_layout.addWidget(self.user_settings_export)
         user_settings_layout.addWidget(self.user_settings_import)
+        user_settings_layout.addWidget(self.user_settings_save)
         user_settings_layout.addStretch(1)
         layout.addWidget(user_settings_group)
         layout.addStretch(1)
@@ -702,6 +701,7 @@ class AdminDialog(QDialog):
         self.db_import.clicked.connect(self._import_database)
         self.user_settings_export.clicked.connect(self._export_user_settings)
         self.user_settings_import.clicked.connect(self._import_user_settings)
+        self.user_settings_save.clicked.connect(self._save_user_settings)
 
         self._refresh_settings()
         return tab
@@ -709,7 +709,7 @@ class AdminDialog(QDialog):
     def _refresh_all(self) -> None:
         self._refresh_teachers()
         self._refresh_lesson_types()
-        self._refresh_materials()
+        self._refresh_material_types()
         self._refresh_structure_tree()
 
     # Teachers
@@ -796,6 +796,7 @@ class AdminDialog(QDialog):
                             question_item.setData(0, Qt.UserRole + 1, "question")
                             lesson_item.addChild(question_item)
             program_item.setExpanded(True)
+        self._resize_structure_tree()
 
     def _on_structure_selection_changed(self) -> None:
         entity = self._current_structure_entity()
@@ -810,6 +811,13 @@ class AdminDialog(QDialog):
         self.structure_title.setText(title)
         self.structure_details.setText(details)
         self._set_structure_buttons_for_type(entity_type)
+        self._refresh_materials()
+        self._resize_structure_tree()
+
+    def _resize_structure_tree(self) -> None:
+        self.structure_tree.doItemsLayout()
+        self.structure_tree.expandAll()
+        self.structure_tree.doItemsLayout()
 
     def _set_structure_buttons(self, enabled_program: bool) -> None:
         self.structure_add_program.setEnabled(enabled_program)
@@ -838,6 +846,24 @@ class AdminDialog(QDialog):
         if not entity or not entity_type:
             return None
         return entity_type, entity
+
+    def _current_structure_lesson(self):
+        selection = self._current_structure_entity()
+        if not selection:
+            return None
+        entity_type, entity = selection
+        return entity if entity_type == "lesson" else None
+
+    def _set_material_buttons_enabled(self, enabled: bool) -> None:
+        for button in [
+            self.material_add,
+            self.material_edit,
+            self.material_delete,
+            self.material_open,
+            self.material_show,
+            self.material_copy,
+        ]:
+            button.setEnabled(enabled)
 
     def _structure_title(self, entity_type: str, entity) -> str:
         if entity_type == "program":
@@ -1593,35 +1619,82 @@ class AdminDialog(QDialog):
     # Materials
     def _refresh_materials(self) -> None:
         self.materials_table.setRowCount(0)
-        for material in self.controller.get_materials():
+        lesson = self._current_structure_lesson()
+        self._set_material_buttons_enabled(bool(lesson))
+        if not lesson:
+            return
+        for material in self.controller.get_materials_for_entity("lesson", lesson.id):
             row = self.materials_table.rowCount()
             self.materials_table.insertRow(row)
             self.materials_table.setItem(row, 0, QTableWidgetItem(material.title))
             self.materials_table.setItem(row, 1, QTableWidgetItem(self._translate_material_type(material.material_type)))
             filename = material.original_filename or material.file_name or ""
             self.materials_table.setItem(row, 2, QTableWidgetItem(filename))
+            authors = ", ".join(t.full_name for t in material.teachers) if material.teachers else ""
+            self.materials_table.setItem(row, 3, QTableWidgetItem(authors))
             self.materials_table.item(row, 0).setData(Qt.UserRole, material)
-        self._refresh_material_assignments()
 
     def _add_material(self) -> None:
-        dialog = MaterialDialog(parent=self)
+        lesson = self._current_structure_lesson()
+        if not lesson:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a lesson first."))
+            return
+        dialog = MaterialDialog(
+            parent=self,
+            material_types=self.controller.get_material_types(),
+            teachers=self.controller.get_teachers(),
+        )
         if dialog.exec() != QDialog.Accepted:
             return
         material = dialog.get_material()
         if not material.title:
             QMessageBox.warning(self, self.tr("Validation"), self.tr("Material title is required."))
             return
-        self.controller.add_material(material)
+        material = self.controller.add_material(material)
+        self.controller.add_material_to_entity(material.id, "lesson", lesson.id)
+        for teacher_id in dialog.get_selected_teacher_ids():
+            self.controller.add_teacher_to_material(teacher_id, material.id)
+        attach_path = dialog.get_attachment_path()
+        existing_path = dialog.get_existing_attachment_path()
+        try:
+            if attach_path:
+                self.controller.attach_material_file(material, attach_path)
+            elif existing_path:
+                self.controller.attach_existing_material_file(material, existing_path)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
         self._refresh_materials()
 
     def _edit_material(self) -> None:
         material = self._current_entity(self.materials_table)
         if not material:
             return
-        dialog = MaterialDialog(material, self)
+        selected_teacher_ids = [teacher.id for teacher in material.teachers if teacher.id is not None]
+        dialog = MaterialDialog(
+            material,
+            material_types=self.controller.get_material_types(),
+            teachers=self.controller.get_teachers(),
+            selected_teacher_ids=selected_teacher_ids,
+            parent=self,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
         self.controller.update_material(dialog.get_material())
+        new_teacher_ids = set(dialog.get_selected_teacher_ids())
+        old_teacher_ids = {teacher.id for teacher in material.teachers if teacher.id is not None}
+        for teacher_id in new_teacher_ids - old_teacher_ids:
+            self.controller.add_teacher_to_material(teacher_id, material.id)
+        for teacher_id in old_teacher_ids - new_teacher_ids:
+            self.controller.remove_teacher_from_material(teacher_id, material.id)
+        attach_path = dialog.get_attachment_path()
+        existing_path = dialog.get_existing_attachment_path()
+        try:
+            if attach_path:
+                self.controller.attach_material_file(material, attach_path)
+            elif existing_path:
+                self.controller.attach_existing_material_file(material, existing_path)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
         self._refresh_materials()
 
     def _delete_material(self) -> None:
@@ -1638,6 +1711,52 @@ class AdminDialog(QDialog):
         for material in materials:
             self.controller.delete_material(material.id)
         self._refresh_materials()
+
+    def _refresh_material_types(self) -> None:
+        if not hasattr(self, "material_types_table"):
+            return
+        self.material_types_table.setRowCount(0)
+        for material_type in self.controller.get_material_types():
+            row = self.material_types_table.rowCount()
+            self.material_types_table.insertRow(row)
+            self.material_types_table.setItem(row, 0, QTableWidgetItem(material_type.name))
+            self.material_types_table.item(row, 0).setData(Qt.UserRole, material_type)
+
+    def _add_material_type(self) -> None:
+        dialog = MaterialTypeDialog(parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        material_type = dialog.get_material_type()
+        if not material_type.name:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Name is required."))
+            return
+        self.controller.add_material_type(material_type)
+        self._refresh_material_types()
+
+    def _edit_material_type(self) -> None:
+        material_type = self._current_entity(self.material_types_table)
+        if not material_type:
+            return
+        dialog = MaterialTypeDialog(material_type, self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        self.controller.update_material_type(dialog.get_material_type())
+        self._refresh_material_types()
+
+    def _delete_material_type(self) -> None:
+        material_types = self._selected_entities(self.material_types_table)
+        if not material_types:
+            return
+        confirm_text = (
+            self.tr("Delete selected material type?")
+            if len(material_types) == 1
+            else self.tr("Delete selected material type?") + f" ({len(material_types)})"
+        )
+        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
+            return
+        for material_type in material_types:
+            self.controller.delete_material_type(material_type.id)
+        self._refresh_material_types()
 
     def _attach_material_file(self) -> None:
         material = self._current_entity(self.materials_table)
@@ -1932,6 +2051,14 @@ class AdminDialog(QDialog):
             self.tr("User settings imported. Restart the app."),
         )
 
+    def _save_user_settings(self) -> None:
+        try:
+            self.settings.sync()
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        QMessageBox.information(self, self.tr("Save user settings"), self.tr("User settings saved."))
+
     def _serialize_settings(self, settings: QSettings) -> str:
         import base64
         import json
@@ -2164,14 +2291,36 @@ class AdminDialog(QDialog):
         }
         return mapping.get(material_type or "", material_type or "")
 
+    def _show_context_menu(self, table: QTableWidget, pos, on_edit, on_delete) -> None:  # noqa: ANN001
+        item = table.itemAt(pos)
+        if not item:
+            return
+        table.selectRow(item.row())
+        menu = QMenu(table)
+        edit_action = menu.addAction(self.tr("Edit"))
+        delete_action = menu.addAction(self.tr("Delete"))
+        action = menu.exec(table.viewport().mapToGlobal(pos))
+        if action == edit_action:
+            on_edit()
+        elif action == delete_action:
+            on_delete()
+
+    def _show_structure_context_menu(self, pos) -> None:  # noqa: ANN001
+        item = self.structure_tree.itemAt(pos)
+        if not item:
+            return
+        self.structure_tree.setCurrentItem(item)
+        menu = QMenu(self.structure_tree)
+        edit_action = menu.addAction(self.tr("Edit"))
+        delete_action = menu.addAction(self.tr("Delete"))
+        action = menu.exec(self.structure_tree.viewport().mapToGlobal(pos))
+        if action == edit_action:
+            self._edit_structure_selected()
+        elif action == delete_action:
+            self._delete_structure_selected()
+
     def retranslate_ui(self, *_args) -> None:
         self.setWindowTitle(self.tr("Admin Panel"))
-        self.menu_bar.clear()
-        import_menu = self.menu_bar.addMenu(self.tr("Import"))
-        self.import_curriculum_action = import_menu.addAction(self.tr("Import curriculum structure"))
-        self.import_curriculum_action.triggered.connect(self._on_import_curriculum)
-        self.import_teachers_action = import_menu.addAction(self.tr("Import teachers from DOCX"))
-        self.import_teachers_action.triggered.connect(self._on_import_teachers)
         self.tabs.setTabText(0, self.tr("Structure"))
         self.tabs.setTabText(1, self.tr("Materials"))
         self.tabs.setTabText(2, self.tr("Lesson types"))
@@ -2183,6 +2332,7 @@ class AdminDialog(QDialog):
         self.structure_add_topic.setText(self.tr("Add topic"))
         self.structure_add_lesson.setText(self.tr("Add lesson"))
         self.structure_add_question.setText(self.tr("Add question"))
+        self.structure_import.setText(self.tr("Import curriculum structure"))
         self.structure_edit.setText(self.tr("Edit"))
         self.structure_delete.setText(self.tr("Delete"))
 
@@ -2204,11 +2354,14 @@ class AdminDialog(QDialog):
         )
         self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name")])
         self.questions_table.setHorizontalHeaderLabels([self.tr("Question"), self.tr("Difficulty")])
-        self.materials_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Type"), self.tr("File")])
+        self.materials_table.setHorizontalHeaderLabels(
+            [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
+        )
 
         self.teacher_add.setText(self.tr("Add"))
         self.teacher_edit.setText(self.tr("Edit"))
         self.teacher_delete.setText(self.tr("Delete"))
+        self.teacher_import.setText(self.tr("Import teachers from DOCX"))
         self.program_add.setText(self.tr("Add"))
         self.program_edit.setText(self.tr("Edit"))
         self.program_delete.setText(self.tr("Delete"))
@@ -2258,33 +2411,22 @@ class AdminDialog(QDialog):
         self.material_add.setText(self.tr("Add"))
         self.material_edit.setText(self.tr("Edit"))
         self.material_delete.setText(self.tr("Delete"))
-        self.material_attach.setText(self.tr("Attach File"))
-        self.material_attach_existing.setText(self.tr("Attach existing file"))
         self.material_open.setText(self.tr("Open file"))
         self.material_show.setText(self.tr("Show in folder"))
         self.material_copy.setText(self.tr("Copy file as..."))
-        self.material_teachers_label.setText(self.tr("Material teachers"))
-        self.material_teachers_available_label.setText(self.tr("Available"))
-        self.material_teachers_assigned_label.setText(self.tr("Assigned"))
-        self.material_teacher_add.setText(self.tr("Add ->"))
-        self.material_teacher_remove.setText(self.tr("<- Remove"))
-        self.material_teacher_remove.setText(self.tr("<- Remove"))
-        self.material_associations_label.setText(self.tr("Associations"))
-        self.material_assoc_available_label.setText(self.tr("Available"))
-        self.material_assoc_linked_label.setText(self.tr("Linked"))
-        self.material_assoc_add.setText(self.tr("Link ->"))
-        self.material_assoc_remove.setText(self.tr("<- Unlink"))
-        self.material_assoc_remove.setText(self.tr("<- Unlink"))
-
-        self.material_assoc_type.setItemText(0, self.tr("Program"))
-        self.material_assoc_type.setItemText(1, self.tr("Discipline"))
-        self.material_assoc_type.setItemText(2, self.tr("Topic"))
-        self.material_assoc_type.setItemText(3, self.tr("Lesson"))
+        if hasattr(self, "material_types_table"):
+            self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
+            self.material_type_add.setText(self.tr("Add"))
+            self.material_type_edit.setText(self.tr("Edit"))
+            self.material_type_delete.setText(self.tr("Delete"))
 
         self.materials_location_label.setText(self.tr("Materials location"))
         self.materials_location_browse.setText(self.tr("Change..."))
         self.db_export.setText(self.tr("Export database"))
         self.db_import.setText(self.tr("Import database"))
+        self.user_settings_export.setText(self.tr("Export user settings"))
+        self.user_settings_import.setText(self.tr("Import user settings"))
+        self.user_settings_save.setText(self.tr("Save user settings"))
 
 
 class _WrapItemDelegate(QStyledItemDelegate):
@@ -2311,7 +2453,7 @@ class _WrapItemDelegate(QStyledItemDelegate):
         doc.setDefaultFont(opt.font)
         doc.setTextWidth(width)
         doc.setPlainText(opt.text)
-        height = max(int(doc.size().height()) + 6, opt.fontMetrics.height() + 6)
+        height = max(int(doc.size().height()) + opt.fontMetrics.leading() + 10, opt.fontMetrics.height() + 10)
         return QSize(int(opt.rect.width()), height)
 
     def paint(self, painter, option, index):  # noqa: ANN001

@@ -1,5 +1,6 @@
 """Dialog windows for CRUD operations."""
 from typing import Optional
+from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -19,8 +20,21 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QMessageBox,
     QPushButton,
+    QListWidget,
+    QListWidgetItem,
+    QAbstractItemView,
 )
-from ..models.entities import Teacher, EducationalProgram, Discipline, Topic, Lesson, LessonType, Question, MethodicalMaterial
+from ..models.entities import (
+    Teacher,
+    EducationalProgram,
+    Discipline,
+    Topic,
+    Lesson,
+    LessonType,
+    MaterialType,
+    Question,
+    MethodicalMaterial,
+)
 from ..services.import_service import extract_text_from_file, parse_curriculum_text, CurriculumTopic
 
 
@@ -294,16 +308,28 @@ class QuestionDialog(QDialog):
 class MaterialDialog(QDialog):
     """Dialog for creating or editing a material."""
 
-    def __init__(self, material: Optional[MethodicalMaterial] = None, parent=None):
+    def __init__(
+        self,
+        material: Optional[MethodicalMaterial] = None,
+        material_types=None,
+        teachers: Optional[list[Teacher]] = None,
+        selected_teacher_ids: Optional[list[int]] = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Methodical Material"))
         self._material = material
+        self._teachers = teachers or []
+        self._selected_teacher_ids = set(selected_teacher_ids or [])
         layout = QFormLayout(self)
         self.title = QLineEdit(material.title if material else "")
         self.material_type = QComboBox()
-        self._material_types = ["plan", "guide", "presentation", "attachment"]
+        self._material_types = material_types or []
         for material_type in self._material_types:
-            self.material_type.addItem(self.tr(material_type), material_type)
+            if isinstance(material_type, MaterialType):
+                self.material_type.addItem(material_type.name, material_type.name)
+            else:
+                self.material_type.addItem(self.tr(str(material_type)), str(material_type))
         if material:
             idx = self.material_type.findData(material.material_type)
             if idx >= 0:
@@ -312,14 +338,36 @@ class MaterialDialog(QDialog):
         filename = material.original_filename if material and material.original_filename else (material.file_name if material else "")
         self.file_name = QLineEdit(filename)
         self.file_name.setReadOnly(True)
+        self._attach_path = None
+        self._attach_existing_path = None
+        self.teacher_list = QListWidget()
+        self.teacher_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        for teacher in self._teachers:
+            label = teacher.full_name
+            if teacher.military_rank:
+                label = f"{teacher.military_rank} {label}"
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, teacher)
+            if teacher.id in self._selected_teacher_ids:
+                item.setSelected(True)
+            self.teacher_list.addItem(item)
+        attach_row = QHBoxLayout()
+        self.attach_file = QPushButton(self.tr("Attach File"))
+        self.attach_existing_file = QPushButton(self.tr("Attach existing file"))
+        attach_row.addWidget(self.attach_file)
+        attach_row.addWidget(self.attach_existing_file)
         layout.addRow(self.tr("Title"), self.title)
         layout.addRow(self.tr("Type"), self.material_type)
         layout.addRow(self.tr("Description"), self.description)
+        layout.addRow(self.tr("Authors"), self.teacher_list)
         layout.addRow(self.tr("Attached file"), self.file_name)
+        layout.addRow("", attach_row)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+        self.attach_file.clicked.connect(self._on_attach_file)
+        self.attach_existing_file.clicked.connect(self._on_attach_existing_file)
 
     def get_material(self) -> MethodicalMaterial:
         material = self._material or MethodicalMaterial()
@@ -327,6 +375,67 @@ class MaterialDialog(QDialog):
         material.material_type = self.material_type.currentData()
         material.description = self.description.toPlainText().strip() or None
         return material
+
+    def get_attachment_path(self) -> Optional[str]:
+        return self._attach_path
+
+    def get_existing_attachment_path(self) -> Optional[str]:
+        return self._attach_existing_path
+
+    def get_selected_teacher_ids(self) -> list[int]:
+        teacher_ids = []
+        for item in self.teacher_list.selectedItems():
+            teacher = item.data(Qt.UserRole)
+            if teacher and teacher.id is not None:
+                teacher_ids.append(teacher.id)
+        return teacher_ids
+
+    def _on_attach_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Attach File"),
+            "",
+            self.tr("All files (*)"),
+        )
+        if not path:
+            return
+        self._attach_path = path
+        self._attach_existing_path = None
+        self.file_name.setText(Path(path).name)
+
+    def _on_attach_existing_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Attach existing file"),
+            "",
+            self.tr("All files (*)"),
+        )
+        if not path:
+            return
+        self._attach_existing_path = path
+        self._attach_path = None
+        self.file_name.setText(Path(path).name)
+
+
+class MaterialTypeDialog(QDialog):
+    """Dialog for creating or editing a material type."""
+
+    def __init__(self, material_type: Optional[MaterialType] = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Material type"))
+        self._material_type = material_type
+        layout = QFormLayout(self)
+        self.name = QLineEdit(material_type.name if material_type else "")
+        layout.addRow(self.tr("Name"), self.name)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_material_type(self) -> MaterialType:
+        material_type = self._material_type or MaterialType()
+        material_type.name = self.name.text().strip()
+        return material_type
 
 
 class ImportPreviewDialog(QDialog):

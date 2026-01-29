@@ -90,6 +90,7 @@
     <message><source>Difficulty</source><translation>Складність</translation></message>
     <message><source>Type</source><translation>Тип</translation></message>
     <message><source>File</source><translation>Файл</translation></message>
+    <message><source>Authors</source><translation>Автори</translation></message>
     <message><source>Attach File</source><translation>Прикріпити файл</translation></message>
     <message><source>Attach existing file</source><translation>Прикріпити наявний файл</translation></message>
     <message><source>Open file</source><translation>Відкрити файл</translation></message>
@@ -176,6 +177,11 @@
     <message><source>User settings exported.</source><translation>Налаштування користувача експортовано.</translation></message>
     <message><source>Replace the current user settings with the selected file?</source><translation>Замінити поточні налаштування користувача вибраним файлом?</translation></message>
     <message><source>User settings imported. Restart the app.</source><translation>Налаштування користувача імпортовано. Перезапустіть застосунок.</translation></message>
+    <message><source>Save user settings</source><translation>Зберегти налаштування</translation></message>
+    <message><source>User settings saved.</source><translation>Налаштування збережено.</translation></message>
+    <message><source>Material type</source><translation>Тип матеріалу</translation></message>
+    <message><source>Delete selected material type?</source><translation>Видалити вибраний тип матеріалу?</translation></message>
+    <message><source>Lesson materials</source><translation>Матеріали заняття</translation></message>
   </context>
   <context>
     <name>PasswordDialog</name>
@@ -239,6 +245,7 @@
     <message><source>Title</source><translation>Назва</translation></message>
     <message><source>Type</source><translation>Тип</translation></message>
     <message><source>Description</source><translation>Опис</translation></message>
+    <message><source>Authors</source><translation>Автори</translation></message>
     <message><source>Attached file</source><translation>Прикріплений файл</translation></message>
     <message><source>plan</source><translation>план</translation></message>
     <message><source>guide</source><translation>методичний посібник</translation></message>

@@ -118,3 +118,12 @@ class LessonType:
     name: str = ""
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+@dataclass
+class MaterialType:
+    """Represents a material type."""
+    id: Optional[int] = None
+    name: str = ""
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

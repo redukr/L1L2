@@ -81,6 +81,11 @@
     <message><source>User settings exported.</source><translation>User settings exported.</translation></message>
     <message><source>Replace the current user settings with the selected file?</source><translation>Replace the current user settings with the selected file?</translation></message>
     <message><source>User settings imported. Restart the app.</source><translation>User settings imported. Restart the app.</translation></message>
+    <message><source>Save user settings</source><translation>Save user settings</translation></message>
+    <message><source>User settings saved.</source><translation>User settings saved.</translation></message>
+    <message><source>Material type</source><translation>Material type</translation></message>
+    <message><source>Delete selected material type?</source><translation>Delete selected material type?</translation></message>
+    <message><source>Lesson materials</source><translation>Lesson materials</translation></message>
   </context>
   <context>
     <name>AdminDialog</name>
@@ -115,6 +120,7 @@
     <message><source>Difficulty</source><translation>Difficulty</translation></message>
     <message><source>Type</source><translation>Type</translation></message>
     <message><source>File</source><translation>File</translation></message>
+    <message><source>Authors</source><translation>Authors</translation></message>
     <message><source>Attach File</source><translation>Attach File</translation></message>
     <message><source>Material teachers</source><translation>Material teachers</translation></message>
     <message><source>Available</source><translation>Available</translation></message>
@@ -209,6 +215,7 @@
     <message><source>Title</source><translation>Title</translation></message>
     <message><source>Type</source><translation>Type</translation></message>
     <message><source>Description</source><translation>Description</translation></message>
+    <message><source>Authors</source><translation>Authors</translation></message>
     <message><source>Attached file</source><translation>Attached file</translation></message>
     <message><source>plan</source><translation>plan</translation></message>
     <message><source>guide</source><translation>guide</translation></message>

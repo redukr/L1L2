@@ -8,6 +8,7 @@ from ..models.entities import (
     Topic,
     Lesson,
     LessonType,
+    MaterialType,
     Question,
     MethodicalMaterial,
 )
@@ -19,6 +20,7 @@ from ..repositories.lesson_repository import LessonRepository
 from ..repositories.lesson_type_repository import LessonTypeRepository
 from ..repositories.question_repository import QuestionRepository
 from ..repositories.material_repository import MaterialRepository
+from ..repositories.material_type_repository import MaterialTypeRepository
 from ..services.file_storage import FileStorageManager
 from ..services.auth_service import AuthService
 
@@ -36,6 +38,7 @@ class AdminController:
         self.lesson_type_repo = LessonTypeRepository(database)
         self.question_repo = QuestionRepository(database)
         self.material_repo = MaterialRepository(database)
+        self.material_type_repo = MaterialTypeRepository(database)
         self.file_storage = FileStorageManager()
         self.auth_service = AuthService()
 
@@ -196,6 +199,19 @@ class AdminController:
         if material and material.relative_path:
             self.file_storage.delete_file(material.relative_path)
         return self.material_repo.delete(material_id)
+
+    # Material types
+    def get_material_types(self) -> List[MaterialType]:
+        return self.material_type_repo.get_all()
+
+    def add_material_type(self, material_type: MaterialType) -> MaterialType:
+        return self.material_type_repo.add(material_type)
+
+    def update_material_type(self, material_type: MaterialType) -> MaterialType:
+        return self.material_type_repo.update(material_type)
+
+    def delete_material_type(self, material_type_id: int) -> bool:
+        return self.material_type_repo.delete(material_type_id)
 
     def attach_material_file(self, material: MethodicalMaterial, source_path: str) -> MethodicalMaterial:
         associations = self.material_repo.get_material_associations(material.id)

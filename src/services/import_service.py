@@ -79,6 +79,10 @@ def parse_curriculum_text(text: str) -> List[CurriculumTopic]:
     current_topic: Optional[CurriculumTopic] = None
     lesson_auto_index = 1
 
+    lesson_type_idx = 1
+    hours_idx_candidates = [3, 4]
+    questions_idx = 5
+
     for row in rows[header_idx + 1:]:
         if _is_summary_row(row):
             continue
@@ -101,18 +105,52 @@ def parse_curriculum_text(text: str) -> List[CurriculumTopic]:
             lesson_number = lesson_auto_index
         lesson_auto_index = lesson_number + 1
 
-        lesson_type_name = _detect_lesson_type(lesson_title)
+        self_study_title, self_study_questions = _find_self_study_block(
+            row,
+            start_idx=(col_map["lesson"] + 1) if col_map["lesson"] is not None else 0,
+            skip_indices={
+                col_map.get("lesson_type"),
+                col_map.get("total_hours"),
+                col_map.get("classroom_hours"),
+                col_map.get("self_study_hours"),
+            },
+        )
 
-        total_hours = _parse_number(_cell(row, col_map["total_hours"]))
+        lesson_type_name = None
+        lesson_type_cell = _cell(row, lesson_type_idx)
+        questions_cell = _cell(row, questions_idx)
+
+        # Self-study or questions are always in column 6.
+        self_study_title, self_study_questions = _parse_self_study_cell(questions_cell)
+
+        if self_study_title or self_study_questions or "заняття" not in lesson_title.lower():
+            lesson_type_name = "Самостійна робота"
+            if self_study_title and self_study_title not in lesson_title:
+                if _lesson_title_has_only_number(lesson_title):
+                    lesson_title = _normalize_text(f"{lesson_title} {self_study_title}")
+                elif "заняття" not in lesson_title.lower():
+                    lesson_title = _normalize_text(self_study_title)
+        else:
+            lesson_type_name = _normalize_text(lesson_type_cell) if lesson_type_cell else None
+            if not lesson_type_name:
+                lesson_type_name = _detect_lesson_type(lesson_title)
+
+        total_hours = None
+        for idx in hours_idx_candidates:
+            total_hours = _parse_number(_cell(row, idx))
+            if total_hours is not None:
+                break
         classroom_hours = _parse_number(_cell(row, col_map["classroom_hours"]))
         self_study_hours = _parse_number(_cell(row, col_map["self_study_hours"]))
 
         if total_hours is None and classroom_hours is not None and self_study_hours is not None:
             total_hours = classroom_hours + self_study_hours
 
-        questions_text = _cell(row, col_map["questions"])
-        if questions_text:
-            lesson_questions.extend(_parse_questions_block(questions_text))
+        if self_study_questions:
+            lesson_questions.extend(self_study_questions)
+        elif questions_cell:
+            lesson_questions.extend(_parse_questions_block(questions_cell))
+        # Questions are always listed under the lesson block (after first line)
 
         lesson = CurriculumLesson(
             number=lesson_number,
@@ -469,6 +507,7 @@ def _map_columns(headers: List[str]) -> Dict[str, Optional[int]]:
     col_map = {
         "topic": None,
         "lesson": None,
+        "lesson_type": None,
         "total_hours": None,
         "classroom_hours": None,
         "self_study_hours": None,
@@ -479,6 +518,8 @@ def _map_columns(headers: List[str]) -> Dict[str, Optional[int]]:
             col_map["topic"] = idx
         elif "заняття" in header:
             col_map["lesson"] = idx
+        elif "тип" in header and "занят" in header:
+            col_map["lesson_type"] = idx
         elif "всього" in header or "усього" in header or "заг" in header:
             col_map["total_hours"] = idx
         elif "аудитор" in header or "лекц" in header or "практ" in header:
@@ -565,9 +606,24 @@ def _parse_lesson_cell(text: str) -> Tuple[Optional[int], str, List[CurriculumQu
             number = int(num_match.group(1))
             title = first_line
 
-    questions = []
-    if len(lines) > 1:
-        questions.extend(_parse_questions_block("\n".join(lines[1:])))
+    questions: List[CurriculumQuestion] = []
+    questions_started = False
+    for line in lines[1:]:
+        line = line.strip()
+        if not line:
+            continue
+        # Questions always start from numbered items (usually "1." or "1)")
+        match = re.match(r"(\d+)[).]\s*(.+)", line)
+        if match and (match.group(1) == "1" or questions_started):
+            questions_started = True
+            # Support multiple questions in one line once questions have started
+            questions.extend(_parse_questions_block(line))
+            continue
+        if questions_started:
+            # Ignore non-numbered trailing lines after questions started
+            continue
+        # Otherwise treat line as a continuation of the lesson title
+        title = _normalize_text(f"{title} {line}")
     return number, title, questions
 
 
@@ -590,6 +646,42 @@ def _parse_questions_block(text: str) -> List[CurriculumQuestion]:
             num = int(match.group(1))
             questions.append(CurriculumQuestion(number=num, text=_normalize_text(f"{num}. {match.group(2)}")))
     return questions
+
+
+def _find_self_study_block(
+    row: List[str],
+    start_idx: int,
+    skip_indices: Optional[set] = None,
+) -> Tuple[Optional[str], List[CurriculumQuestion]]:
+    skip = {idx for idx in (skip_indices or set()) if idx is not None}
+    for idx in range(start_idx, len(row)):
+        if idx in skip:
+            continue
+        cell = row[idx].strip() if idx < len(row) else ""
+        if not cell:
+            continue
+        title, questions = _parse_self_study_cell(cell)
+        if title or questions:
+            return title, questions
+    return None, []
+
+
+def _parse_self_study_cell(text: str) -> Tuple[Optional[str], List[CurriculumQuestion]]:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return None, []
+    title = lines[0]
+    if re.match(r"\d+[).]\s*", title):
+        return None, []
+    questions = _parse_questions_block("\n".join(lines[1:]))
+    if not questions:
+        return None, []
+    return _normalize_text(title), questions
+
+
+def _lesson_title_has_only_number(title: str) -> bool:
+    match = re.match(r"(?i)заняття\s*\d+\.?\s*$", title.strip())
+    return bool(match)
 
 
 def _prepare_freeform_text(text: str) -> str:

@@ -150,13 +150,22 @@ class Database:
                 )
             """)
 
+            # Material types table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS material_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             # Methodical Materials table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS methodical_materials (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT NOT NULL,
-                    material_type TEXT NOT NULL CHECK(material_type IN 
-                        ('plan', 'guide', 'presentation', 'attachment')),
+                    material_type TEXT NOT NULL,
                     description TEXT,
                     original_filename TEXT,
                     stored_filename TEXT,
@@ -392,6 +401,11 @@ class Database:
         if current_version < 6:
             self._migrate_to_material_storage(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (6)")
+            current_version = 6
+
+        if current_version < 7:
+            self._migrate_to_material_types(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (7)")
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -567,6 +581,59 @@ class Database:
             cursor.execute("ALTER TABLE methodical_materials ADD COLUMN relative_path TEXT")
         if "file_type" not in columns:
             cursor.execute("ALTER TABLE methodical_materials ADD COLUMN file_type TEXT")
+
+    def _migrate_to_material_types(self, cursor) -> None:
+        """Introduce material types table and remove strict type check."""
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS material_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Seed defaults
+        defaults = ["plan", "guide", "presentation", "attachment"]
+        for name in defaults:
+            cursor.execute("INSERT OR IGNORE INTO material_types (name) VALUES (?)", (name,))
+
+        # Capture existing distinct types
+        cursor.execute("SELECT DISTINCT material_type FROM methodical_materials")
+        for row in cursor.fetchall():
+            if row["material_type"]:
+                cursor.execute("INSERT OR IGNORE INTO material_types (name) VALUES (?)", (row["material_type"],))
+
+        # Rebuild methodical_materials without CHECK constraint
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS methodical_materials_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                material_type TEXT NOT NULL,
+                description TEXT,
+                original_filename TEXT,
+                stored_filename TEXT,
+                relative_path TEXT,
+                file_type TEXT,
+                file_path TEXT,
+                file_name TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO methodical_materials_new (
+                id, title, material_type, description, original_filename,
+                stored_filename, relative_path, file_type, file_path, file_name,
+                created_at, updated_at
+            )
+            SELECT id, title, material_type, description, original_filename,
+                   stored_filename, relative_path, file_type, file_path, file_name,
+                   created_at, updated_at
+            FROM methodical_materials
+        """)
+        cursor.execute("DROP TABLE methodical_materials")
+        cursor.execute("ALTER TABLE methodical_materials_new RENAME TO methodical_materials")
 
     def rebuild_materials_fts(self) -> None:
         """Rebuild materials FTS index (repairs malformed FTS tables)."""
