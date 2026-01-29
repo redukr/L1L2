@@ -44,6 +44,43 @@
     <message><source>guide</source><translation>guide</translation></message>
     <message><source>presentation</source><translation>presentation</translation></message>
     <message><source>attachment</source><translation>attachment</translation></message>
+    <message><source>Structure</source><translation>Structure</translation></message>
+    <message><source>Settings</source><translation>Settings</translation></message>
+    <message><source>Lesson types</source><translation>Lesson types</translation></message>
+    <message><source>Topic materials</source><translation>Topic materials</translation></message>
+    <message><source>Lesson materials</source><translation>Lesson materials</translation></message>
+    <message><source>Attach existing file</source><translation>Attach existing file</translation></message>
+    <message><source>Open file</source><translation>Open file</translation></message>
+    <message><source>Show in folder</source><translation>Show in folder</translation></message>
+    <message><source>Copy file as...</source><translation>Copy file as...</translation></message>
+    <message><source>Materials location</source><translation>Materials location</translation></message>
+    <message><source>Change...</source><translation>Change...</translation></message>
+    <message><source>Export database</source><translation>Export database</translation></message>
+    <message><source>Import database</source><translation>Import database</translation></message>
+    <message><source>Select material location</source><translation>Select material location</translation></message>
+    <message><source>OK</source><translation>OK</translation></message>
+    <message><source>Cancel</source><translation>Cancel</translation></message>
+    <message><source>Select materials folder</source><translation>Select materials folder</translation></message>
+    <message><source>Database (*.db);;All files (*)</source><translation>Database (*.db);;All files (*)</translation></message>
+    <message><source>Database exported.</source><translation>Database exported.</translation></message>
+    <message><source>Replace the current database with the selected file?</source><translation>Replace the current database with the selected file?</translation></message>
+    <message><source>Database imported. Restart the app.</source><translation>Database imported. Restart the app.</translation></message>
+    <message><source>File is missing in storage.</source><translation>File is missing in storage.</translation></message>
+    <message><source>Add program</source><translation>Add program</translation></message>
+    <message><source>Add discipline</source><translation>Add discipline</translation></message>
+    <message><source>Add topic</source><translation>Add topic</translation></message>
+    <message><source>Add lesson</source><translation>Add lesson</translation></message>
+    <message><source>Add question</source><translation>Add question</translation></message>
+    <message><source>Select an item</source><translation>Select an item</translation></message>
+    <message><source>Select a program first.</source><translation>Select a program first.</translation></message>
+    <message><source>Select a discipline first.</source><translation>Select a discipline first.</translation></message>
+    <message><source>Delete selected item?</source><translation>Delete selected item?</translation></message>
+    <message><source>Export user settings</source><translation>Export user settings</translation></message>
+    <message><source>Import user settings</source><translation>Import user settings</translation></message>
+    <message><source>Settings (*.json);;All files (*)</source><translation>Settings (*.json);;All files (*)</translation></message>
+    <message><source>User settings exported.</source><translation>User settings exported.</translation></message>
+    <message><source>Replace the current user settings with the selected file?</source><translation>Replace the current user settings with the selected file?</translation></message>
+    <message><source>User settings imported. Restart the app.</source><translation>User settings imported. Restart the app.</translation></message>
   </context>
   <context>
     <name>AdminDialog</name>

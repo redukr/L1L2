@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QComboBox,
     QFileDialog,
+    QHeaderView,
 )
 from PySide6.QtGui import QFont
 from ..controllers.main_controller import MainController
@@ -44,6 +45,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.tr("Educational Program Manager"))
         self.resize(1200, 720)
         self._build_ui()
+        self._apply_word_wrap()
         self._load_programs()
         self._load_settings()
         self.i18n.language_changed.connect(self._on_language_changed)
@@ -104,6 +106,7 @@ class MainWindow(QMainWindow):
 
         self.details = QPlainTextEdit()
         self.details.setReadOnly(True)
+        self.details.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         self.details_label = QLabel(self.tr("Details"))
         right_layout.addWidget(self._wrap_with_label(self.details, self.details_label))
 
@@ -136,6 +139,25 @@ class MainWindow(QMainWindow):
         self.copy_material_button.clicked.connect(self._on_copy_material)
         self.language_combo.currentIndexChanged.connect(self._on_language_combo_changed)
         self.font_combo.currentTextChanged.connect(self._on_font_size_changed)
+
+    def _apply_word_wrap(self) -> None:
+        self.program_list.setWordWrap(True)
+        self.program_list.setTextElideMode(Qt.ElideNone)
+        self.materials_list.setWordWrap(True)
+        self.materials_list.setTextElideMode(Qt.ElideNone)
+        self.content_tree.setWordWrap(True)
+        self.content_tree.setUniformRowHeights(False)
+        self.content_tree.setTextElideMode(Qt.ElideNone)
+        self.search_results.setWordWrap(True)
+        self.search_results.setTextElideMode(Qt.ElideNone)
+        self.search_results.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.search_results.resizeRowsToContents()
+        self.content_tree.doItemsLayout()
+        self.program_list.doItemsLayout()
+        self.materials_list.doItemsLayout()
 
     def _wrap_with_label(self, widget: QWidget, label: QLabel) -> QWidget:
         wrapper = QWidget()
@@ -298,6 +320,7 @@ class MainWindow(QMainWindow):
             self.search_results.setItem(row, 1, QTableWidgetItem(result.title))
             self.search_results.setItem(row, 2, QTableWidgetItem(description))
             self.search_results.item(row, 0).setData(Qt.UserRole, result)
+        self.search_results.resizeRowsToContents()
 
     def _on_search_result_activated(self, row: int, _column: int) -> None:
         result_item = self.search_results.item(row, 0)
@@ -333,7 +356,7 @@ class MainWindow(QMainWindow):
             self._show_details(details)
 
     def _on_open_admin(self) -> None:
-        dialog = AdminDialog(self.controller.db, self.i18n, self)
+        dialog = AdminDialog(self.controller.db, self.i18n, self.settings, self)
         dialog.exec()
         # Always refresh after admin dialog closes to sync UI state.
         self._load_programs()
@@ -466,6 +489,10 @@ class MainWindow(QMainWindow):
     def _build_search_context(self, result) -> str:
         navigation = self.controller.resolve_search_navigation(result)
         parts = []
+        if navigation.get("program_id"):
+            program = self.controller.program_repo.get_by_id(navigation["program_id"])
+            if program:
+                parts.append(f"{self.tr('Program')}: {program.name}")
         if navigation.get("discipline_id"):
             discipline = self.controller.discipline_repo.get_by_id(navigation["discipline_id"])
             if discipline:

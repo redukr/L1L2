@@ -144,7 +144,7 @@ def _parse_freeform_curriculum(text: str) -> List[CurriculumTopic]:
 
         topic_match = re.match(r"тема\s*(\d+)\.?\s*(.+)", line, flags=re.IGNORECASE)
         if topic_match:
-            title = _normalize_text(topic_match.group(2))
+            title = _normalize_text(line)
             current_topic = CurriculumTopic(title=title)
             topics.append(current_topic)
             current_lesson = None
@@ -485,7 +485,7 @@ def _map_columns(headers: List[str]) -> Dict[str, Optional[int]]:
             col_map["classroom_hours"] = idx
         elif "самост" in header:
             col_map["self_study_hours"] = idx
-        elif "пит" in header:
+        elif re.search(r"\bпитан(ня|ь)\b", header):
             col_map["questions"] = idx
     return col_map
 
@@ -558,12 +558,12 @@ def _parse_lesson_cell(text: str) -> Tuple[Optional[int], str, List[CurriculumQu
     match = re.search(r"заняття\s*(\d+)\.?\s*(.*)", first_line, flags=re.IGNORECASE)
     if match:
         number = int(match.group(1))
-        title = match.group(2).strip() or first_line
+        title = first_line
     else:
         num_match = re.match(r"(\d+)[).]\s*(.*)", first_line)
         if num_match:
             number = int(num_match.group(1))
-            title = num_match.group(2).strip() or first_line
+            title = first_line
 
     questions = []
     if len(lines) > 1:
@@ -580,13 +580,15 @@ def _parse_questions_block(text: str) -> List[CurriculumQuestion]:
         matches = list(re.finditer(r"(\d+)[).]\s*([^\\n]+?)(?=(\d+[).]|$))", line))
         if matches:
             for match in matches:
+                num = int(match.group(1))
                 questions.append(
-                    CurriculumQuestion(number=int(match.group(1)), text=_normalize_text(match.group(2)))
+                    CurriculumQuestion(number=num, text=_normalize_text(f"{num}. {match.group(2)}"))
                 )
             continue
         match = re.match(r"(\d+)[).]\s*(.+)", line)
         if match:
-            questions.append(CurriculumQuestion(number=int(match.group(1)), text=_normalize_text(match.group(2))))
+            num = int(match.group(1))
+            questions.append(CurriculumQuestion(number=num, text=_normalize_text(f"{num}. {match.group(2)}")))
     return questions
 
 

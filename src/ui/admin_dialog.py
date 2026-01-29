@@ -1,5 +1,5 @@
 """Admin management dialog."""
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings, QByteArray, QSize, QRect
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -20,11 +20,19 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QLineEdit,
     QDialog,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QHeaderView,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QStyle,
 )
+from PySide6.QtGui import QTextDocument
 from pathlib import Path
 from ..controllers.admin_controller import AdminController
 from ..models.database import Database
 from ..services.i18n import I18nManager
+from ..services.app_paths import get_settings_dir
 from ..ui.dialogs import (
     PasswordDialog,
     TeacherDialog,
@@ -48,10 +56,11 @@ from ..services.file_storage import FileStorageManager
 class AdminDialog(QDialog):
     """Admin dialog with CRUD and association management."""
 
-    def __init__(self, database: Database, i18n: I18nManager, parent=None):
+    def __init__(self, database: Database, i18n: I18nManager, settings: QSettings, parent=None):
         super().__init__(parent)
         self.controller = AdminController(database)
         self.i18n = i18n
+        self.settings = settings
         self.file_storage = FileStorageManager()
         self.setWindowTitle(self.tr("Admin Panel"))
         self.resize(1200, 760)
@@ -82,15 +91,12 @@ class AdminDialog(QDialog):
         layout.setMenuBar(self.menu_bar)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
-        self.tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
-        self.tabs.addTab(self._build_programs_tab(), self.tr("Programs"))
-        self.tabs.addTab(self._build_disciplines_tab(), self.tr("Disciplines"))
-        self.tabs.addTab(self._build_topics_tab(), self.tr("Topics"))
-        self.tabs.addTab(self._build_lessons_tab(), self.tr("Lessons"))
-        self.tabs.addTab(self._build_lesson_types_tab(), self.tr("Lesson types"))
-        self.tabs.addTab(self._build_questions_tab(), self.tr("Questions"))
+        self.tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
         self.tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
+        self.tabs.addTab(self._build_lesson_types_tab(), self.tr("Lesson types"))
+        self.tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
         self.tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
+        self._apply_word_wrap()
 
     def _build_teachers_tab(self) -> QWidget:
         tab = QWidget()
@@ -123,6 +129,153 @@ class AdminDialog(QDialog):
         self.teacher_add.clicked.connect(self._add_teacher)
         self.teacher_edit.clicked.connect(self._edit_teacher)
         self.teacher_delete.clicked.connect(self._delete_teacher)
+        return tab
+
+    def _apply_word_wrap(self) -> None:
+        table_names = [
+            "teachers_table",
+            "lesson_types_table",
+            "materials_table",
+            "questions_table",
+            "lessons_table",
+            "topics_table",
+            "disciplines_table",
+            "programs_table",
+        ]
+        list_names = [
+            "program_disciplines_assigned",
+            "program_disciplines_available",
+            "discipline_topics_available",
+            "discipline_topics_assigned",
+            "topic_lessons_available",
+            "topic_lessons_assigned",
+            "topic_materials_available",
+            "topic_materials_assigned",
+            "lesson_questions_available",
+            "lesson_questions_assigned",
+            "lesson_materials_available",
+            "lesson_materials_assigned",
+            "material_teachers_available",
+            "material_teachers_assigned",
+            "material_assoc_available",
+            "material_assoc_assigned",
+        ]
+        tree_names = ["structure_tree"]
+
+        for name in table_names:
+            table = getattr(self, name, None)
+            if not table:
+                continue
+            table.setWordWrap(True)
+            table.setTextElideMode(Qt.ElideNone)
+            table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        for name in list_names:
+            widget = getattr(self, name, None)
+            if not widget:
+                continue
+            widget.setWordWrap(True)
+            widget.setTextElideMode(Qt.ElideNone)
+
+        for name in tree_names:
+            tree = getattr(self, name, None)
+            if not tree:
+                continue
+            tree.setWordWrap(True)
+            tree.setUniformRowHeights(False)
+            tree.setTextElideMode(Qt.ElideNone)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        for name in [
+            "teachers_table",
+            "lesson_types_table",
+            "materials_table",
+            "questions_table",
+            "lessons_table",
+            "topics_table",
+            "disciplines_table",
+            "programs_table",
+        ]:
+            table = getattr(self, name, None)
+            if table:
+                table.resizeRowsToContents()
+        tree = getattr(self, "structure_tree", None)
+        if tree:
+            tree.doItemsLayout()
+        for name in [
+            "program_disciplines_assigned",
+            "program_disciplines_available",
+            "discipline_topics_available",
+            "discipline_topics_assigned",
+            "topic_lessons_available",
+            "topic_lessons_assigned",
+            "topic_materials_available",
+            "topic_materials_assigned",
+            "lesson_questions_available",
+            "lesson_questions_assigned",
+            "lesson_materials_available",
+            "lesson_materials_assigned",
+            "material_teachers_available",
+            "material_teachers_assigned",
+            "material_assoc_available",
+            "material_assoc_assigned",
+        ]:
+            widget = getattr(self, name, None)
+            if widget:
+                widget.doItemsLayout()
+
+    def _build_structure_tab(self) -> QWidget:
+        tab = QWidget()
+        splitter = QSplitter(Qt.Horizontal)
+
+        self.structure_tree = QTreeWidget()
+        self.structure_tree.setHeaderLabels([self.tr("Structure")])
+        self.structure_tree.header().setSectionResizeMode(QHeaderView.Stretch)
+        self.structure_tree.setItemDelegateForColumn(0, _WrapItemDelegate(self.structure_tree))
+        self.structure_tree.itemSelectionChanged.connect(self._on_structure_selection_changed)
+        splitter.addWidget(self.structure_tree)
+
+        details = QWidget()
+        details_layout = QVBoxLayout(details)
+        self.structure_title = QLabel(self.tr("Select an item"))
+        self.structure_details = QLabel("")
+        self.structure_details.setWordWrap(True)
+        details_layout.addWidget(self.structure_title)
+        details_layout.addWidget(self.structure_details)
+
+        btn_row = QHBoxLayout()
+        self.structure_add_program = QPushButton(self.tr("Add program"))
+        self.structure_add_discipline = QPushButton(self.tr("Add discipline"))
+        self.structure_add_topic = QPushButton(self.tr("Add topic"))
+        self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
+        self.structure_add_question = QPushButton(self.tr("Add question"))
+        self.structure_edit = QPushButton(self.tr("Edit"))
+        self.structure_delete = QPushButton(self.tr("Delete"))
+        btn_row.addWidget(self.structure_add_program)
+        btn_row.addWidget(self.structure_add_discipline)
+        btn_row.addWidget(self.structure_add_topic)
+        btn_row.addWidget(self.structure_add_lesson)
+        btn_row.addWidget(self.structure_add_question)
+        btn_row.addWidget(self.structure_edit)
+        btn_row.addWidget(self.structure_delete)
+        btn_row.addStretch(1)
+        details_layout.addLayout(btn_row)
+        details_layout.addStretch(1)
+        splitter.addWidget(details)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+
+        layout = QVBoxLayout(tab)
+        layout.addWidget(splitter)
+
+        self.structure_add_program.clicked.connect(self._add_structure_program)
+        self.structure_add_discipline.clicked.connect(self._add_structure_discipline)
+        self.structure_add_topic.clicked.connect(self._add_structure_topic)
+        self.structure_add_lesson.clicked.connect(self._add_structure_lesson)
+        self.structure_add_question.clicked.connect(self._add_structure_question)
+        self.structure_edit.clicked.connect(self._edit_structure_selected)
+        self.structure_delete.clicked.connect(self._delete_structure_selected)
         return tab
 
     def _build_programs_tab(self) -> QWidget:
@@ -533,24 +686,31 @@ class AdminDialog(QDialog):
         db_layout.addWidget(self.db_import)
         db_layout.addStretch(1)
         layout.addWidget(db_group)
+
+        user_settings_group = QWidget()
+        user_settings_layout = QHBoxLayout(user_settings_group)
+        self.user_settings_export = QPushButton(self.tr("Export user settings"))
+        self.user_settings_import = QPushButton(self.tr("Import user settings"))
+        user_settings_layout.addWidget(self.user_settings_export)
+        user_settings_layout.addWidget(self.user_settings_import)
+        user_settings_layout.addStretch(1)
+        layout.addWidget(user_settings_group)
         layout.addStretch(1)
 
         self.materials_location_browse.clicked.connect(self._change_materials_location)
         self.db_export.clicked.connect(self._export_database)
         self.db_import.clicked.connect(self._import_database)
+        self.user_settings_export.clicked.connect(self._export_user_settings)
+        self.user_settings_import.clicked.connect(self._import_user_settings)
 
         self._refresh_settings()
         return tab
 
     def _refresh_all(self) -> None:
         self._refresh_teachers()
-        self._refresh_programs()
-        self._refresh_disciplines()
-        self._refresh_topics()
-        self._refresh_lessons()
         self._refresh_lesson_types()
-        self._refresh_questions()
         self._refresh_materials()
+        self._refresh_structure_tree()
 
     # Teachers
     def _refresh_teachers(self) -> None:
@@ -601,6 +761,273 @@ class AdminDialog(QDialog):
         for teacher in teachers:
             self.controller.delete_teacher(teacher.id)
         self._refresh_teachers()
+
+    # Structure
+    def _refresh_structure_tree(self) -> None:
+        self.structure_tree.clear()
+        for program in self.controller.get_programs():
+            program_item = QTreeWidgetItem([program.name])
+            program_item.setData(0, Qt.UserRole, program)
+            program_item.setData(0, Qt.UserRole + 1, "program")
+            self.structure_tree.addTopLevelItem(program_item)
+            for discipline in self.controller.get_program_disciplines(program.id):
+                discipline_item = QTreeWidgetItem([discipline.name])
+                discipline_item.setData(0, Qt.UserRole, discipline)
+                discipline_item.setData(0, Qt.UserRole + 1, "discipline")
+                program_item.addChild(discipline_item)
+                for topic in self.controller.get_discipline_topics(discipline.id):
+                    topic_item = QTreeWidgetItem([topic.title])
+                    topic_item.setData(0, Qt.UserRole, topic)
+                    topic_item.setData(0, Qt.UserRole + 1, "topic")
+                    discipline_item.addChild(topic_item)
+                    for lesson in self.controller.get_topic_lessons(topic.id):
+                        lesson_item = QTreeWidgetItem([lesson.title])
+                        lesson_item.setData(0, Qt.UserRole, lesson)
+                        lesson_item.setData(0, Qt.UserRole + 1, "lesson")
+                        topic_item.addChild(lesson_item)
+                        for question in self.controller.get_lesson_questions(lesson.id):
+                            title = (
+                                question.content
+                                if len(question.content) <= 60
+                                else f"{question.content[:60]}..."
+                            )
+                            question_item = QTreeWidgetItem([title])
+                            question_item.setData(0, Qt.UserRole, question)
+                            question_item.setData(0, Qt.UserRole + 1, "question")
+                            lesson_item.addChild(question_item)
+            program_item.setExpanded(True)
+
+    def _on_structure_selection_changed(self) -> None:
+        entity = self._current_structure_entity()
+        if not entity:
+            self.structure_title.setText(self.tr("Select an item"))
+            self.structure_details.setText("")
+            self._set_structure_buttons(enabled_program=True)
+            return
+        entity_type, obj = entity
+        title = self._structure_title(entity_type, obj)
+        details = self._structure_details(entity_type, obj)
+        self.structure_title.setText(title)
+        self.structure_details.setText(details)
+        self._set_structure_buttons_for_type(entity_type)
+
+    def _set_structure_buttons(self, enabled_program: bool) -> None:
+        self.structure_add_program.setEnabled(enabled_program)
+        self.structure_add_discipline.setEnabled(False)
+        self.structure_add_topic.setEnabled(False)
+        self.structure_add_lesson.setEnabled(False)
+        self.structure_add_question.setEnabled(False)
+        self.structure_edit.setEnabled(False)
+        self.structure_delete.setEnabled(False)
+
+    def _set_structure_buttons_for_type(self, entity_type: str) -> None:
+        self.structure_add_program.setEnabled(True)
+        self.structure_add_discipline.setEnabled(entity_type in ("program", "discipline", "topic", "lesson", "question"))
+        self.structure_add_topic.setEnabled(entity_type in ("discipline", "topic", "lesson", "question"))
+        self.structure_add_lesson.setEnabled(entity_type in ("topic", "lesson", "question"))
+        self.structure_add_question.setEnabled(entity_type in ("lesson", "question"))
+        self.structure_edit.setEnabled(True)
+        self.structure_delete.setEnabled(True)
+
+    def _current_structure_entity(self):
+        item = self.structure_tree.currentItem()
+        if not item:
+            return None
+        entity = item.data(0, Qt.UserRole)
+        entity_type = item.data(0, Qt.UserRole + 1)
+        if not entity or not entity_type:
+            return None
+        return entity_type, entity
+
+    def _structure_title(self, entity_type: str, entity) -> str:
+        if entity_type == "program":
+            return f"{self.tr('Program')}: {entity.name}"
+        if entity_type == "discipline":
+            return f"{self.tr('Discipline')}: {entity.name}"
+        if entity_type == "topic":
+            return f"{self.tr('Topic')}: {entity.title}"
+        if entity_type == "lesson":
+            return f"{self.tr('Lesson')}: {entity.title}"
+        if entity_type == "question":
+            return f"{self.tr('Question')}"
+        return self.tr("Select an item")
+
+    def _structure_details(self, entity_type: str, entity) -> str:
+        if entity_type == "program":
+            return f"{self.tr('Level')}: {entity.level or ''}\n{self.tr('Duration')}: {entity.duration_hours or ''}"
+        if entity_type == "discipline":
+            return entity.description or ""
+        if entity_type == "topic":
+            return entity.description or ""
+        if entity_type == "lesson":
+            parts = []
+            if entity.lesson_type_name:
+                parts.append(f"{self.tr('Type')}: {entity.lesson_type_name}")
+            if entity.duration_hours is not None:
+                parts.append(f"{self.tr('Total hours')}: {entity.duration_hours}")
+            if entity.classroom_hours is not None:
+                parts.append(f"{self.tr('Classroom hours')}: {entity.classroom_hours}")
+            if entity.self_study_hours is not None:
+                parts.append(f"{self.tr('Self-study hours')}: {entity.self_study_hours}")
+            return "\n".join(parts)
+        if entity_type == "question":
+            return entity.content or ""
+        return ""
+
+    def _find_parent_entity(self, item: QTreeWidgetItem, entity_type: str):
+        current = item
+        while current:
+            if current.data(0, Qt.UserRole + 1) == entity_type:
+                return current.data(0, Qt.UserRole)
+            current = current.parent()
+        return None
+
+    def _add_structure_program(self) -> None:
+        dialog = ProgramDialog(parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        program = dialog.get_program()
+        if not program.name:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Program name is required."))
+            return
+        self.controller.add_program(program)
+        self._refresh_structure_tree()
+
+    def _add_structure_discipline(self) -> None:
+        item = self.structure_tree.currentItem()
+        program = None
+        if item:
+            program = self._find_parent_entity(item, "program")
+        if not program:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program first."))
+            return
+        dialog = DisciplineDialog(parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        discipline = dialog.get_discipline()
+        if not discipline.name:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Discipline name is required."))
+            return
+        self.controller.add_discipline(discipline)
+        self.controller.add_discipline_to_program(program.id, discipline.id, discipline.order_index)
+        self._refresh_structure_tree()
+
+    def _add_structure_topic(self) -> None:
+        item = self.structure_tree.currentItem()
+        discipline = None
+        if item:
+            discipline = self._find_parent_entity(item, "discipline")
+        if not discipline:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a discipline first."))
+            return
+        dialog = TopicDialog(parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        topic = dialog.get_topic()
+        if not topic.title:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Topic title is required."))
+            return
+        self.controller.add_topic(topic)
+        self.controller.add_topic_to_discipline(discipline.id, topic.id, topic.order_index)
+        self._refresh_structure_tree()
+
+    def _add_structure_lesson(self) -> None:
+        item = self.structure_tree.currentItem()
+        topic = None
+        if item:
+            topic = self._find_parent_entity(item, "topic")
+        if not topic:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a topic first."))
+            return
+        dialog = LessonDialog(lesson_types=self.controller.get_lesson_types(), parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        lesson = dialog.get_lesson()
+        if not lesson.title:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Lesson title is required."))
+            return
+        self.controller.add_lesson(lesson)
+        self.controller.add_lesson_to_topic(topic.id, lesson.id, lesson.order_index)
+        self._refresh_structure_tree()
+
+    def _add_structure_question(self) -> None:
+        item = self.structure_tree.currentItem()
+        lesson = None
+        if item:
+            lesson = self._find_parent_entity(item, "lesson")
+        if not lesson:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a lesson first."))
+            return
+        dialog = QuestionDialog(parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        question = dialog.get_question()
+        if not question.content:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Question text is required."))
+            return
+        self.controller.add_question(question)
+        self.controller.add_question_to_lesson(lesson.id, question.id, question.order_index)
+        self._refresh_structure_tree()
+
+    def _edit_structure_selected(self) -> None:
+        selection = self._current_structure_entity()
+        if not selection:
+            return
+        entity_type, entity = selection
+        if entity_type == "program":
+            dialog = ProgramDialog(entity, self)
+            if dialog.exec() != QDialog.Accepted:
+                return
+            self.controller.update_program(dialog.get_program())
+            self._refresh_structure_tree()
+            return
+        if entity_type == "discipline":
+            dialog = DisciplineDialog(entity, self)
+            if dialog.exec() != QDialog.Accepted:
+                return
+            self.controller.update_discipline(dialog.get_discipline())
+            self._refresh_structure_tree()
+            return
+        if entity_type == "topic":
+            dialog = TopicDialog(entity, self)
+            if dialog.exec() != QDialog.Accepted:
+                return
+            self.controller.update_topic(dialog.get_topic())
+            self._refresh_structure_tree()
+            return
+        if entity_type == "lesson":
+            dialog = LessonDialog(entity, self.controller.get_lesson_types(), self)
+            if dialog.exec() != QDialog.Accepted:
+                return
+            self.controller.update_lesson(dialog.get_lesson())
+            self._refresh_structure_tree()
+            return
+        if entity_type == "question":
+            dialog = QuestionDialog(entity, self)
+            if dialog.exec() != QDialog.Accepted:
+                return
+            self.controller.update_question(dialog.get_question())
+            self._refresh_structure_tree()
+
+    def _delete_structure_selected(self) -> None:
+        selection = self._current_structure_entity()
+        if not selection:
+            return
+        entity_type, entity = selection
+        confirm = self.tr("Delete selected item?")
+        if QMessageBox.question(self, self.tr("Confirm"), confirm) != QMessageBox.Yes:
+            return
+        if entity_type == "program":
+            self.controller.delete_program(entity.id)
+        elif entity_type == "discipline":
+            self.controller.delete_discipline(entity.id)
+        elif entity_type == "topic":
+            self.controller.delete_topic(entity.id)
+        elif entity_type == "lesson":
+            self.controller.delete_lesson(entity.id)
+        elif entity_type == "question":
+            self.controller.delete_question(entity.id)
+        self._refresh_structure_tree()
 
     # Programs
     def _refresh_programs(self) -> None:
@@ -695,7 +1122,7 @@ class AdminDialog(QDialog):
     # Disciplines
     def _refresh_disciplines(self) -> None:
         self.disciplines_table.setRowCount(0)
-        for discipline in self._filtered_disciplines():
+        for discipline in self.controller.get_disciplines():
             row = self.disciplines_table.rowCount()
             self.disciplines_table.insertRow(row)
             self.disciplines_table.setItem(row, 0, QTableWidgetItem(discipline.name))
@@ -1094,52 +1521,15 @@ class AdminDialog(QDialog):
             self.questions_table.item(row, 0).setData(Qt.UserRole, question)
 
     def _filtered_disciplines(self):
-        program = self._current_entity(self.programs_table)
-        if program:
-            return self.controller.get_program_disciplines(program.id)
         return self.controller.get_disciplines()
 
     def _filtered_topics(self):
-        discipline = self._current_entity(self.disciplines_table)
-        if discipline:
-            return self.controller.get_discipline_topics(discipline.id)
-        program = self._current_entity(self.programs_table)
-        if program:
-            return self.controller.get_program_topics(program.id)
         return self.controller.get_topics()
 
     def _filtered_lessons(self):
-        topic = self._current_entity(self.topics_table)
-        if topic:
-            return self.controller.get_topic_lessons(topic.id)
-        discipline = self._current_entity(self.disciplines_table)
-        if discipline:
-            topics = self.controller.get_discipline_topics(discipline.id)
-            return self._lessons_for_topics(topics)
-        program = self._current_entity(self.programs_table)
-        if program:
-            topics = self.controller.get_program_topics(program.id)
-            return self._lessons_for_topics(topics)
         return self.controller.get_lessons()
 
     def _filtered_questions(self):
-        lesson = self._current_entity(self.lessons_table)
-        if lesson:
-            return self.controller.get_lesson_questions(lesson.id)
-        topic = self._current_entity(self.topics_table)
-        if topic:
-            lessons = self.controller.get_topic_lessons(topic.id)
-            return self._questions_for_lessons(lessons)
-        discipline = self._current_entity(self.disciplines_table)
-        if discipline:
-            topics = self.controller.get_discipline_topics(discipline.id)
-            lessons = self._lessons_for_topics(topics)
-            return self._questions_for_lessons(lessons)
-        program = self._current_entity(self.programs_table)
-        if program:
-            topics = self.controller.get_program_topics(program.id)
-            lessons = self._lessons_for_topics(topics)
-            return self._questions_for_lessons(lessons)
         return self.controller.get_questions()
 
     def _lessons_for_topics(self, topics):
@@ -1495,6 +1885,82 @@ class AdminDialog(QDialog):
             self.tr("Database imported. Restart the app."),
         )
 
+    def _export_user_settings(self) -> None:
+        default_path = get_settings_dir() / "user_settings.json"
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export user settings"),
+            str(default_path),
+            self.tr("Settings (*.json);;All files (*)"),
+        )
+        if not path:
+            return
+        try:
+            payload = self._serialize_settings(self.settings)
+            Path(path).write_text(payload, encoding="utf-8")
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        QMessageBox.information(self, self.tr("Export user settings"), self.tr("User settings exported."))
+
+    def _import_user_settings(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Import user settings"),
+            "",
+            self.tr("Settings (*.json);;All files (*)"),
+        )
+        if not path:
+            return
+        if QMessageBox.question(
+            self,
+            self.tr("Confirm"),
+            self.tr("Replace the current user settings with the selected file?"),
+        ) != QMessageBox.Yes:
+            return
+        try:
+            content = Path(path).read_text(encoding="utf-8")
+            self._deserialize_settings(self.settings, content)
+            self.settings.sync()
+            self.i18n.load_from_settings()
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.tr("Import user settings"),
+            self.tr("User settings imported. Restart the app."),
+        )
+
+    def _serialize_settings(self, settings: QSettings) -> str:
+        import base64
+        import json
+
+        data = {}
+        for key in settings.allKeys():
+            value = settings.value(key)
+            if isinstance(value, QByteArray):
+                data[key] = {
+                    "__type__": "QByteArray",
+                    "data": base64.b64encode(bytes(value)).decode("ascii"),
+                }
+            else:
+                data[key] = value
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
+    def _deserialize_settings(self, settings: QSettings, content: str) -> None:
+        import base64
+        import json
+
+        data = json.loads(content)
+        settings.clear()
+        for key, value in data.items():
+            if isinstance(value, dict) and value.get("__type__") == "QByteArray":
+                raw = base64.b64decode(value.get("data", ""))
+                settings.setValue(key, QByteArray(raw))
+            else:
+                settings.setValue(key, value)
+
     def _refresh_material_associations(self) -> None:
         material = self._current_entity(self.materials_table)
         if not material:
@@ -1706,15 +2172,19 @@ class AdminDialog(QDialog):
         self.import_curriculum_action.triggered.connect(self._on_import_curriculum)
         self.import_teachers_action = import_menu.addAction(self.tr("Import teachers from DOCX"))
         self.import_teachers_action.triggered.connect(self._on_import_teachers)
-        self.tabs.setTabText(0, self.tr("Teachers"))
-        self.tabs.setTabText(1, self.tr("Programs"))
-        self.tabs.setTabText(2, self.tr("Disciplines"))
-        self.tabs.setTabText(3, self.tr("Topics"))
-        self.tabs.setTabText(4, self.tr("Lessons"))
-        self.tabs.setTabText(5, self.tr("Lesson types"))
-        self.tabs.setTabText(6, self.tr("Questions"))
-        self.tabs.setTabText(7, self.tr("Materials"))
-        self.tabs.setTabText(8, self.tr("Settings"))
+        self.tabs.setTabText(0, self.tr("Structure"))
+        self.tabs.setTabText(1, self.tr("Materials"))
+        self.tabs.setTabText(2, self.tr("Lesson types"))
+        self.tabs.setTabText(3, self.tr("Teachers"))
+        self.tabs.setTabText(4, self.tr("Settings"))
+        self.structure_tree.setHeaderLabels([self.tr("Structure")])
+        self.structure_add_program.setText(self.tr("Add program"))
+        self.structure_add_discipline.setText(self.tr("Add discipline"))
+        self.structure_add_topic.setText(self.tr("Add topic"))
+        self.structure_add_lesson.setText(self.tr("Add lesson"))
+        self.structure_add_question.setText(self.tr("Add question"))
+        self.structure_edit.setText(self.tr("Edit"))
+        self.structure_delete.setText(self.tr("Delete"))
 
         self.teachers_table.setHorizontalHeaderLabels(
             [
@@ -1815,3 +2285,50 @@ class AdminDialog(QDialog):
         self.materials_location_browse.setText(self.tr("Change..."))
         self.db_export.setText(self.tr("Export database"))
         self.db_import.setText(self.tr("Import database"))
+
+
+class _WrapItemDelegate(QStyledItemDelegate):
+    def __init__(self, view):
+        super().__init__(view)
+        self._view = view
+
+    def initStyleOption(self, option, index):  # noqa: ANN001
+        super().initStyleOption(option, index)
+        option.textElideMode = Qt.ElideNone
+        option.wrapText = True
+
+    def sizeHint(self, option, index):  # noqa: ANN001
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        style = opt.widget.style() if opt.widget else self._view.style()
+        text_rect = style.subElementRect(QStyle.SE_ItemViewItemText, opt, opt.widget)
+        width = text_rect.width()
+        if width <= 0 and self._view is not None:
+            width = self._view.columnWidth(index.column())
+        if width <= 0:
+            return super().sizeHint(option, index)
+        doc = QTextDocument()
+        doc.setDefaultFont(opt.font)
+        doc.setTextWidth(width)
+        doc.setPlainText(opt.text)
+        height = max(int(doc.size().height()) + 6, opt.fontMetrics.height() + 6)
+        return QSize(int(opt.rect.width()), height)
+
+    def paint(self, painter, option, index):  # noqa: ANN001
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        text = opt.text
+        opt.text = ""
+        style = opt.widget.style() if opt.widget else self._view.style()
+        style.drawControl(QStyle.CE_ItemViewItem, opt, painter, opt.widget)
+
+        doc = QTextDocument()
+        doc.setDefaultFont(opt.font)
+        doc.setTextWidth(opt.rect.width())
+        doc.setPlainText(text)
+
+        text_rect = style.subElementRect(QStyle.SE_ItemViewItemText, opt, opt.widget)
+        painter.save()
+        painter.translate(text_rect.topLeft())
+        doc.drawContents(painter, QRect(0, 0, text_rect.width(), text_rect.height()))
+        painter.restore()

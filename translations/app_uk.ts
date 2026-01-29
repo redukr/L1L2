@@ -160,6 +160,22 @@
     <message><source>Import teachers</source><translation>Імпорт викладачів</translation></message>
     <message><source>Word documents (*.docx);;All files (*)</source><translation>Документи Word (*.docx);;Усі файли (*)</translation></message>
     <message><source>Added teachers: {0}&#10;Skipped: {1}</source><translation>Додано викладачів: {0}&#10;Пропущено: {1}</translation></message>
+    <message><source>Structure</source><translation>Структура</translation></message>
+    <message><source>Add program</source><translation>Додати програму</translation></message>
+    <message><source>Add discipline</source><translation>Додати дисципліну</translation></message>
+    <message><source>Add topic</source><translation>Додати тему</translation></message>
+    <message><source>Add lesson</source><translation>Додати заняття</translation></message>
+    <message><source>Add question</source><translation>Додати питання</translation></message>
+    <message><source>Select an item</source><translation>Оберіть елемент</translation></message>
+    <message><source>Select a program first.</source><translation>Спочатку виберіть програму.</translation></message>
+    <message><source>Select a discipline first.</source><translation>Спочатку виберіть дисципліну.</translation></message>
+    <message><source>Delete selected item?</source><translation>Видалити вибраний елемент?</translation></message>
+    <message><source>Export user settings</source><translation>Експорт налаштувань користувача</translation></message>
+    <message><source>Import user settings</source><translation>Імпорт налаштувань користувача</translation></message>
+    <message><source>Settings (*.json);;All files (*)</source><translation>Налаштування (*.json);;Усі файли (*)</translation></message>
+    <message><source>User settings exported.</source><translation>Налаштування користувача експортовано.</translation></message>
+    <message><source>Replace the current user settings with the selected file?</source><translation>Замінити поточні налаштування користувача вибраним файлом?</translation></message>
+    <message><source>User settings imported. Restart the app.</source><translation>Налаштування користувача імпортовано. Перезапустіть застосунок.</translation></message>
   </context>
   <context>
     <name>PasswordDialog</name>

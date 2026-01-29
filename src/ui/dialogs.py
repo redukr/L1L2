@@ -1,5 +1,6 @@
 """Dialog windows for CRUD operations."""
 from typing import Optional
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -338,6 +339,9 @@ class ImportPreviewDialog(QDialog):
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([self.tr("Title"), self.tr("Details")])
         self.tree.setColumnWidth(0, 420)
+        self.tree.setWordWrap(True)
+        self.tree.setUniformRowHeights(False)
+        self.tree.setTextElideMode(Qt.ElideNone)
         layout.addWidget(self.tree)
         for topic in topics:
             topic_item = QTreeWidgetItem([topic.title, self.tr("Topic")])
