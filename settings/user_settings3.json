@@ -1,0 +1,18 @@
+{
+  "ui/center_splitter": {
+    "__type__": "QByteArray",
+    "data": "AAAA/wAAAAEAAAACAAAA6AAAAOgB/////wEAAAACAA=="
+  },
+  "ui/font_size": 15,
+  "ui/language": "uk",
+  "ui/last_discipline_id": 23,
+  "ui/last_program_id": 21,
+  "ui/main_geometry": {
+    "__type__": "QByteArray",
+    "data": "AdnQywADAAAAAAAA////+AAAB38AAAQHAAABaAAAAJwAAAYXAAADawAAAAACAAAAB4AAAAAAAAAAFwAAB38AAAQH"
+  },
+  "ui/main_splitter": {
+    "__type__": "QByteArray",
+    "data": "AAAA/wAAAAEAAAADAAABCQAABOAAAAF7Af////8BAAAAAQA="
+  }
+}

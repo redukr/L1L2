@@ -97,6 +97,12 @@
     <message><source>Lessons</source><translation>Lessons</translation></message>
     <message><source>Questions</source><translation>Questions</translation></message>
     <message><source>Materials</source><translation>Materials</translation></message>
+    <message><source>Check database</source><translation>Check database</translation></message>
+    <message><source>Cleanup unused data</source><translation>Cleanup unused data</translation></message>
+    <message><source>Refresh</source><translation>Refresh</translation></message>
+    <message><source>Assigned disciplines</source><translation>Assigned disciplines</translation></message>
+    <message><source>Duplicate</source><translation>Duplicate</translation></message>
+    <message><source>Copy</source><translation>Copy</translation></message>
     <message><source>Full name</source><translation>Full name</translation></message>
     <message><source>Position</source><translation>Position</translation></message>
     <message><source>Department</source><translation>Department</translation></message>
@@ -131,6 +137,9 @@
     <message><source>Linked</source><translation>Linked</translation></message>
     <message><source>Access denied</source><translation>Access denied</translation></message>
     <message><source>Invalid admin password.</source><translation>Invalid admin password.</translation></message>
+    <message><source>No unused data found.</source><translation>No unused data found.</translation></message>
+    <message><source>Unused data will be deleted:</source><translation>Unused data will be deleted:</translation></message>
+    <message><source>Cleanup completed.</source><translation>Cleanup completed.</translation></message>
     <message><source>Validation</source><translation>Validation</translation></message>
     <message><source>Full name is required.</source><translation>Full name is required.</translation></message>
     <message><source>Confirm</source><translation>Confirm</translation></message>
@@ -146,6 +155,7 @@
     <message><source>Question text is required.</source><translation>Question text is required.</translation></message>
     <message><source>Delete selected question?</source><translation>Delete selected question?</translation></message>
     <message><source>Material title is required.</source><translation>Material title is required.</translation></message>
+    <message><source>Select a program, discipline or lesson first.</source><translation>Select a program, discipline or lesson first.</translation></message>
     <message><source>Delete selected material?</source><translation>Delete selected material?</translation></message>
     <message><source>Documents (*.pdf *.pptx *.docx)</source><translation>Documents (*.pdf *.pptx *.docx)</translation></message>
     <message><source>Program</source><translation>Program</translation></message>

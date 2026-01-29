@@ -1,7 +1,7 @@
 """Teacher repository for database operations."""
 from typing import List, Optional
 from datetime import datetime
-from ..models.entities import Teacher
+from ..models.entities import Teacher, Discipline
 from ..models.database import Database
 
 
@@ -146,6 +146,56 @@ class TeacherRepository:
             """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
             return [self._row_to_teacher(row) for row in cursor.fetchall()]
 
+    def add_discipline(self, teacher_id: int, discipline_id: int) -> bool:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT INTO teacher_disciplines (teacher_id, discipline_id)
+                    VALUES (?, ?)
+                """, (teacher_id, discipline_id))
+                return True
+            except Exception:
+                return False
+
+    def remove_discipline(self, teacher_id: int, discipline_id: int) -> bool:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                DELETE FROM teacher_disciplines
+                WHERE teacher_id = ? AND discipline_id = ?
+            """, (teacher_id, discipline_id))
+            return cursor.rowcount > 0
+
+    def get_disciplines(self, teacher_id: int) -> List[Discipline]:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT d.id, d.name, d.description, d.order_index,
+                       d.created_at, d.updated_at
+                FROM disciplines d
+                JOIN teacher_disciplines td ON d.id = td.discipline_id
+                WHERE td.teacher_id = ?
+                ORDER BY d.name
+            """, (teacher_id,))
+            return [self._row_to_discipline(row) for row in cursor.fetchall()]
+
+    def get_teachers_for_disciplines(self, discipline_ids: List[int]) -> List[Teacher]:
+        if not discipline_ids:
+            return []
+        placeholders = ",".join(["?"] * len(discipline_ids))
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"""
+                SELECT DISTINCT t.id, t.full_name, t.military_rank, t.position, t.department,
+                                t.email, t.phone, t.created_at, t.updated_at
+                FROM teachers t
+                JOIN teacher_disciplines td ON t.id = td.teacher_id
+                WHERE td.discipline_id IN ({placeholders})
+                ORDER BY t.full_name
+            """, discipline_ids)
+            return [self._row_to_teacher(row) for row in cursor.fetchall()]
+
     def _row_to_teacher(self, row) -> Teacher:
         """
         Convert database row to Teacher entity.
@@ -166,4 +216,14 @@ class TeacherRepository:
             phone=row['phone'],
             created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
             updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None
+        )
+
+    def _row_to_discipline(self, row) -> Discipline:
+        return Discipline(
+            id=row["id"],
+            name=row["name"],
+            description=row["description"],
+            order_index=row["order_index"],
+            created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
+            updated_at=datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None,
         )

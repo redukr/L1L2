@@ -64,6 +64,12 @@
     <message><source>Lessons</source><translation>Заняття</translation></message>
     <message><source>Questions</source><translation>Питання</translation></message>
     <message><source>Materials</source><translation>Матеріали</translation></message>
+    <message><source>Check database</source><translation>Перевірка БД</translation></message>
+    <message><source>Cleanup unused data</source><translation>Видалити зайву інформацію</translation></message>
+    <message><source>Refresh</source><translation>Оновити</translation></message>
+    <message><source>Assigned disciplines</source><translation>Закріплені дисципліни</translation></message>
+    <message><source>Duplicate</source><translation>Дублювати</translation></message>
+    <message><source>Copy</source><translation>Копіювати</translation></message>
     <message><source>Settings</source><translation>Налаштування</translation></message>
     <message><source>Full name</source><translation>Повне ім&apos;я</translation></message>
     <message><source>Position</source><translation>Посада</translation></message>
@@ -118,6 +124,9 @@
     <message><source>Linked</source><translation>Пов&apos;язані</translation></message>
     <message><source>Access denied</source><translation>Доступ заборонено</translation></message>
     <message><source>Invalid admin password.</source><translation>Неправильний пароль адміністратора.</translation></message>
+    <message><source>No unused data found.</source><translation>Зайвої інформації не знайдено.</translation></message>
+    <message><source>Unused data will be deleted:</source><translation>Буде видалено зайву інформацію:</translation></message>
+    <message><source>Cleanup completed.</source><translation>Очищення завершено.</translation></message>
     <message><source>No File</source><translation>Файлу немає</translation></message>
     <message><source>This material has no attached file.</source><translation>Цей матеріал не має прикріпленого файлу.</translation></message>
     <message><source>File is missing in storage.</source><translation>Файл відсутній у сховищі.</translation></message>
@@ -136,6 +145,7 @@
     <message><source>Question text is required.</source><translation>Потрібний текст питання.</translation></message>
     <message><source>Delete selected question?</source><translation>Видалити вибране питання?</translation></message>
     <message><source>Material title is required.</source><translation>Потрібна назва матеріалу.</translation></message>
+    <message><source>Select a program, discipline or lesson first.</source><translation>Спочатку виберіть програму, дисципліну або заняття.</translation></message>
     <message><source>Delete selected material?</source><translation>Видалити вибраний матеріал?</translation></message>
     <message><source>Documents (*.pdf *.pptx *.docx)</source><translation>Документи (*.pdf *.pptx *.docx)</translation></message>
     <message><source>All files (*)</source><translation>Усі файли (*)</translation></message>

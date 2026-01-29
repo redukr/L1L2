@@ -300,7 +300,15 @@ class MainWindow(QMainWindow):
 
     def _load_materials(self, entity_type: str, entity_id: int) -> None:
         self.materials_list.clear()
-        for material in self.controller.get_materials_for_entity(entity_type, entity_id):
+        materials = self.controller.get_materials_for_entity(entity_type, entity_id)
+        if entity_type == "program":
+            for discipline in self.controller.get_program_disciplines(entity_id):
+                materials.extend(self.controller.get_materials_for_entity("discipline", discipline.id))
+        elif entity_type == "discipline":
+            # keep only discipline-level materials
+            pass
+        unique = {material.id: material for material in materials if material.id is not None}
+        for material in unique.values():
             material_type_label = self._translate_material_type(material.material_type)
             label = f"{material.title} ({material_type_label})"
             filename = material.original_filename or material.file_name

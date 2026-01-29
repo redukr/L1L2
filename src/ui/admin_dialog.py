@@ -128,10 +128,31 @@ class AdminDialog(QDialog):
         btn_layout.addStretch(1)
         layout.addLayout(btn_layout)
 
+        disciplines_group = QWidget()
+        disciplines_layout = QHBoxLayout(disciplines_group)
+        self.teacher_disciplines_label = QLabel(self.tr("Assigned disciplines"))
+        disciplines_layout.addWidget(self.teacher_disciplines_label)
+        self.teacher_disciplines_available = QListWidget()
+        self.teacher_disciplines_assigned = QListWidget()
+        mid_layout = QVBoxLayout()
+        self.teacher_discipline_add = QPushButton(self.tr("Add ->"))
+        self.teacher_discipline_remove = QPushButton(self.tr("<- Remove"))
+        mid_layout.addStretch(1)
+        mid_layout.addWidget(self.teacher_discipline_add)
+        mid_layout.addWidget(self.teacher_discipline_remove)
+        mid_layout.addStretch(1)
+        disciplines_layout.addWidget(self.teacher_disciplines_available)
+        disciplines_layout.addLayout(mid_layout)
+        disciplines_layout.addWidget(self.teacher_disciplines_assigned)
+        layout.addWidget(disciplines_group)
+
         self.teacher_add.clicked.connect(self._add_teacher)
         self.teacher_edit.clicked.connect(self._edit_teacher)
         self.teacher_delete.clicked.connect(self._delete_teacher)
         self.teacher_import.clicked.connect(self._on_import_teachers)
+        self.teachers_table.itemSelectionChanged.connect(self._refresh_teacher_disciplines)
+        self.teacher_discipline_add.clicked.connect(self._add_discipline_to_teacher)
+        self.teacher_discipline_remove.clicked.connect(self._remove_discipline_from_teacher)
         return tab
 
     def _apply_word_wrap(self) -> None:
@@ -159,6 +180,8 @@ class AdminDialog(QDialog):
             "lesson_questions_assigned",
             "lesson_materials_available",
             "lesson_materials_assigned",
+            "teacher_disciplines_available",
+            "teacher_disciplines_assigned",
             "material_teachers_available",
             "material_teachers_assigned",
             "material_assoc_available",
@@ -241,6 +264,7 @@ class AdminDialog(QDialog):
         self.structure_tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.structure_tree.customContextMenuRequested.connect(self._show_structure_context_menu)
         self.structure_tree.itemSelectionChanged.connect(self._on_structure_selection_changed)
+        self.structure_tree.itemDoubleClicked.connect(lambda *_args: self._edit_structure_selected())
         splitter.addWidget(self.structure_tree)
 
         details = QWidget()
@@ -258,16 +282,22 @@ class AdminDialog(QDialog):
         self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
         self.structure_add_question = QPushButton(self.tr("Add question"))
         self.structure_import = QPushButton(self.tr("Import curriculum structure"))
+        self.structure_refresh = QPushButton(self.tr("Refresh"))
         self.structure_edit = QPushButton(self.tr("Edit"))
         self.structure_delete = QPushButton(self.tr("Delete"))
+        self.structure_duplicate = QPushButton(self.tr("Duplicate"))
+        self.structure_copy = QPushButton(self.tr("Copy"))
         btn_row.addWidget(self.structure_add_program)
         btn_row.addWidget(self.structure_add_discipline)
         btn_row.addWidget(self.structure_add_topic)
         btn_row.addWidget(self.structure_add_lesson)
         btn_row.addWidget(self.structure_add_question)
         btn_row.addWidget(self.structure_import)
+        btn_row.addWidget(self.structure_refresh)
         btn_row.addWidget(self.structure_edit)
         btn_row.addWidget(self.structure_delete)
+        btn_row.addWidget(self.structure_duplicate)
+        btn_row.addWidget(self.structure_copy)
         btn_row.addStretch(1)
         details_layout.addLayout(btn_row)
 
@@ -302,7 +332,7 @@ class AdminDialog(QDialog):
         materials_btns.addStretch(1)
         materials_layout.addLayout(materials_btns)
 
-        details_layout.addWidget(QLabel(self.tr("Lesson materials")))
+        details_layout.addWidget(QLabel(self.tr("Materials")))
         details_layout.addWidget(materials_group)
         details_layout.addStretch(1)
         splitter.addWidget(details)
@@ -318,8 +348,11 @@ class AdminDialog(QDialog):
         self.structure_add_lesson.clicked.connect(self._add_structure_lesson)
         self.structure_add_question.clicked.connect(self._add_structure_question)
         self.structure_import.clicked.connect(self._on_import_curriculum)
+        self.structure_refresh.clicked.connect(self._refresh_structure_tree)
         self.structure_edit.clicked.connect(self._edit_structure_selected)
         self.structure_delete.clicked.connect(self._delete_structure_selected)
+        self.structure_duplicate.clicked.connect(self._duplicate_structure_selected)
+        self.structure_copy.clicked.connect(self._copy_structure_selected)
         self.material_add.clicked.connect(self._add_material)
         self.material_edit.clicked.connect(self._edit_material)
         self.material_delete.clicked.connect(self._delete_material)
@@ -679,8 +712,12 @@ class AdminDialog(QDialog):
         db_layout = QHBoxLayout(db_group)
         self.db_export = QPushButton(self.tr("Export database"))
         self.db_import = QPushButton(self.tr("Import database"))
+        self.db_check = QPushButton(self.tr("Check database"))
+        self.db_cleanup = QPushButton(self.tr("Cleanup unused data"))
         db_layout.addWidget(self.db_export)
         db_layout.addWidget(self.db_import)
+        db_layout.addWidget(self.db_check)
+        db_layout.addWidget(self.db_cleanup)
         db_layout.addStretch(1)
         layout.addWidget(db_group)
 
@@ -699,6 +736,8 @@ class AdminDialog(QDialog):
         self.materials_location_browse.clicked.connect(self._change_materials_location)
         self.db_export.clicked.connect(self._export_database)
         self.db_import.clicked.connect(self._import_database)
+        self.db_check.clicked.connect(self._check_database)
+        self.db_cleanup.clicked.connect(self._cleanup_unused_data)
         self.user_settings_export.clicked.connect(self._export_user_settings)
         self.user_settings_import.clicked.connect(self._import_user_settings)
         self.user_settings_save.clicked.connect(self._save_user_settings)
@@ -725,6 +764,42 @@ class AdminDialog(QDialog):
             self.teachers_table.setItem(row, 4, QTableWidgetItem(teacher.email or ""))
             self.teachers_table.setItem(row, 5, QTableWidgetItem(teacher.phone or ""))
             self.teachers_table.item(row, 0).setData(Qt.UserRole, teacher)
+        self._refresh_teacher_disciplines()
+
+    def _refresh_teacher_disciplines(self) -> None:
+        if not hasattr(self, "teacher_disciplines_available"):
+            return
+        self.teacher_disciplines_available.clear()
+        self.teacher_disciplines_assigned.clear()
+        teacher = self._current_entity(self.teachers_table)
+        if not teacher:
+            return
+        assigned = {d.id for d in self.controller.get_teacher_disciplines(teacher.id)}
+        for discipline in self.controller.get_disciplines():
+            item = QListWidgetItem(discipline.name)
+            item.setData(Qt.UserRole, discipline)
+            if discipline.id in assigned:
+                self.teacher_disciplines_assigned.addItem(item)
+            else:
+                self.teacher_disciplines_available.addItem(item)
+
+    def _add_discipline_to_teacher(self) -> None:
+        teacher = self._current_entity(self.teachers_table)
+        item = self.teacher_disciplines_available.currentItem()
+        if not teacher or not item:
+            return
+        discipline = item.data(Qt.UserRole)
+        self.controller.add_discipline_to_teacher(teacher.id, discipline.id)
+        self._refresh_teacher_disciplines()
+
+    def _remove_discipline_from_teacher(self) -> None:
+        teacher = self._current_entity(self.teachers_table)
+        item = self.teacher_disciplines_assigned.currentItem()
+        if not teacher or not item:
+            return
+        discipline = item.data(Qt.UserRole)
+        self.controller.remove_discipline_from_teacher(teacher.id, discipline.id)
+        self._refresh_teacher_disciplines()
 
     def _add_teacher(self) -> None:
         dialog = TeacherDialog(parent=self)
@@ -764,27 +839,34 @@ class AdminDialog(QDialog):
 
     # Structure
     def _refresh_structure_tree(self) -> None:
+        expanded_keys = self._structure_expanded_keys()
+        selected_key = self._structure_selected_key()
         self.structure_tree.clear()
+        item_index = {}
         for program in self.controller.get_programs():
             program_item = QTreeWidgetItem([program.name])
             program_item.setData(0, Qt.UserRole, program)
             program_item.setData(0, Qt.UserRole + 1, "program")
             self.structure_tree.addTopLevelItem(program_item)
+            item_index[("program", program.id)] = program_item
             for discipline in self.controller.get_program_disciplines(program.id):
                 discipline_item = QTreeWidgetItem([discipline.name])
                 discipline_item.setData(0, Qt.UserRole, discipline)
                 discipline_item.setData(0, Qt.UserRole + 1, "discipline")
                 program_item.addChild(discipline_item)
+                item_index[("discipline", discipline.id)] = discipline_item
                 for topic in self.controller.get_discipline_topics(discipline.id):
                     topic_item = QTreeWidgetItem([topic.title])
                     topic_item.setData(0, Qt.UserRole, topic)
                     topic_item.setData(0, Qt.UserRole + 1, "topic")
                     discipline_item.addChild(topic_item)
+                    item_index[("topic", topic.id)] = topic_item
                     for lesson in self.controller.get_topic_lessons(topic.id):
                         lesson_item = QTreeWidgetItem([lesson.title])
                         lesson_item.setData(0, Qt.UserRole, lesson)
                         lesson_item.setData(0, Qt.UserRole + 1, "lesson")
                         topic_item.addChild(lesson_item)
+                        item_index[("lesson", lesson.id)] = lesson_item
                         for question in self.controller.get_lesson_questions(lesson.id):
                             title = (
                                 question.content
@@ -795,8 +877,39 @@ class AdminDialog(QDialog):
                             question_item.setData(0, Qt.UserRole, question)
                             question_item.setData(0, Qt.UserRole + 1, "question")
                             lesson_item.addChild(question_item)
-            program_item.setExpanded(True)
+                            item_index[("question", question.id)] = question_item
+
+        for key in expanded_keys:
+            item = item_index.get(key)
+            if item:
+                item.setExpanded(True)
+        if selected_key and selected_key in item_index:
+            self.structure_tree.setCurrentItem(item_index[selected_key])
         self._resize_structure_tree()
+
+    def _structure_selected_key(self):
+        selection = self._current_structure_entity()
+        if not selection:
+            return None
+        entity_type, entity = selection
+        if not getattr(entity, "id", None):
+            return None
+        return (entity_type, entity.id)
+
+    def _structure_expanded_keys(self) -> set:
+        expanded = set()
+        root_count = self.structure_tree.topLevelItemCount()
+        for i in range(root_count):
+            self._collect_expanded(self.structure_tree.topLevelItem(i), expanded)
+        return expanded
+
+    def _collect_expanded(self, item: QTreeWidgetItem, expanded: set) -> None:
+        entity_type = item.data(0, Qt.UserRole + 1)
+        entity = item.data(0, Qt.UserRole)
+        if entity_type and entity and getattr(entity, "id", None) and item.isExpanded():
+            expanded.add((entity_type, entity.id))
+        for idx in range(item.childCount()):
+            self._collect_expanded(item.child(idx), expanded)
 
     def _on_structure_selection_changed(self) -> None:
         entity = self._current_structure_entity()
@@ -816,8 +929,6 @@ class AdminDialog(QDialog):
 
     def _resize_structure_tree(self) -> None:
         self.structure_tree.doItemsLayout()
-        self.structure_tree.expandAll()
-        self.structure_tree.doItemsLayout()
 
     def _set_structure_buttons(self, enabled_program: bool) -> None:
         self.structure_add_program.setEnabled(enabled_program)
@@ -827,6 +938,8 @@ class AdminDialog(QDialog):
         self.structure_add_question.setEnabled(False)
         self.structure_edit.setEnabled(False)
         self.structure_delete.setEnabled(False)
+        self.structure_duplicate.setEnabled(False)
+        self.structure_copy.setEnabled(False)
 
     def _set_structure_buttons_for_type(self, entity_type: str) -> None:
         self.structure_add_program.setEnabled(True)
@@ -836,6 +949,8 @@ class AdminDialog(QDialog):
         self.structure_add_question.setEnabled(entity_type in ("lesson", "question"))
         self.structure_edit.setEnabled(True)
         self.structure_delete.setEnabled(True)
+        self.structure_duplicate.setEnabled(True)
+        self.structure_copy.setEnabled(True)
 
     def _current_structure_entity(self):
         item = self.structure_tree.currentItem()
@@ -853,6 +968,49 @@ class AdminDialog(QDialog):
             return None
         entity_type, entity = selection
         return entity if entity_type == "lesson" else None
+
+    def _current_structure_material_target(self):
+        selection = self._current_structure_entity()
+        if not selection:
+            return None
+        entity_type, entity = selection
+        if entity_type in {"program", "discipline", "lesson"}:
+            return entity_type, entity
+        return None
+
+    def _select_structure_entity(self, entity_type: str, entity_id: int) -> None:
+        root_count = self.structure_tree.topLevelItemCount()
+        for i in range(root_count):
+            item = self._find_structure_item(self.structure_tree.topLevelItem(i), entity_type, entity_id)
+            if item:
+                self.structure_tree.setCurrentItem(item)
+                return
+
+    def _find_structure_item(self, item: QTreeWidgetItem, entity_type: str, entity_id: int):
+        if item.data(0, Qt.UserRole + 1) == entity_type:
+            entity = item.data(0, Qt.UserRole)
+            if entity and getattr(entity, "id", None) == entity_id:
+                return item
+        for idx in range(item.childCount()):
+            found = self._find_structure_item(item.child(idx), entity_type, entity_id)
+            if found:
+                return found
+        return None
+
+    def _filtered_teachers_for_target(self, entity_type: str, entity):
+        if entity_type == "lesson":
+            disciplines = self.controller.discipline_repo.get_disciplines_for_lesson(entity.id)
+        elif entity_type == "discipline":
+            disciplines = [entity]
+        elif entity_type == "program":
+            disciplines = self.controller.get_program_disciplines(entity.id)
+        else:
+            disciplines = []
+        discipline_ids = [d.id for d in disciplines if d and d.id is not None]
+        if not discipline_ids:
+            return self.controller.get_teachers()
+        teachers = self.controller.get_teachers_for_disciplines(discipline_ids)
+        return teachers if teachers else self.controller.get_teachers()
 
     def _set_material_buttons_enabled(self, enabled: bool) -> None:
         for button in [
@@ -1000,40 +1158,58 @@ class AdminDialog(QDialog):
         if not selection:
             return
         entity_type, entity = selection
+        item = self.structure_tree.currentItem()
         if entity_type == "program":
             dialog = ProgramDialog(entity, self)
             if dialog.exec() != QDialog.Accepted:
                 return
             self.controller.update_program(dialog.get_program())
             self._refresh_structure_tree()
+            self._select_structure_entity(entity_type, entity.id)
             return
         if entity_type == "discipline":
+            program = self._find_parent_entity(item, "program")
+            if program:
+                entity = self.controller.ensure_discipline_for_edit(entity.id, program.id)
             dialog = DisciplineDialog(entity, self)
             if dialog.exec() != QDialog.Accepted:
                 return
             self.controller.update_discipline(dialog.get_discipline())
             self._refresh_structure_tree()
+            self._select_structure_entity(entity_type, entity.id)
             return
         if entity_type == "topic":
+            discipline = self._find_parent_entity(item, "discipline")
+            if discipline:
+                entity = self.controller.ensure_topic_for_edit(entity.id, discipline.id)
             dialog = TopicDialog(entity, self)
             if dialog.exec() != QDialog.Accepted:
                 return
             self.controller.update_topic(dialog.get_topic())
             self._refresh_structure_tree()
+            self._select_structure_entity(entity_type, entity.id)
             return
         if entity_type == "lesson":
+            topic = self._find_parent_entity(item, "topic")
+            if topic:
+                entity = self.controller.ensure_lesson_for_edit(entity.id, topic.id)
             dialog = LessonDialog(entity, self.controller.get_lesson_types(), self)
             if dialog.exec() != QDialog.Accepted:
                 return
             self.controller.update_lesson(dialog.get_lesson())
             self._refresh_structure_tree()
+            self._select_structure_entity(entity_type, entity.id)
             return
         if entity_type == "question":
+            lesson = self._find_parent_entity(item, "lesson")
+            if lesson:
+                entity = self.controller.ensure_question_for_edit(entity.id, lesson.id)
             dialog = QuestionDialog(entity, self)
             if dialog.exec() != QDialog.Accepted:
                 return
             self.controller.update_question(dialog.get_question())
             self._refresh_structure_tree()
+            self._select_structure_entity(entity_type, entity.id)
 
     def _delete_structure_selected(self) -> None:
         selection = self._current_structure_entity()
@@ -1054,6 +1230,64 @@ class AdminDialog(QDialog):
         elif entity_type == "question":
             self.controller.delete_question(entity.id)
         self._refresh_structure_tree()
+
+    def _duplicate_structure_selected(self) -> None:
+        selection = self._current_structure_entity()
+        item = self.structure_tree.currentItem()
+        if not selection or not item:
+            return
+        entity_type, entity = selection
+        new_entity = None
+        if entity_type == "program":
+            new_entity = self.controller.duplicate_program(entity.id)
+        elif entity_type == "discipline":
+            program = self._find_parent_entity(item, "program")
+            if program:
+                new_entity = self.controller.duplicate_discipline(entity.id, program.id)
+        elif entity_type == "topic":
+            discipline = self._find_parent_entity(item, "discipline")
+            if discipline:
+                new_entity = self.controller.duplicate_topic(entity.id, discipline.id)
+        elif entity_type == "lesson":
+            topic = self._find_parent_entity(item, "topic")
+            if topic:
+                new_entity = self.controller.duplicate_lesson(entity.id, topic.id)
+        elif entity_type == "question":
+            lesson = self._find_parent_entity(item, "lesson")
+            if lesson:
+                new_entity = self.controller.duplicate_question(entity.id, lesson.id)
+        if new_entity:
+            self._refresh_structure_tree()
+            self._select_structure_entity(entity_type, new_entity.id)
+
+    def _copy_structure_selected(self) -> None:
+        selection = self._current_structure_entity()
+        item = self.structure_tree.currentItem()
+        if not selection or not item:
+            return
+        entity_type, entity = selection
+        new_entity = None
+        if entity_type == "program":
+            new_entity = self.controller.copy_program(entity.id)
+        elif entity_type == "discipline":
+            program = self._find_parent_entity(item, "program")
+            if program:
+                new_entity = self.controller.copy_discipline(entity.id, program.id)
+        elif entity_type == "topic":
+            discipline = self._find_parent_entity(item, "discipline")
+            if discipline:
+                new_entity = self.controller.copy_topic(entity.id, discipline.id)
+        elif entity_type == "lesson":
+            topic = self._find_parent_entity(item, "topic")
+            if topic:
+                new_entity = self.controller.copy_lesson(entity.id, topic.id)
+        elif entity_type == "question":
+            lesson = self._find_parent_entity(item, "lesson")
+            if lesson:
+                new_entity = self.controller.copy_question(entity.id, lesson.id)
+        if new_entity:
+            self._refresh_structure_tree()
+            self._select_structure_entity(entity_type, new_entity.id)
 
     # Programs
     def _refresh_programs(self) -> None:
@@ -1619,11 +1853,12 @@ class AdminDialog(QDialog):
     # Materials
     def _refresh_materials(self) -> None:
         self.materials_table.setRowCount(0)
-        lesson = self._current_structure_lesson()
-        self._set_material_buttons_enabled(bool(lesson))
-        if not lesson:
+        target = self._current_structure_material_target()
+        self._set_material_buttons_enabled(bool(target))
+        if not target:
             return
-        for material in self.controller.get_materials_for_entity("lesson", lesson.id):
+        entity_type, entity = target
+        for material in self.controller.get_materials_for_entity(entity_type, entity.id):
             row = self.materials_table.rowCount()
             self.materials_table.insertRow(row)
             self.materials_table.setItem(row, 0, QTableWidgetItem(material.title))
@@ -1635,14 +1870,16 @@ class AdminDialog(QDialog):
             self.materials_table.item(row, 0).setData(Qt.UserRole, material)
 
     def _add_material(self) -> None:
-        lesson = self._current_structure_lesson()
-        if not lesson:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a lesson first."))
+        target = self._current_structure_material_target()
+        if not target:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program, discipline or lesson first."))
             return
+        entity_type, entity = target
+        teachers = self._filtered_teachers_for_target(entity_type, entity)
         dialog = MaterialDialog(
             parent=self,
             material_types=self.controller.get_material_types(),
-            teachers=self.controller.get_teachers(),
+            teachers=teachers,
         )
         if dialog.exec() != QDialog.Accepted:
             return
@@ -1651,7 +1888,7 @@ class AdminDialog(QDialog):
             QMessageBox.warning(self, self.tr("Validation"), self.tr("Material title is required."))
             return
         material = self.controller.add_material(material)
-        self.controller.add_material_to_entity(material.id, "lesson", lesson.id)
+        self.controller.add_material_to_entity(material.id, entity_type, entity.id)
         for teacher_id in dialog.get_selected_teacher_ids():
             self.controller.add_teacher_to_material(teacher_id, material.id)
         attach_path = dialog.get_attachment_path()
@@ -1669,11 +1906,22 @@ class AdminDialog(QDialog):
         material = self._current_entity(self.materials_table)
         if not material:
             return
+        target = self._current_structure_material_target()
+        teachers = self.controller.get_teachers()
+        if target:
+            entity_type, entity = target
+            teachers = self._filtered_teachers_for_target(entity_type, entity)
+            material = self.controller.ensure_material_for_edit(material, entity_type, entity.id)
+        filtered_ids = {t.id for t in teachers if t.id is not None}
         selected_teacher_ids = [teacher.id for teacher in material.teachers if teacher.id is not None]
+        if filtered_ids:
+            extra_teachers = [t for t in material.teachers if t.id not in filtered_ids]
+            if extra_teachers:
+                teachers = teachers + extra_teachers
         dialog = MaterialDialog(
             material,
             material_types=self.controller.get_material_types(),
-            teachers=self.controller.get_teachers(),
+            teachers=teachers,
             selected_teacher_ids=selected_teacher_ids,
             parent=self,
         )
@@ -1909,6 +2157,30 @@ class AdminDialog(QDialog):
             except Exception:
                 pass
         return f"DB: {path}\nIntegrity: {status}"
+
+    def _check_database(self) -> None:
+        diagnostics = self._database_diagnostics()
+        QMessageBox.information(self, self.tr("Check database"), diagnostics)
+
+    def _cleanup_unused_data(self) -> None:
+        counts = self.controller.get_unused_data_counts()
+        total = sum(counts.values())
+        if total == 0:
+            QMessageBox.information(self, self.tr("Cleanup unused data"), self.tr("No unused data found."))
+            return
+        details = [
+            f"{self.tr('Programs')}: {counts['programs']}",
+            f"{self.tr('Disciplines')}: {counts['disciplines']}",
+            f"{self.tr('Topics')}: {counts['topics']}",
+            f"{self.tr('Lessons')}: {counts['lessons']}",
+            f"{self.tr('Questions')}: {counts['questions']}",
+            f"{self.tr('Materials')}: {counts['materials']}",
+        ]
+        message = self.tr("Unused data will be deleted:") + "\n" + "\n".join(details)
+        if QMessageBox.question(self, self.tr("Confirm"), message) != QMessageBox.Yes:
+            return
+        self.controller.cleanup_unused_data()
+        QMessageBox.information(self, self.tr("Cleanup unused data"), self.tr("Cleanup completed."))
 
     def _refresh_material_assignments(self) -> None:
         material = self._current_entity(self.materials_table)
@@ -2313,11 +2585,17 @@ class AdminDialog(QDialog):
         menu = QMenu(self.structure_tree)
         edit_action = menu.addAction(self.tr("Edit"))
         delete_action = menu.addAction(self.tr("Delete"))
+        duplicate_action = menu.addAction(self.tr("Duplicate"))
+        copy_action = menu.addAction(self.tr("Copy"))
         action = menu.exec(self.structure_tree.viewport().mapToGlobal(pos))
         if action == edit_action:
             self._edit_structure_selected()
         elif action == delete_action:
             self._delete_structure_selected()
+        elif action == duplicate_action:
+            self._duplicate_structure_selected()
+        elif action == copy_action:
+            self._copy_structure_selected()
 
     def retranslate_ui(self, *_args) -> None:
         self.setWindowTitle(self.tr("Admin Panel"))
@@ -2333,8 +2611,11 @@ class AdminDialog(QDialog):
         self.structure_add_lesson.setText(self.tr("Add lesson"))
         self.structure_add_question.setText(self.tr("Add question"))
         self.structure_import.setText(self.tr("Import curriculum structure"))
+        self.structure_refresh.setText(self.tr("Refresh"))
         self.structure_edit.setText(self.tr("Edit"))
         self.structure_delete.setText(self.tr("Delete"))
+        self.structure_duplicate.setText(self.tr("Duplicate"))
+        self.structure_copy.setText(self.tr("Copy"))
 
         self.teachers_table.setHorizontalHeaderLabels(
             [
@@ -2362,6 +2643,10 @@ class AdminDialog(QDialog):
         self.teacher_edit.setText(self.tr("Edit"))
         self.teacher_delete.setText(self.tr("Delete"))
         self.teacher_import.setText(self.tr("Import teachers from DOCX"))
+        if hasattr(self, "teacher_disciplines_label"):
+            self.teacher_disciplines_label.setText(self.tr("Assigned disciplines"))
+            self.teacher_discipline_add.setText(self.tr("Add ->"))
+            self.teacher_discipline_remove.setText(self.tr("<- Remove"))
         self.program_add.setText(self.tr("Add"))
         self.program_edit.setText(self.tr("Edit"))
         self.program_delete.setText(self.tr("Delete"))
@@ -2424,6 +2709,8 @@ class AdminDialog(QDialog):
         self.materials_location_browse.setText(self.tr("Change..."))
         self.db_export.setText(self.tr("Export database"))
         self.db_import.setText(self.tr("Import database"))
+        self.db_check.setText(self.tr("Check database"))
+        self.db_cleanup.setText(self.tr("Cleanup unused data"))
         self.user_settings_export.setText(self.tr("Export user settings"))
         self.user_settings_import.setText(self.tr("Import user settings"))
         self.user_settings_save.setText(self.tr("Save user settings"))

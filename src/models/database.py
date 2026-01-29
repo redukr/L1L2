@@ -262,6 +262,19 @@ class Database:
                 )
             """)
 
+            # Teacher-Discipline relationship (many-to-many)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS teacher_disciplines (
+                    teacher_id INTEGER NOT NULL,
+                    discipline_id INTEGER NOT NULL,
+                    PRIMARY KEY (teacher_id, discipline_id),
+                    FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
+                        ON DELETE CASCADE
+                )
+            """)
+
             # Material associations (which entity the material belongs to)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS material_associations (
@@ -406,6 +419,11 @@ class Database:
         if current_version < 7:
             self._migrate_to_material_types(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (7)")
+            current_version = 7
+        if current_version < 8:
+            self._migrate_to_teacher_disciplines(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (8)")
+            current_version = 8
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -634,6 +652,20 @@ class Database:
         """)
         cursor.execute("DROP TABLE methodical_materials")
         cursor.execute("ALTER TABLE methodical_materials_new RENAME TO methodical_materials")
+
+    def _migrate_to_teacher_disciplines(self, cursor) -> None:
+        """Create teacher-discipline associations."""
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS teacher_disciplines (
+                teacher_id INTEGER NOT NULL,
+                discipline_id INTEGER NOT NULL,
+                PRIMARY KEY (teacher_id, discipline_id),
+                FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
+                    ON DELETE CASCADE
+            )
+        """)
 
     def rebuild_materials_fts(self) -> None:
         """Rebuild materials FTS index (repairs malformed FTS tables)."""
