@@ -1,4 +1,6 @@
 """Main application window."""
+import os
+import re
 from typing import Dict, Tuple
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import (
@@ -137,6 +139,7 @@ class MainWindow(QMainWindow):
         self.program_list.itemSelectionChanged.connect(self._on_program_selected)
         self.content_tree.itemSelectionChanged.connect(self._on_tree_selected)
         self.search_results.cellDoubleClicked.connect(self._on_search_result_activated)
+        self.search_results.itemSelectionChanged.connect(self._on_search_result_selected)
         self.admin_button.clicked.connect(self._on_open_admin)
         self.open_material_button.clicked.connect(self._on_open_material)
         self.show_material_button.clicked.connect(self._on_show_material)
@@ -184,13 +187,13 @@ class MainWindow(QMainWindow):
         if not selected:
             return
         program_id = selected.data(Qt.UserRole)
-        self._load_program_structure(program_id)
+        self._load_program_structure(program_id, select_last_discipline=False)
         details = self.controller.get_entity_details("program", program_id)
         self._show_details(details)
         self._load_materials("program", program_id)
         self.last_program_id = program_id
 
-    def _load_program_structure(self, program_id: int) -> None:
+    def _load_program_structure(self, program_id: int, select_last_discipline: bool = True) -> None:
         self.content_tree.clear()
         self.tree_items.clear()
         disciplines = self.controller.get_program_structure(program_id)
@@ -216,7 +219,7 @@ class MainWindow(QMainWindow):
                 discipline_item.addChild(topic_item)
             self.content_tree.addTopLevelItem(discipline_item)
         self.content_tree.expandAll()
-        if self.last_discipline_id:
+        if select_last_discipline and self.last_discipline_id:
             item = self.tree_items.get(("discipline", self.last_discipline_id))
             if item:
                 self.content_tree.setCurrentItem(item)
@@ -254,6 +257,8 @@ class MainWindow(QMainWindow):
             meta_lines = []
             if "level" in meta:
                 meta_lines.append(f"{self.tr('Level')}: {meta.get('level') or self.tr('N/A')}")
+            if "year" in meta:
+                meta_lines.append(f"{self.tr('Year')}: {meta.get('year') or self.tr('N/A')}")
             if "duration_hours" in meta:
                 meta_lines.append(f"{self.tr('Total hours')}: {meta.get('duration_hours')} {self.tr('hours')}")
             if "classroom_hours" in meta:
@@ -271,9 +276,6 @@ class MainWindow(QMainWindow):
                 meta_lines.append(f"{self.tr('Lesson type')}: {lesson_type}")
             if "difficulty_level" in meta:
                 meta_lines.append(f"{self.tr('Difficulty')}: {meta.get('difficulty_level')}")
-            if "answer" in meta:
-                answer = meta.get("answer") or self.tr("Not provided")
-                meta_lines.append(f"{self.tr('Answer')}: {answer}")
             if "material_type" in meta:
                 material_type = meta.get("material_type")
                 material_type_label = self._translate_material_type(material_type)
@@ -338,38 +340,80 @@ class MainWindow(QMainWindow):
             self.search_results.item(row, 0).setData(Qt.UserRole, result)
         self.search_results.resizeRowsToContents()
 
+    def _on_search_result_selected(self) -> None:
+        row = self.search_results.currentRow()
+        if row < 0:
+            return
+        result_item = self.search_results.item(row, 0)
+        if not result_item:
+            return
+        result = result_item.data(Qt.UserRole)
+        if result:
+            self._navigate_to_search_result(result, open_material=False)
+
     def _on_search_result_activated(self, row: int, _column: int) -> None:
         result_item = self.search_results.item(row, 0)
         if not result_item:
             return
         result = result_item.data(Qt.UserRole)
+        if result:
+            self._navigate_to_search_result(result, open_material=True)
+
+    def _navigate_to_search_result(self, result, open_material: bool) -> None:
+        if result.entity_type == "material" and open_material:
+            material = self.controller.material_repo.get_by_id(result.entity_id)
+            if not material or not material.relative_path:
+                QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
+                return
+            if not self.file_storage.open_file(material.relative_path):
+                QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+            return
+
         navigation = self.controller.resolve_search_navigation(result)
         program_id = navigation.get("program_id")
         if program_id and program_id in self.program_items:
-            self.program_list.setCurrentItem(self.program_items[program_id])
-        if navigation.get("discipline_id"):
-            item = self.tree_items.get(("discipline", navigation["discipline_id"]))
-            if item:
-                self.content_tree.setCurrentItem(item)
-                return
-        if navigation.get("topic_id"):
-            item = self.tree_items.get(("topic", navigation["topic_id"]))
-            if item:
-                self.content_tree.setCurrentItem(item)
-                return
-        if navigation.get("lesson_id"):
-            item = self.tree_items.get(("lesson", navigation["lesson_id"]))
-            if item:
-                self.content_tree.setCurrentItem(item)
-                return
-        if navigation.get("question_id"):
-            item = self.tree_items.get(("question", navigation["question_id"]))
-            if item:
-                self.content_tree.setCurrentItem(item)
-                return
-        if result.entity_type in {"teacher", "material"}:
-            details = self.controller.get_entity_details(result.entity_type, result.entity_id)
+            if program_id != self.last_program_id:
+                self.program_list.blockSignals(True)
+                self.program_list.setCurrentItem(self.program_items[program_id])
+                self.program_list.blockSignals(False)
+                self._load_program_structure(program_id, select_last_discipline=False)
+                self._load_materials("program", program_id)
+                self.last_program_id = program_id
+            else:
+                self.program_list.setCurrentItem(self.program_items[program_id])
+
+        if result.entity_type == "program":
+            details = self.controller.get_entity_details("program", result.entity_id)
             self._show_details(details)
+            self._load_materials("program", result.entity_id)
+            return
+
+        target = None
+        if navigation.get("question_id"):
+            target = ("question", navigation["question_id"])
+        elif navigation.get("lesson_id"):
+            target = ("lesson", navigation["lesson_id"])
+        elif navigation.get("topic_id"):
+            target = ("topic", navigation["topic_id"])
+        elif navigation.get("discipline_id"):
+            target = ("discipline", navigation["discipline_id"])
+
+        if target:
+            item = self.tree_items.get(target)
+            if item:
+                self._select_tree_item(item)
+                return
+
+        details = self.controller.get_entity_details(result.entity_type, result.entity_id)
+        self._show_details(details)
+
+    def _select_tree_item(self, item: QTreeWidgetItem) -> None:
+        current = item.parent()
+        while current:
+            current.setExpanded(True)
+            current = current.parent()
+        self.content_tree.setCurrentItem(item)
+        self.content_tree.scrollToItem(item)
 
     def _on_open_admin(self) -> None:
         dialog = AdminDialog(self.controller.db, self.i18n, self.settings, self)
@@ -431,15 +475,52 @@ class MainWindow(QMainWindow):
         dest_dir = QFileDialog.getExistingDirectory(self, self.tr("Copy file as..."), "")
         if not dest_dir:
             return
+        used_names = set()
         for item in items:
             material = item.data(Qt.UserRole)
             if not material.relative_path:
                 continue
-            ext = f".{material.file_type}" if material.file_type else ""
-            filename = f"{material.title}{ext}"
-            target = f"{dest_dir}/{filename}"
+            base_name, ext = self._material_copy_name_parts(material)
+            author_suffix = self._material_copy_author_suffix(material)
+            filename = f"{base_name}{author_suffix}{ext}"
+            filename = self._sanitize_filename(filename)
+            filename = self._ensure_unique_filename(dest_dir, filename, used_names)
+            target = os.path.join(dest_dir, filename)
             if not self.file_storage.copy_file_as(material.relative_path, target):
                 QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+
+    def _material_copy_name_parts(self, material) -> Tuple[str, str]:
+        original = material.original_filename or ""
+        if original:
+            name, ext = os.path.splitext(original)
+            if ext:
+                return name, ext
+        ext = f".{material.file_type}" if material.file_type else ""
+        return material.title, ext
+
+    def _material_copy_author_suffix(self, material) -> str:
+        if not material.teachers:
+            return ""
+        full_name = material.teachers[0].full_name or ""
+        parts = [p for p in full_name.split() if p]
+        if not parts:
+            return ""
+        surname = parts[0]
+        return f" - {surname}"
+
+    def _sanitize_filename(self, name: str) -> str:
+        cleaned = re.sub(r'[<>:"/\\\\|?*]+', "_", name)
+        return cleaned.strip().strip(".")
+
+    def _ensure_unique_filename(self, dest_dir: str, filename: str, used_names: set) -> str:
+        base, ext = os.path.splitext(filename)
+        candidate = filename
+        counter = 1
+        while candidate in used_names or os.path.exists(os.path.join(dest_dir, candidate)):
+            candidate = f"{base} ({counter}){ext}"
+            counter += 1
+        used_names.add(candidate)
+        return candidate
 
     def _load_settings(self) -> None:
         geometry = self.settings.value("ui/main_geometry")

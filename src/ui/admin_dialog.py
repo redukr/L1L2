@@ -348,7 +348,7 @@ class AdminDialog(QDialog):
         self.structure_add_lesson.clicked.connect(self._add_structure_lesson)
         self.structure_add_question.clicked.connect(self._add_structure_question)
         self.structure_import.clicked.connect(self._on_import_curriculum)
-        self.structure_refresh.clicked.connect(self._refresh_structure_tree)
+        self.structure_refresh.clicked.connect(self._refresh_structure_with_reorder)
         self.structure_edit.clicked.connect(self._edit_structure_selected)
         self.structure_delete.clicked.connect(self._delete_structure_selected)
         self.structure_duplicate.clicked.connect(self._duplicate_structure_selected)
@@ -887,6 +887,28 @@ class AdminDialog(QDialog):
             self.structure_tree.setCurrentItem(item_index[selected_key])
         self._resize_structure_tree()
 
+    def _refresh_structure_with_reorder(self) -> None:
+        selection = self._current_structure_entity()
+        if not selection:
+            self._refresh_structure_tree()
+            return
+        entity_type, entity = selection
+        if entity_type == "lesson":
+            self.controller.normalize_lesson_question_order(entity.id)
+        elif entity_type == "topic":
+            for lesson in self.controller.get_topic_lessons(entity.id):
+                self.controller.normalize_lesson_question_order(lesson.id)
+        elif entity_type == "discipline":
+            for topic in self.controller.get_discipline_topics(entity.id):
+                for lesson in self.controller.get_topic_lessons(topic.id):
+                    self.controller.normalize_lesson_question_order(lesson.id)
+        elif entity_type == "program":
+            for discipline in self.controller.get_program_disciplines(entity.id):
+                for topic in self.controller.get_discipline_topics(discipline.id):
+                    for lesson in self.controller.get_topic_lessons(topic.id):
+                        self.controller.normalize_lesson_question_order(lesson.id)
+        self._refresh_structure_tree()
+
     def _structure_selected_key(self):
         selection = self._current_structure_entity()
         if not selection:
@@ -1038,7 +1060,11 @@ class AdminDialog(QDialog):
 
     def _structure_details(self, entity_type: str, entity) -> str:
         if entity_type == "program":
-            return f"{self.tr('Level')}: {entity.level or ''}\n{self.tr('Duration')}: {entity.duration_hours or ''}"
+            return (
+                f"{self.tr('Level')}: {entity.level or ''}\n"
+                f"{self.tr('Year')}: {entity.year or ''}\n"
+                f"{self.tr('Duration')}: {entity.duration_hours or ''}"
+            )
         if entity_type == "discipline":
             return entity.description or ""
         if entity_type == "topic":
@@ -1149,6 +1175,8 @@ class AdminDialog(QDialog):
         if not question.content:
             QMessageBox.warning(self, self.tr("Validation"), self.tr("Question text is required."))
             return
+        if question.order_index <= 0:
+            question.order_index = self.controller.get_next_lesson_question_order(lesson.id)
         self.controller.add_question(question)
         self.controller.add_question_to_lesson(lesson.id, question.id, question.order_index)
         self._refresh_structure_tree()
@@ -1207,7 +1235,10 @@ class AdminDialog(QDialog):
             dialog = QuestionDialog(entity, self)
             if dialog.exec() != QDialog.Accepted:
                 return
-            self.controller.update_question(dialog.get_question())
+            updated = dialog.get_question()
+            self.controller.update_question(updated)
+            if lesson and updated.order_index > 0:
+                self.controller.update_lesson_question_order(lesson.id, updated.id, updated.order_index)
             self._refresh_structure_tree()
             self._select_structure_entity(entity_type, entity.id)
 
@@ -1673,7 +1704,8 @@ class AdminDialog(QDialog):
         if not lesson or not item:
             return
         question = item.data(Qt.UserRole)
-        self.controller.add_question_to_lesson(lesson.id, question.id, question.order_index)
+        order_index = question.order_index or self.controller.get_next_lesson_question_order(lesson.id)
+        self.controller.add_question_to_lesson(lesson.id, question.id, order_index)
         self._refresh_lesson_questions()
 
     def _remove_question_from_lesson(self) -> None:
@@ -1990,6 +2022,7 @@ class AdminDialog(QDialog):
             return
         self.controller.update_material_type(dialog.get_material_type())
         self._refresh_material_types()
+        self._refresh_materials()
 
     def _delete_material_type(self) -> None:
         material_types = self._selected_entities(self.material_types_table)

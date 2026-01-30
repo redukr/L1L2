@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from datetime import datetime
 import re
 import shutil
 import subprocess
@@ -713,12 +714,13 @@ def _ensure_program(cursor, program_name: str) -> int:
     row = cursor.fetchone()
     if row:
         return row["id"]
+    current_year = datetime.now().year
     cursor.execute(
         """
-        INSERT INTO educational_programs (name, description, level, duration_hours)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO educational_programs (name, description, level, year, duration_hours)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (program_name, "", "", 0),
+        (program_name, "", "", current_year, 0),
     )
     return cursor.lastrowid
 

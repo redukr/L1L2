@@ -186,6 +186,27 @@ class LessonRepository:
             except Exception:
                 return False
 
+    def update_question_order(self, lesson_id: int, question_id: int, order_index: int) -> bool:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE lesson_questions
+                SET order_index = ?
+                WHERE lesson_id = ? AND question_id = ?
+            """, (order_index, lesson_id, question_id))
+            return cursor.rowcount > 0
+
+    def get_next_question_order(self, lesson_id: int) -> int:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COALESCE(MAX(order_index), 0) + 1 as next_idx
+                FROM lesson_questions
+                WHERE lesson_id = ?
+            """, (lesson_id,))
+            row = cursor.fetchone()
+            return row["next_idx"] if row else 1
+
     def remove_question_from_lesson(self, lesson_id: int, question_id: int) -> bool:
         """
         Remove a question from a lesson.
@@ -225,11 +246,36 @@ class LessonRepository:
                 FROM questions q
                 JOIN lesson_questions lq ON q.id = lq.question_id
                 WHERE lq.lesson_id = ?
-                ORDER BY lq.order_index
+                ORDER BY CASE
+                    WHEN lq.order_index IS NULL OR lq.order_index = 0 THEN q.order_index
+                    ELSE lq.order_index
+                END, q.order_index
             """, (lesson_id,))
 
             question_repo = QuestionRepository(self.db)
             return [question_repo._row_to_question(row) for row in cursor.fetchall()]
+
+    def normalize_question_order(self, lesson_id: int) -> None:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT lq.question_id,
+                       CASE
+                           WHEN q.order_index IS NULL OR q.order_index = 0 THEN (1000000 + lq.rowid)
+                           ELSE q.order_index
+                       END as sort_key
+                FROM lesson_questions lq
+                JOIN questions q ON q.id = lq.question_id
+                WHERE lq.lesson_id = ?
+                ORDER BY sort_key
+            """, (lesson_id,))
+            rows = cursor.fetchall()
+            for idx, row in enumerate(rows, start=1):
+                cursor.execute("""
+                    UPDATE lesson_questions
+                    SET order_index = ?
+                    WHERE lesson_id = ? AND question_id = ?
+                """, (idx, lesson_id, row["question_id"]))
 
     def get_lessons_for_question(self, question_id: int) -> List[Lesson]:
         """

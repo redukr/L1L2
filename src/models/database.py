@@ -79,6 +79,7 @@ class Database:
                     name TEXT NOT NULL,
                     description TEXT,
                     level TEXT,
+                    year INTEGER NOT NULL DEFAULT 0,
                     duration_hours INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -424,6 +425,10 @@ class Database:
             self._migrate_to_teacher_disciplines(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (8)")
             current_version = 8
+        if current_version < 9:
+            self._migrate_to_program_year(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (9)")
+            current_version = 9
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -666,6 +671,22 @@ class Database:
                     ON DELETE CASCADE
             )
         """)
+
+    def _migrate_to_program_year(self, cursor) -> None:
+        cursor.execute("PRAGMA table_info(educational_programs)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "year" not in columns:
+            cursor.execute("""
+                ALTER TABLE educational_programs
+                ADD COLUMN year INTEGER NOT NULL DEFAULT 0
+            """)
+        from datetime import datetime
+
+        current_year = datetime.now().year
+        cursor.execute(
+            "UPDATE educational_programs SET year = ? WHERE year IS NULL OR year = 0",
+            (current_year,),
+        )
 
     def rebuild_materials_fts(self) -> None:
         """Rebuild materials FTS index (repairs malformed FTS tables)."""

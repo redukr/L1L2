@@ -266,12 +266,8 @@ class SearchService:
                 """, (fts_query,))
 
                 for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(
-                        row, ['content', 'answer']
-                    )
+                    matched_text = self._get_matched_text(row, ['content'])
                     description = f"Difficulty: {row['difficulty_level']}"
-                    if row['answer']:
-                        description += f" | Answer: {row['answer'][:100]}..."
                     results.append(SearchResult(
                         entity_type='question',
                         entity_id=row['id'],
@@ -440,11 +436,9 @@ class SearchService:
         results = []
         for question in self.question_repo.search(keyword):
             matched_text = " | ".join(
-                value for value in [question.content, question.answer or ""] if value
+                value for value in [question.content] if value
             )
             description = f"Difficulty: {question.difficulty_level}"
-            if question.answer:
-                description += f" | Answer: {question.answer[:100]}..."
             results.append(SearchResult(
                 entity_type='question',
                 entity_id=question.id,

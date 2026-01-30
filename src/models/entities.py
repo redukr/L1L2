@@ -25,6 +25,7 @@ class EducationalProgram:
     name: str = ""
     description: Optional[str] = None
     level: Optional[str] = None
+    year: Optional[int] = None
     duration_hours: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

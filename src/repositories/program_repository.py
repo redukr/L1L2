@@ -27,15 +27,18 @@ class ProgramRepository:
         Returns:
             EducationalProgram: Added program with assigned ID
         """
+        if program.year is None:
+            program.year = datetime.now().year
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO educational_programs (name, description, level, duration_hours)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO educational_programs (name, description, level, year, duration_hours)
+                VALUES (?, ?, ?, ?, ?)
             """, (
                 program.name,
                 program.description,
                 program.level,
+                program.year,
                 program.duration_hours
             ))
             program.id = cursor.lastrowid
@@ -51,17 +54,20 @@ class ProgramRepository:
         Returns:
             EducationalProgram: Updated program entity
         """
+        if program.year is None:
+            program.year = datetime.now().year
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE educational_programs
-                SET name = ?, description = ?, level = ?, 
+                SET name = ?, description = ?, level = ?, year = ?,
                     duration_hours = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
                 program.name,
                 program.description,
                 program.level,
+                program.year,
                 program.duration_hours,
                 program.id
             ))
@@ -95,7 +101,7 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, name, description, level, duration_hours, 
+                SELECT id, name, description, level, year, duration_hours,
                        created_at, updated_at
                 FROM educational_programs WHERE id = ?
             """, (program_id,))
@@ -115,7 +121,7 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, name, description, level, duration_hours, 
+                SELECT id, name, description, level, year, duration_hours,
                        created_at, updated_at
                 FROM educational_programs ORDER BY name
             """)
@@ -134,7 +140,7 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, name, description, level, duration_hours, 
+                SELECT id, name, description, level, year, duration_hours,
                        created_at, updated_at
                 FROM educational_programs
                 WHERE name LIKE ? OR description LIKE ? OR level LIKE ?
@@ -291,7 +297,7 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
+                SELECT DISTINCT p.id, p.name, p.description, p.level, p.year, p.duration_hours,
                                 p.created_at, p.updated_at
                 FROM educational_programs p
                 JOIN program_disciplines pd ON p.id = pd.program_id
@@ -314,7 +320,7 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT p.id, p.name, p.description, p.level, p.duration_hours,
+                SELECT p.id, p.name, p.description, p.level, p.year, p.duration_hours,
                        p.created_at, p.updated_at
                 FROM educational_programs p
                 JOIN program_disciplines pd ON p.id = pd.program_id
@@ -336,7 +342,7 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
+                SELECT DISTINCT p.id, p.name, p.description, p.level, p.year, p.duration_hours,
                                 p.created_at, p.updated_at
                 FROM educational_programs p
                 JOIN program_disciplines pd ON p.id = pd.program_id
@@ -360,7 +366,7 @@ class ProgramRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT DISTINCT p.id, p.name, p.description, p.level, p.duration_hours,
+                SELECT DISTINCT p.id, p.name, p.description, p.level, p.year, p.duration_hours,
                                 p.created_at, p.updated_at
                 FROM educational_programs p
                 JOIN program_disciplines pd ON p.id = pd.program_id
@@ -387,6 +393,7 @@ class ProgramRepository:
             name=row['name'],
             description=row['description'],
             level=row['level'],
+            year=row['year'] if 'year' in row.keys() else None,
             duration_hours=row['duration_hours'],
             created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
             updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None

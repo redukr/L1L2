@@ -39,6 +39,9 @@ class MainController:
                     lesson.questions = self.lesson_repo.get_lesson_questions(lesson.id)
         return disciplines
 
+    def get_program_disciplines(self, program_id: int) -> List[Discipline]:
+        return self.program_repo.get_program_disciplines(program_id)
+
     def get_entity_details(self, entity_type: str, entity_id: int) -> Dict[str, object]:
         if entity_type == "program":
             program = self.program_repo.get_by_id(entity_id)
@@ -49,6 +52,7 @@ class MainController:
                 "description": program.description or "",
                 "meta": {
                     "level": program.level or "",
+                    "year": program.year or "",
                     "duration_hours": program.duration_hours or 0,
                 },
             }
@@ -98,7 +102,6 @@ class MainController:
                 "description": "",
                 "meta": {
                     "difficulty_level": question.difficulty_level,
-                    "answer": question.answer or "",
                 },
             }
         if entity_type == "material":

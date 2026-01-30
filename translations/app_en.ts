@@ -25,12 +25,12 @@
     <message><source>Teacher</source><translation>Teacher</translation></message>
     <message><source>Material</source><translation>Material</translation></message>
     <message><source>Level</source><translation>Level</translation></message>
+    <message><source>Year</source><translation>Year</translation></message>
     <message><source>N/A</source><translation>N/A</translation></message>
     <message><source>Duration</source><translation>Duration</translation></message>
     <message><source>hours</source><translation>hours</translation></message>
     <message><source>Order</source><translation>Order</translation></message>
     <message><source>Difficulty</source><translation>Difficulty</translation></message>
-    <message><source>Answer</source><translation>Answer</translation></message>
     <message><source>Not provided</source><translation>Not provided</translation></message>
     <message><source>File</source><translation>File</translation></message>
     <message><source>Teachers</source><translation>Teachers</translation></message>
@@ -103,6 +103,7 @@
     <message><source>Assigned disciplines</source><translation>Assigned disciplines</translation></message>
     <message><source>Duplicate</source><translation>Duplicate</translation></message>
     <message><source>Copy</source><translation>Copy</translation></message>
+    <message><source>Year</source><translation>Year</translation></message>
     <message><source>Full name</source><translation>Full name</translation></message>
     <message><source>Position</source><translation>Position</translation></message>
     <message><source>Department</source><translation>Department</translation></message>
@@ -188,6 +189,7 @@
     <message><source>Name</source><translation>Name</translation></message>
     <message><source>Description</source><translation>Description</translation></message>
     <message><source>Level</source><translation>Level</translation></message>
+    <message><source>Year</source><translation>Year</translation></message>
     <message><source>Duration (hours)</source><translation>Duration (hours)</translation></message>
   </context>
   <context>
@@ -215,7 +217,6 @@
   <context>
     <name>QuestionDialog</name>
     <message><source>Question</source><translation>Question</translation></message>
-    <message><source>Answer</source><translation>Answer</translation></message>
     <message><source>Difficulty (1-5)</source><translation>Difficulty (1-5)</translation></message>
     <message><source>Order index</source><translation>Order index</translation></message>
   </context>
@@ -225,6 +226,16 @@
     <message><source>Title</source><translation>Title</translation></message>
     <message><source>Type</source><translation>Type</translation></message>
     <message><source>Description</source><translation>Description</translation></message>
+    <message><source>Sort authors</source><translation>Sort authors</translation></message>
+    <message><source>Default</source><translation>Default</translation></message>
+    <message><source>Full name</source><translation>Full name</translation></message>
+    <message><source>Military rank</source><translation>Military rank</translation></message>
+    <message><source>Position</source><translation>Position</translation></message>
+    <message><source>Department</source><translation>Department</translation></message>
+    <message><source>Email</source><translation>Email</translation></message>
+    <message><source>Phone</source><translation>Phone</translation></message>
+    <message><source>A-Z</source><translation>A-Z</translation></message>
+    <message><source>Z-A</source><translation>Z-A</translation></message>
     <message><source>Authors</source><translation>Authors</translation></message>
     <message><source>Attached file</source><translation>Attached file</translation></message>
     <message><source>plan</source><translation>plan</translation></message>

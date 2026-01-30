@@ -180,6 +180,15 @@ class AdminController:
     def remove_question_from_lesson(self, lesson_id: int, question_id: int) -> bool:
         return self.lesson_repo.remove_question_from_lesson(lesson_id, question_id)
 
+    def update_lesson_question_order(self, lesson_id: int, question_id: int, order_index: int) -> bool:
+        return self.lesson_repo.update_question_order(lesson_id, question_id, order_index)
+
+    def get_next_lesson_question_order(self, lesson_id: int) -> int:
+        return self.lesson_repo.get_next_question_order(lesson_id)
+
+    def normalize_lesson_question_order(self, lesson_id: int) -> None:
+        self.lesson_repo.normalize_question_order(lesson_id)
+
     # Questions
     def get_questions(self) -> List[Question]:
         return self.question_repo.get_all()
@@ -220,7 +229,11 @@ class AdminController:
         return self.material_type_repo.add(material_type)
 
     def update_material_type(self, material_type: MaterialType) -> MaterialType:
-        return self.material_type_repo.update(material_type)
+        existing = self.material_type_repo.get_by_id(material_type.id) if material_type.id else None
+        updated = self.material_type_repo.update(material_type)
+        if existing and existing.name != updated.name:
+            self.material_repo.update_material_type_name(existing.name, updated.name)
+        return updated
 
     def delete_material_type(self, material_type_id: int) -> bool:
         return self.material_type_repo.delete(material_type_id)
@@ -274,6 +287,7 @@ class AdminController:
             name=self._copy_name(program.name),
             description=program.description,
             level=program.level,
+            year=program.year,
             duration_hours=program.duration_hours,
         )
         new_program = self.program_repo.add(new_program)
@@ -292,6 +306,7 @@ class AdminController:
             name=self._copy_name(program.name),
             description=program.description,
             level=program.level,
+            year=program.year,
             duration_hours=program.duration_hours,
         )
         new_program = self.program_repo.add(new_program)
@@ -640,7 +655,10 @@ class AdminController:
                 FROM questions q
                 JOIN lesson_questions lq ON q.id = lq.question_id
                 WHERE lq.lesson_id = ?
-                ORDER BY lq.order_index
+                ORDER BY CASE
+                    WHEN lq.order_index IS NULL OR lq.order_index = 0 THEN q.order_index
+                    ELSE lq.order_index
+                END, q.order_index
             """, (lesson_id,))
             questions = []
             for row in cursor.fetchall():

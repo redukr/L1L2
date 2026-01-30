@@ -114,6 +114,17 @@ class MaterialRepository:
             ))
             return material
 
+    def update_material_type_name(self, old_name: str, new_name: str) -> None:
+        if not old_name or not new_name or old_name == new_name:
+            return
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE methodical_materials
+                SET material_type = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE material_type = ?
+            """, (new_name, old_name))
+
     def get_by_id(self, material_id: int) -> Optional[MethodicalMaterial]:
         """
         Get a methodical material by ID.

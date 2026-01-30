@@ -1,4 +1,5 @@
 """Demo data bootstrap for first-time use."""
+from datetime import datetime
 from ..models.database import Database
 from ..models.entities import (
     Teacher,
@@ -62,10 +63,12 @@ def seed_demo_data(database: Database) -> None:
 
     teachers = [teacher_repo.add(t) for t in teachers]
 
+    current_year = datetime.now().year
     program = program_repo.add(EducationalProgram(
         name="Foundations of Data Literacy",
         description="A practical program covering data collection, interpretation, and communication.",
         level="Undergraduate",
+        year=current_year,
         duration_hours=48,
     ))
 
@@ -73,6 +76,7 @@ def seed_demo_data(database: Database) -> None:
         name="Applied Statistics for Decision Making",
         description="Statistical methods and tools for evidence-based decisions.",
         level="Professional Certificate",
+        year=current_year,
         duration_hours=60,
     ))
 

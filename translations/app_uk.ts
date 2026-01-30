@@ -28,12 +28,12 @@
     <message><source>Teacher</source><translation>Викладач</translation></message>
     <message><source>Material</source><translation>Матеріал</translation></message>
     <message><source>Level</source><translation>Рівень</translation></message>
+    <message><source>Year</source><translation>Рік</translation></message>
     <message><source>N/A</source><translation>Н/Д</translation></message>
     <message><source>Duration</source><translation>Тривалість</translation></message>
     <message><source>hours</source><translation>год</translation></message>
     <message><source>Order</source><translation>Порядок</translation></message>
     <message><source>Difficulty</source><translation>Складність</translation></message>
-    <message><source>Answer</source><translation>Відповідь</translation></message>
     <message><source>Not provided</source><translation>Не вказано</translation></message>
     <message><source>File</source><translation>Файл</translation></message>
     <message><source>Teachers</source><translation>Викладачі</translation></message>
@@ -70,6 +70,7 @@
     <message><source>Assigned disciplines</source><translation>Закріплені дисципліни</translation></message>
     <message><source>Duplicate</source><translation>Дублювати</translation></message>
     <message><source>Copy</source><translation>Копіювати</translation></message>
+    <message><source>Year</source><translation>Рік</translation></message>
     <message><source>Settings</source><translation>Налаштування</translation></message>
     <message><source>Full name</source><translation>Повне ім&apos;я</translation></message>
     <message><source>Position</source><translation>Посада</translation></message>
@@ -214,6 +215,7 @@
     <message><source>Name</source><translation>Назва</translation></message>
     <message><source>Description</source><translation>Опис</translation></message>
     <message><source>Level</source><translation>Рівень</translation></message>
+    <message><source>Year</source><translation>Рік</translation></message>
     <message><source>Duration (hours)</source><translation>Тривалість (год)</translation></message>
   </context>
   <context>
@@ -245,7 +247,6 @@
   <context>
     <name>QuestionDialog</name>
     <message><source>Question</source><translation>Питання</translation></message>
-    <message><source>Answer</source><translation>Відповідь</translation></message>
     <message><source>Difficulty (1-5)</source><translation>Складність (1-5)</translation></message>
     <message><source>Order index</source><translation>Порядковий індекс</translation></message>
   </context>
@@ -255,6 +256,16 @@
     <message><source>Title</source><translation>Назва</translation></message>
     <message><source>Type</source><translation>Тип</translation></message>
     <message><source>Description</source><translation>Опис</translation></message>
+    <message><source>Sort authors</source><translation>Сортування авторів</translation></message>
+    <message><source>Default</source><translation>За замовчуванням</translation></message>
+    <message><source>Full name</source><translation>ПІБ</translation></message>
+    <message><source>Military rank</source><translation>Військове звання</translation></message>
+    <message><source>Position</source><translation>Посада</translation></message>
+    <message><source>Department</source><translation>Підрозділ</translation></message>
+    <message><source>Email</source><translation>Email</translation></message>
+    <message><source>Phone</source><translation>Телефон</translation></message>
+    <message><source>A-Z</source><translation>A-Z</translation></message>
+    <message><source>Z-A</source><translation>Z-A</translation></message>
     <message><source>Authors</source><translation>Автори</translation></message>
     <message><source>Attached file</source><translation>Прикріплений файл</translation></message>
     <message><source>plan</source><translation>план</translation></message>

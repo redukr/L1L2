@@ -137,9 +137,9 @@ class QuestionRepository:
                 SELECT id, content, answer, difficulty_level, order_index, 
                        created_at, updated_at
                 FROM questions
-                WHERE content LIKE ? OR answer LIKE ?
+                WHERE content LIKE ?
                 ORDER BY content
-            """, (f"%{keyword}%", f"%{keyword}%"))
+            """, (f"%{keyword}%",))
             return [self._row_to_question(row) for row in cursor.fetchall()]
 
     def _row_to_question(self, row) -> Question:

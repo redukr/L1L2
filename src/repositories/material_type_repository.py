@@ -49,6 +49,16 @@ class MaterialTypeRepository:
             cursor.execute("DELETE FROM material_types WHERE id = ?", (material_type_id,))
             return cursor.rowcount > 0
 
+    def get_by_id(self, material_type_id: int) -> Optional[MaterialType]:
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, name, created_at, updated_at FROM material_types WHERE id = ?",
+                (material_type_id,),
+            )
+            row = cursor.fetchone()
+            return self._row_to_type(row) if row else None
+
     def _row_to_type(self, row) -> MaterialType:  # noqa: ANN001
         return MaterialType(
             id=row["id"],

@@ -1,6 +1,7 @@
 """Dialog windows for CRUD operations."""
 from typing import Optional
 from pathlib import Path
+from datetime import datetime
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -105,6 +106,12 @@ class ProgramDialog(QDialog):
         self.name = QLineEdit(program.name if program else "")
         self.description = QTextEdit(program.description if program else "")
         self.level = QLineEdit(program.level if program else "")
+        self.year = QSpinBox()
+        self.year.setRange(1900, 2100)
+        if program and program.year:
+            self.year.setValue(program.year)
+        else:
+            self.year.setValue(datetime.now().year)
         self.duration = QSpinBox()
         self.duration.setRange(1, 1000)
         if program and program.duration_hours:
@@ -112,6 +119,7 @@ class ProgramDialog(QDialog):
         layout.addRow(self.tr("Name"), self.name)
         layout.addRow(self.tr("Description"), self.description)
         layout.addRow(self.tr("Level"), self.level)
+        layout.addRow(self.tr("Year"), self.year)
         layout.addRow(self.tr("Duration (hours)"), self.duration)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -123,6 +131,7 @@ class ProgramDialog(QDialog):
         program.name = self.name.text().strip()
         program.description = self.description.toPlainText().strip() or None
         program.level = self.level.text().strip() or None
+        program.year = self.year.value()
         program.duration_hours = self.duration.value()
         return program
 
@@ -278,7 +287,6 @@ class QuestionDialog(QDialog):
         self._question = question
         layout = QFormLayout(self)
         self.content = QTextEdit(question.content if question else "")
-        self.answer = QTextEdit(question.answer if question else "")
         self.difficulty = QSpinBox()
         self.difficulty.setRange(1, 5)
         if question:
@@ -288,7 +296,6 @@ class QuestionDialog(QDialog):
         if question:
             self.order_index.setValue(question.order_index)
         layout.addRow(self.tr("Question"), self.content)
-        layout.addRow(self.tr("Answer"), self.answer)
         layout.addRow(self.tr("Difficulty (1-5)"), self.difficulty)
         layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -299,7 +306,10 @@ class QuestionDialog(QDialog):
     def get_question(self) -> Question:
         question = self._question or Question()
         question.content = self.content.toPlainText().strip()
-        question.answer = self.answer.toPlainText().strip() or None
+        if self._question:
+            question.answer = self._question.answer
+        else:
+            question.answer = None
         question.difficulty_level = self.difficulty.value()
         question.order_index = self.order_index.value()
         return question
@@ -321,6 +331,7 @@ class MaterialDialog(QDialog):
         self._material = material
         self._teachers = teachers or []
         self._selected_teacher_ids = set(selected_teacher_ids or [])
+        self._teacher_sort_desc = False
         layout = QFormLayout(self)
         self.title = QLineEdit(material.title if material else "")
         self.material_type = QComboBox()
@@ -340,17 +351,21 @@ class MaterialDialog(QDialog):
         self.file_name.setReadOnly(True)
         self._attach_path = None
         self._attach_existing_path = None
+        self.teacher_sort = QComboBox()
+        self.teacher_sort.addItem(self.tr("Default"), "default")
+        self.teacher_sort.addItem(self.tr("Full name"), "full_name")
+        self.teacher_sort.addItem(self.tr("Military rank"), "military_rank")
+        self.teacher_sort.addItem(self.tr("Position"), "position")
+        self.teacher_sort.addItem(self.tr("Department"), "department")
+        self.teacher_sort.addItem(self.tr("Email"), "email")
+        self.teacher_sort.addItem(self.tr("Phone"), "phone")
+        self.teacher_sort_order = QPushButton(self.tr("A-Z"))
         self.teacher_list = QListWidget()
         self.teacher_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        for teacher in self._teachers:
-            label = teacher.full_name
-            if teacher.military_rank:
-                label = f"{teacher.military_rank} {label}"
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, teacher)
-            if teacher.id in self._selected_teacher_ids:
-                item.setSelected(True)
-            self.teacher_list.addItem(item)
+        self._populate_teacher_list(preserve_selection=True)
+        sort_row = QHBoxLayout()
+        sort_row.addWidget(self.teacher_sort)
+        sort_row.addWidget(self.teacher_sort_order)
         attach_row = QHBoxLayout()
         self.attach_file = QPushButton(self.tr("Attach File"))
         self.attach_existing_file = QPushButton(self.tr("Attach existing file"))
@@ -359,6 +374,7 @@ class MaterialDialog(QDialog):
         layout.addRow(self.tr("Title"), self.title)
         layout.addRow(self.tr("Type"), self.material_type)
         layout.addRow(self.tr("Description"), self.description)
+        layout.addRow(self.tr("Sort authors"), sort_row)
         layout.addRow(self.tr("Authors"), self.teacher_list)
         layout.addRow(self.tr("Attached file"), self.file_name)
         layout.addRow("", attach_row)
@@ -368,6 +384,8 @@ class MaterialDialog(QDialog):
         layout.addRow(buttons)
         self.attach_file.clicked.connect(self._on_attach_file)
         self.attach_existing_file.clicked.connect(self._on_attach_existing_file)
+        self.teacher_sort.currentIndexChanged.connect(self._on_teacher_sort_changed)
+        self.teacher_sort_order.clicked.connect(self._toggle_teacher_sort_order)
 
     def get_material(self) -> MethodicalMaterial:
         material = self._material or MethodicalMaterial()
@@ -389,6 +407,44 @@ class MaterialDialog(QDialog):
             if teacher and teacher.id is not None:
                 teacher_ids.append(teacher.id)
         return teacher_ids
+
+    def _current_selected_teacher_ids(self) -> set[int]:
+        selected = set(self._selected_teacher_ids)
+        for item in self.teacher_list.selectedItems():
+            teacher = item.data(Qt.UserRole)
+            if teacher and teacher.id is not None:
+                selected.add(teacher.id)
+        return selected
+
+    def _populate_teacher_list(self, preserve_selection: bool) -> None:
+        selected_ids = self._current_selected_teacher_ids() if preserve_selection else set(self._selected_teacher_ids)
+        teachers = list(self._teachers)
+        sort_key = self.teacher_sort.currentData()
+        if sort_key and sort_key != "default":
+            teachers.sort(
+                key=lambda t: (getattr(t, sort_key) or "").strip().casefold(),
+                reverse=self._teacher_sort_desc,
+            )
+        elif self._teacher_sort_desc:
+            teachers.reverse()
+        self.teacher_list.clear()
+        for teacher in teachers:
+            label = teacher.full_name
+            if teacher.military_rank:
+                label = f"{teacher.military_rank} {label}"
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, teacher)
+            if teacher.id in selected_ids:
+                item.setSelected(True)
+            self.teacher_list.addItem(item)
+
+    def _on_teacher_sort_changed(self) -> None:
+        self._populate_teacher_list(preserve_selection=True)
+
+    def _toggle_teacher_sort_order(self) -> None:
+        self._teacher_sort_desc = not self._teacher_sort_desc
+        self.teacher_sort_order.setText(self.tr("Z-A") if self._teacher_sort_desc else self.tr("A-Z"))
+        self._populate_teacher_list(preserve_selection=True)
 
     def _on_attach_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
