@@ -139,6 +139,9 @@ class MainController:
             return []
         return self.material_repo.get_materials_for_entity(entity_type, entity_id)
 
+    def get_teachers_for_disciplines(self, discipline_ids: List[int]):
+        return self.teacher_repo.get_teachers_for_disciplines(discipline_ids)
+
     def search(self, keyword: str) -> List[SearchResult]:
         return self.search_service.search_all(keyword)
 

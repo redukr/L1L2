@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QAbstractItemView,
+    QHeaderView,
 )
 from ..models.entities import (
     Teacher,
@@ -504,6 +505,8 @@ class ImportPreviewDialog(QDialog):
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([self.tr("Title"), self.tr("Details")])
         self.tree.setColumnWidth(0, 420)
+        self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tree.setWordWrap(True)
         self.tree.setUniformRowHeights(False)
         self.tree.setTextElideMode(Qt.ElideNone)

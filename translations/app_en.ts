@@ -10,6 +10,7 @@
     <message><source>English</source><translation>English</translation></message>
     <message><source>Programs</source><translation>Programs</translation></message>
     <message><source>Program Structure</source><translation>Program Structure</translation></message>
+    <message><source>Report</source><translation>Report</translation></message>
     <message><source>Search Results</source><translation>Search Results</translation></message>
     <message><source>Details</source><translation>Details</translation></message>
     <message><source>Methodical Materials</source><translation>Methodical Materials</translation></message>

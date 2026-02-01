@@ -10,6 +10,7 @@
     <message><source>English</source><translation>Англійська</translation></message>
     <message><source>Programs</source><translation>Програми</translation></message>
     <message><source>Program Structure</source><translation>Структура програми</translation></message>
+    <message><source>Report</source><translation>Звіт</translation></message>
     <message><source>Search Results</source><translation>Результати пошуку</translation></message>
     <message><source>Details</source><translation>Деталі</translation></message>
     <message><source>Methodical Materials</source><translation>Методичні матеріали</translation></message>

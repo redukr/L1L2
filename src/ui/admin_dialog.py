@@ -196,6 +196,9 @@ class AdminDialog(QDialog):
             table.setWordWrap(True)
             table.setTextElideMode(Qt.ElideNone)
             table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+            table.horizontalHeader().setStretchLastSection(True)
+            table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
 
         for name in list_names:
             widget = getattr(self, name, None)
@@ -227,6 +230,7 @@ class AdminDialog(QDialog):
             table = getattr(self, name, None)
             if table:
                 table.resizeRowsToContents()
+                table.resizeColumnsToContents()
         tree = getattr(self, "structure_tree", None)
         if tree:
             self._resize_structure_tree()

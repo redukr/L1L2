@@ -24,8 +24,9 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHeaderView,
     QAbstractScrollArea,
+    QTabWidget,
 )
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor, QBrush
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
 from ..services.i18n import I18nManager
@@ -91,15 +92,33 @@ class MainWindow(QMainWindow):
         self.content_tree = QTreeWidget()
         self.content_tree.setHeaderLabels([self.tr("Title"), self.tr("Type")])
         self.content_tree.setColumnWidth(0, 350)
-        self.content_tree.header().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.content_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.content_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.content_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
         self.structure_label = QLabel(self.tr("Program Structure"))
-        self.center_splitter.addWidget(self._wrap_with_label(self.content_tree, self.structure_label))
+        self.report_table = QTableWidget(0, 0)
+        self.report_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.report_table.horizontalHeader().setStretchLastSection(True)
+        self.report_table.verticalHeader().setVisible(False)
+        self.report_label = QLabel(self.tr("Report"))
+
+        self.structure_tabs = QTabWidget()
+        structure_tab = QWidget()
+        structure_layout = QVBoxLayout(structure_tab)
+        structure_layout.addWidget(self._wrap_with_label(self.content_tree, self.structure_label))
+        report_tab = QWidget()
+        report_layout = QVBoxLayout(report_tab)
+        report_layout.addWidget(self._wrap_with_label(self.report_table, self.report_label))
+        self.structure_tabs.addTab(structure_tab, self.tr("Structure"))
+        self.structure_tabs.addTab(report_tab, self.tr("Report"))
+
+        self.center_splitter.addWidget(self.structure_tabs)
 
         self.search_results = QTableWidget(0, 3)
         self.search_results.setHorizontalHeaderLabels([self.tr("Type"), self.tr("Title"), self.tr("Description")])
         self.language_combo.setItemText(0, self.tr("Ukrainian"))
         self.language_combo.setItemText(1, self.tr("English"))
+        self.search_results.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.search_results.horizontalHeader().setStretchLastSection(True)
         self.search_results_label = QLabel(self.tr("Search Results"))
         self.center_splitter.addWidget(self._wrap_with_label(self.search_results, self.search_results_label))
@@ -158,13 +177,19 @@ class MainWindow(QMainWindow):
         self.search_results.setWordWrap(True)
         self.search_results.setTextElideMode(Qt.ElideNone)
         self.search_results.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.report_table.setWordWrap(True)
+        self.report_table.setTextElideMode(Qt.ElideNone)
+        self.report_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self.search_results.resizeRowsToContents()
+        self.search_results.resizeColumnsToContents()
         self.content_tree.doItemsLayout()
         self.program_list.doItemsLayout()
         self.materials_list.doItemsLayout()
+        self.report_table.resizeRowsToContents()
+        self.report_table.resizeColumnsToContents()
 
     def _wrap_with_label(self, widget: QWidget, label: QLabel) -> QWidget:
         wrapper = QWidget()
@@ -191,6 +216,7 @@ class MainWindow(QMainWindow):
         details = self.controller.get_entity_details("program", program_id)
         self._show_details(details)
         self._load_materials("program", program_id)
+        self._refresh_report(program_id)
         self.last_program_id = program_id
 
     def _load_program_structure(self, program_id: int, select_last_discipline: bool = True) -> None:
@@ -424,6 +450,8 @@ class MainWindow(QMainWindow):
             self.program_list.setCurrentItem(self.program_items[self.last_program_id])
         else:
             self._load_program_structure(self.last_program_id) if self.last_program_id else None
+        if self.last_program_id:
+            self._refresh_report(self.last_program_id)
 
     def _on_open_material(self) -> None:
         items = self.materials_list.selectedItems()
@@ -488,6 +516,90 @@ class MainWindow(QMainWindow):
             target = os.path.join(dest_dir, filename)
             if not self.file_storage.copy_file_as(material.relative_path, target):
                 QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+
+    def _refresh_report(self, program_id: int) -> None:
+        self.report_table.clear()
+        disciplines = self.controller.get_program_disciplines(program_id)
+        discipline_ids = [d.id for d in disciplines if d and d.id is not None]
+        teachers = self.controller.get_teachers_for_disciplines(discipline_ids)
+
+        lessons = []
+        program_structure = self.controller.get_program_structure(program_id)
+        for discipline in program_structure:
+            topic_index = 1
+            for topic in discipline.topics:
+                lesson_index = 1
+                for lesson in topic.lessons:
+                    code = f"Т.{topic_index}.З.{lesson_index}"
+                    lessons.append(
+                        {
+                            "code": code,
+                            "lesson": lesson,
+                            "discipline": discipline,
+                            "topic": topic,
+                        }
+                    )
+                    lesson_index += 1
+                topic_index += 1
+
+        if not teachers or not lessons:
+            self.report_table.setRowCount(0)
+            self.report_table.setColumnCount(0)
+            return
+
+        cell_map = {}
+        cell_types = {}
+        teachers_with_materials = set()
+        for lesson_row, info in enumerate(lessons):
+            lesson = info["lesson"]
+            materials = self.controller.get_materials_for_entity("lesson", lesson.id)
+            for material in materials:
+                for teacher in material.teachers:
+                    if teacher.id is None:
+                        continue
+                    teachers_with_materials.add(teacher.id)
+                    key = (lesson_row, teacher.id)
+                    cell_map.setdefault(key, []).append(material.title)
+                    raw_type = (material.material_type or "").strip().lower()
+                    normalized = "guide" if raw_type == "metod" else raw_type
+                    cell_types.setdefault(key, set()).add(normalized)
+
+        teachers = sorted(
+            teachers,
+            key=lambda t: (t.id not in teachers_with_materials, t.full_name.lower()),
+        )
+
+        self.report_table.setRowCount(len(lessons))
+        self.report_table.setColumnCount(len(teachers) + 1)
+        headers = [self.tr("Lesson")] + [
+            (f"{t.military_rank}\n{t.full_name}" if t.military_rank else t.full_name) for t in teachers
+        ]
+        self.report_table.setHorizontalHeaderLabels(headers)
+
+        for row_index, info in enumerate(lessons):
+            self.report_table.setItem(row_index, 0, QTableWidgetItem(info["code"]))
+            for col_offset, teacher in enumerate(teachers, start=1):
+                titles = cell_map.get((row_index, teacher.id), [])
+                item = QTableWidgetItem("\n".join(titles) if titles else "")
+                types = cell_types.get((row_index, teacher.id), set())
+                has_plan = "plan" in types
+                has_guide = "guide" in types
+                has_presentation = "presentation" in types
+                if has_plan and has_guide and has_presentation:
+                    item.setBackground(QBrush(QColor(198, 239, 206)))
+                elif types:
+                    item.setBackground(QBrush(QColor(255, 242, 204)))
+                else:
+                    item.setBackground(QBrush(QColor(255, 199, 206)))
+                self.report_table.setItem(row_index, col_offset, item)
+
+        for idx, info in enumerate(lessons):
+            tooltip = f"{info['discipline'].name} | {info['topic'].title} | {info['lesson'].title}"
+            row_item = self.report_table.item(idx, 0)
+            if row_item:
+                row_item.setToolTip(tooltip)
+        self.report_table.resizeRowsToContents()
+        self.report_table.resizeColumnsToContents()
 
     def _material_copy_name_parts(self, material) -> Tuple[str, str]:
         original = material.original_filename or ""
