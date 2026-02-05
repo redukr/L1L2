@@ -117,6 +117,7 @@ class LessonType:
     """Represents a lesson type."""
     id: Optional[int] = None
     name: str = ""
+    synonyms: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

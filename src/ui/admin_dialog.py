@@ -196,9 +196,13 @@ class AdminDialog(QDialog):
             table.setWordWrap(True)
             table.setTextElideMode(Qt.ElideNone)
             table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-            table.horizontalHeader().setStretchLastSection(True)
-            table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+            if name == "materials_table":
+                table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
+            else:
+                table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+                table.horizontalHeader().setStretchLastSection(True)
+                table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
 
         for name in list_names:
             widget = getattr(self, name, None)
@@ -214,13 +218,13 @@ class AdminDialog(QDialog):
             tree.setWordWrap(True)
             tree.setUniformRowHeights(False)
             tree.setTextElideMode(Qt.ElideNone)
+            tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         for name in [
             "teachers_table",
             "lesson_types_table",
-            "materials_table",
             "questions_table",
             "lessons_table",
             "topics_table",
@@ -264,7 +268,8 @@ class AdminDialog(QDialog):
         self.structure_tree.setHeaderLabels([self.tr("Structure")])
         self.structure_tree.header().setSectionResizeMode(QHeaderView.Stretch)
         self.structure_tree.setItemDelegateForColumn(0, _WrapItemDelegate(self.structure_tree))
-        self.structure_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        # Keep splitter responsive; avoid sizing the tree to its content width.
+        self.structure_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
         self.structure_tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.structure_tree.customContextMenuRequested.connect(self._show_structure_context_menu)
         self.structure_tree.itemSelectionChanged.connect(self._on_structure_selection_changed)
@@ -311,7 +316,9 @@ class AdminDialog(QDialog):
         self.materials_table.setHorizontalHeaderLabels(
             [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
         )
-        self.materials_table.horizontalHeader().setStretchLastSection(True)
+        # Stretch columns to available space so the table can shrink/expand with the splitter.
+        self.materials_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.materials_table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
         self.materials_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.materials_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.materials_table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -614,8 +621,8 @@ class AdminDialog(QDialog):
     def _build_lesson_types_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.lesson_types_table = QTableWidget(0, 1)
-        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name")])
+        self.lesson_types_table = QTableWidget(0, 2)
+        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
         self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
         self.lesson_types_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.lesson_types_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -1153,7 +1160,10 @@ class AdminDialog(QDialog):
         if not topic:
             QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a topic first."))
             return
-        dialog = LessonDialog(lesson_types=self.controller.get_lesson_types(), parent=self)
+        dialog = LessonDialog(
+            lesson_types=self.controller.get_lesson_types(),
+            parent=self,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
         lesson = dialog.get_lesson()
@@ -1162,6 +1172,7 @@ class AdminDialog(QDialog):
             return
         self.controller.add_lesson(lesson)
         self.controller.add_lesson_to_topic(topic.id, lesson.id, lesson.order_index)
+        self._attach_new_questions_to_lesson(lesson.id, dialog.get_new_questions())
         self._refresh_structure_tree()
 
     def _add_structure_question(self) -> None:
@@ -1203,23 +1214,97 @@ class AdminDialog(QDialog):
             program = self._find_parent_entity(item, "program")
             if program:
                 entity = self.controller.ensure_discipline_for_edit(entity.id, program.id)
-            dialog = DisciplineDialog(entity, self)
+            programs = [program] if program else self.controller.get_programs()
+            disciplines = (
+                self.controller.get_program_disciplines(program.id)
+                if program
+                else self.controller.get_disciplines()
+            )
+            dialog = DisciplineDialog(
+                entity,
+                self,
+                enable_type_switch=True,
+                programs=programs,
+                disciplines=disciplines,
+                initial_parent_type="program" if program else None,
+                initial_parent_id=program.id if program else None,
+            )
             if dialog.exec() != QDialog.Accepted:
                 return
-            self.controller.update_discipline(dialog.get_discipline())
-            self._refresh_structure_tree()
-            self._select_structure_entity(entity_type, entity.id)
+            updated = dialog.get_discipline()
+            new_type, parent_type, parent_id = dialog.get_type_payload()
+            if new_type == "discipline":
+                self.controller.update_discipline(updated)
+                if program and parent_type == "program" and parent_id and parent_id != program.id:
+                    self.controller.move_discipline_to_program(updated.id, program.id, parent_id)
+                self._refresh_structure_tree()
+                self._select_structure_entity("discipline", updated.id)
+            else:
+                if not parent_id:
+                    QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a discipline first."))
+                    return
+                if program:
+                    program_disciplines = {d.id for d in self.controller.get_program_disciplines(program.id)}
+                    if parent_id not in program_disciplines:
+                        QMessageBox.warning(
+                            self, self.tr("Validation"), self.tr("Select a discipline from the same program.")
+                        )
+                        return
+                try:
+                    new_topic = self.controller.convert_discipline_to_topic(updated, program.id if program else 0, parent_id)
+                except Exception as exc:
+                    QMessageBox.warning(self, self.tr("Validation"), str(exc))
+                    return
+                self._refresh_structure_tree()
+                self._select_structure_entity("topic", new_topic.id)
             return
         if entity_type == "topic":
             discipline = self._find_parent_entity(item, "discipline")
             if discipline:
                 entity = self.controller.ensure_topic_for_edit(entity.id, discipline.id)
-            dialog = TopicDialog(entity, self)
+            program_id, _ = self.controller.get_primary_parent_ids("topic", entity.id)
+            programs = (
+                [p for p in self.controller.get_programs() if p.id == program_id]
+                if program_id
+                else self.controller.get_programs()
+            )
+            disciplines = (
+                self.controller.get_program_disciplines(program_id)
+                if program_id
+                else self.controller.get_disciplines()
+            )
+            dialog = TopicDialog(
+                entity,
+                self,
+                enable_type_switch=True,
+                programs=programs,
+                disciplines=disciplines,
+                initial_parent_type="discipline" if discipline else None,
+                initial_parent_id=discipline.id if discipline else None,
+            )
             if dialog.exec() != QDialog.Accepted:
                 return
-            self.controller.update_topic(dialog.get_topic())
-            self._refresh_structure_tree()
-            self._select_structure_entity(entity_type, entity.id)
+            updated = dialog.get_topic()
+            new_type, parent_type, parent_id = dialog.get_type_payload()
+            if new_type == "topic":
+                self.controller.update_topic(updated)
+                if discipline and parent_type == "discipline" and parent_id and parent_id != discipline.id:
+                    self.controller.move_topic_to_discipline(updated.id, discipline.id, parent_id)
+                self._refresh_structure_tree()
+                self._select_structure_entity("topic", updated.id)
+            else:
+                if not parent_id:
+                    QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program first."))
+                    return
+                try:
+                    new_discipline = self.controller.convert_topic_to_discipline(
+                        updated, discipline.id if discipline else 0, parent_id
+                    )
+                except Exception as exc:
+                    QMessageBox.warning(self, self.tr("Validation"), str(exc))
+                    return
+                self._refresh_structure_tree()
+                self._select_structure_entity("discipline", new_discipline.id)
             return
         if entity_type == "lesson":
             topic = self._find_parent_entity(item, "topic")
@@ -1446,11 +1531,59 @@ class AdminDialog(QDialog):
         discipline = self._current_entity(self.disciplines_table)
         if not discipline:
             return
-        dialog = DisciplineDialog(discipline, self)
+        program_id, _ = self.controller.get_primary_parent_ids("discipline", discipline.id)
+        if program_id:
+            discipline = self.controller.ensure_discipline_for_edit(discipline.id, program_id)
+        programs = (
+            [p for p in self.controller.get_programs() if p.id == program_id]
+            if program_id
+            else self.controller.get_programs()
+        )
+        disciplines = (
+            self.controller.get_program_disciplines(program_id)
+            if program_id
+            else self.controller.get_disciplines()
+        )
+        dialog = DisciplineDialog(
+            discipline,
+            self,
+            enable_type_switch=True,
+            programs=programs,
+            disciplines=disciplines,
+            initial_parent_type="program" if program_id else None,
+            initial_parent_id=program_id,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
-        self.controller.update_discipline(dialog.get_discipline())
-        self._refresh_disciplines()
+        updated = dialog.get_discipline()
+        new_type, parent_type, parent_id = dialog.get_type_payload()
+        if new_type == "discipline":
+            self.controller.update_discipline(updated)
+            if program_id and parent_type == "program" and parent_id and parent_id != program_id:
+                self.controller.move_discipline_to_program(updated.id, program_id, parent_id)
+            self._refresh_disciplines()
+        else:
+            if not parent_id:
+                QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a discipline first."))
+                return
+            if not program_id:
+                QMessageBox.warning(
+                    self, self.tr("Validation"), self.tr("Discipline is not linked to any program.")
+                )
+                return
+            program_disciplines = {d.id for d in self.controller.get_program_disciplines(program_id)}
+            if parent_id not in program_disciplines:
+                QMessageBox.warning(
+                    self, self.tr("Validation"), self.tr("Select a discipline from the same program.")
+                )
+                return
+            try:
+                self.controller.convert_discipline_to_topic(updated, program_id or 0, parent_id)
+            except Exception as exc:
+                QMessageBox.warning(self, self.tr("Validation"), str(exc))
+                return
+            self._refresh_disciplines()
+            self._refresh_topics()
 
     def _delete_discipline(self) -> None:
         disciplines = self._selected_entities(self.disciplines_table)
@@ -1535,11 +1668,54 @@ class AdminDialog(QDialog):
         topic = self._current_entity(self.topics_table)
         if not topic:
             return
-        dialog = TopicDialog(topic, self)
+        _, discipline_id = self.controller.get_primary_parent_ids("topic", topic.id)
+        if discipline_id:
+            topic = self.controller.ensure_topic_for_edit(topic.id, discipline_id)
+        program_id, _ = self.controller.get_primary_parent_ids("topic", topic.id)
+        programs = (
+            [p for p in self.controller.get_programs() if p.id == program_id]
+            if program_id
+            else self.controller.get_programs()
+        )
+        disciplines = (
+            self.controller.get_program_disciplines(program_id)
+            if program_id
+            else self.controller.get_disciplines()
+        )
+        dialog = TopicDialog(
+            topic,
+            self,
+            enable_type_switch=True,
+            programs=programs,
+            disciplines=disciplines,
+            initial_parent_type="discipline" if discipline_id else None,
+            initial_parent_id=discipline_id,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
-        self.controller.update_topic(dialog.get_topic())
-        self._refresh_topics()
+        updated = dialog.get_topic()
+        new_type, parent_type, parent_id = dialog.get_type_payload()
+        if new_type == "topic":
+            self.controller.update_topic(updated)
+            if discipline_id and parent_type == "discipline" and parent_id and parent_id != discipline_id:
+                self.controller.move_topic_to_discipline(updated.id, discipline_id, parent_id)
+            self._refresh_topics()
+        else:
+            if not parent_id:
+                QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program first."))
+                return
+            if not discipline_id:
+                QMessageBox.warning(
+                    self, self.tr("Validation"), self.tr("Topic is not linked to any discipline.")
+                )
+                return
+            try:
+                self.controller.convert_topic_to_discipline(updated, discipline_id or 0, parent_id)
+            except Exception as exc:
+                QMessageBox.warning(self, self.tr("Validation"), str(exc))
+                return
+            self._refresh_topics()
+            self._refresh_disciplines()
 
     def _delete_topic(self) -> None:
         topics = self._selected_entities(self.topics_table)
@@ -1648,7 +1824,10 @@ class AdminDialog(QDialog):
         self._refresh_questions()
 
     def _add_lesson(self) -> None:
-        dialog = LessonDialog(lesson_types=self.controller.get_lesson_types(), parent=self)
+        dialog = LessonDialog(
+            lesson_types=self.controller.get_lesson_types(),
+            parent=self,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
         lesson = dialog.get_lesson()
@@ -1656,6 +1835,7 @@ class AdminDialog(QDialog):
             QMessageBox.warning(self, self.tr("Validation"), self.tr("Lesson title is required."))
             return
         self.controller.add_lesson(lesson)
+        self._attach_new_questions_to_lesson(lesson.id, dialog.get_new_questions())
         self._refresh_lessons()
 
     def _edit_lesson(self) -> None:
@@ -1757,6 +1937,19 @@ class AdminDialog(QDialog):
         self.controller.remove_material_from_entity(material.id, "lesson", lesson.id)
         self._refresh_lesson_materials()
 
+    def _attach_new_questions_to_lesson(self, lesson_id: int, questions: list) -> None:
+        if not questions:
+            return
+        order_index = self.controller.get_next_lesson_question_order(lesson_id)
+        for question in questions:
+            if not getattr(question, "content", None):
+                continue
+            if question.order_index <= 0:
+                question.order_index = order_index
+            self.controller.add_question(question)
+            self.controller.add_question_to_lesson(lesson_id, question.id, question.order_index)
+            order_index = max(order_index + 1, question.order_index + 1)
+
     # Lesson types
     def _refresh_lesson_types(self) -> None:
         self.lesson_types_table.setRowCount(0)
@@ -1764,6 +1957,7 @@ class AdminDialog(QDialog):
             row = self.lesson_types_table.rowCount()
             self.lesson_types_table.insertRow(row)
             self.lesson_types_table.setItem(row, 0, QTableWidgetItem(lesson_type.name))
+            self.lesson_types_table.setItem(row, 1, QTableWidgetItem(lesson_type.synonyms or ""))
             self.lesson_types_table.item(row, 0).setData(Qt.UserRole, lesson_type)
 
     def _add_lesson_type(self) -> None:
@@ -2670,7 +2864,7 @@ class AdminDialog(QDialog):
         self.lessons_table.setHorizontalHeaderLabels(
             [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
         )
-        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name")])
+        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
         self.questions_table.setHorizontalHeaderLabels([self.tr("Question"), self.tr("Difficulty")])
         self.materials_table.setHorizontalHeaderLabels(
             [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]

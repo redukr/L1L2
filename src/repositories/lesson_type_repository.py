@@ -15,9 +15,9 @@ class LessonTypeRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO lesson_types (name)
-                VALUES (?)
-            """, (lesson_type.name,))
+                INSERT INTO lesson_types (name, synonyms)
+                VALUES (?, ?)
+            """, (lesson_type.name, lesson_type.synonyms))
             lesson_type.id = cursor.lastrowid
             return lesson_type
 
@@ -26,9 +26,9 @@ class LessonTypeRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE lesson_types
-                SET name = ?, updated_at = CURRENT_TIMESTAMP
+                SET name = ?, synonyms = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-            """, (lesson_type.name, lesson_type.id))
+            """, (lesson_type.name, lesson_type.synonyms, lesson_type.id))
             return lesson_type
 
     def delete(self, lesson_type_id: int) -> bool:
@@ -41,7 +41,7 @@ class LessonTypeRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, name, created_at, updated_at
+                SELECT id, name, synonyms, created_at, updated_at
                 FROM lesson_types
                 WHERE id = ?
             """, (lesson_type_id,))
@@ -52,7 +52,7 @@ class LessonTypeRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, name, created_at, updated_at
+                SELECT id, name, synonyms, created_at, updated_at
                 FROM lesson_types
                 ORDER BY name
             """)
@@ -62,6 +62,7 @@ class LessonTypeRepository:
         return LessonType(
             id=row["id"],
             name=row["name"],
+            synonyms=row["synonyms"],
             created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
             updated_at=datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None,
         )

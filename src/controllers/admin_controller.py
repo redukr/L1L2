@@ -145,6 +145,89 @@ class AdminController:
     def remove_topic_from_discipline(self, discipline_id: int, topic_id: int) -> bool:
         return self.discipline_repo.remove_topic_from_discipline(discipline_id, topic_id)
 
+    def get_primary_parent_ids(self, entity_type: str, entity_id: int) -> Tuple[int | None, int | None]:
+        return self._resolve_program_discipline_for_entity(entity_type, entity_id)
+
+    def move_discipline_to_program(self, discipline_id: int, from_program_id: int, to_program_id: int) -> None:
+        if not from_program_id or not to_program_id or from_program_id == to_program_id:
+            return
+        self.program_repo.remove_discipline_from_program(from_program_id, discipline_id)
+        order_index = self._get_next_order_index("program_disciplines", "program_id", to_program_id)
+        self.program_repo.add_discipline_to_program(to_program_id, discipline_id, order_index)
+
+    def move_topic_to_discipline(self, topic_id: int, from_discipline_id: int, to_discipline_id: int) -> None:
+        if not from_discipline_id or not to_discipline_id or from_discipline_id == to_discipline_id:
+            return
+        self.discipline_repo.remove_topic_from_discipline(from_discipline_id, topic_id)
+        order_index = self._get_next_order_index("discipline_topics", "discipline_id", to_discipline_id)
+        self.discipline_repo.add_topic_to_discipline(to_discipline_id, topic_id, order_index)
+
+    def convert_discipline_to_topic(
+        self, discipline: Discipline, from_program_id: int, to_discipline_id: int
+    ) -> Topic:
+        if not to_discipline_id:
+            raise ValueError("Target discipline is required.")
+        if discipline.id == to_discipline_id:
+            raise ValueError("Discipline cannot be converted under itself.")
+        new_topic = Topic(
+            title=discipline.name,
+            description=discipline.description,
+            order_index=discipline.order_index,
+        )
+        new_topic = self.topic_repo.add(new_topic)
+        order_index = self._get_next_order_index("discipline_topics", "discipline_id", to_discipline_id)
+        self.discipline_repo.add_topic_to_discipline(to_discipline_id, new_topic.id, order_index)
+
+        for material in self.material_repo.get_materials_for_entity("discipline", discipline.id):
+            self.material_repo.add_material_to_entity(material.id, "topic", new_topic.id)
+            self.material_repo.remove_material_from_entity(material.id, "discipline", discipline.id)
+
+        for topic in self.discipline_repo.get_discipline_topics(discipline.id):
+            self.discipline_repo.remove_topic_from_discipline(discipline.id, topic.id)
+            self.discipline_repo.add_topic_to_discipline(to_discipline_id, topic.id, topic.order_index)
+
+        if from_program_id:
+            self.program_repo.remove_discipline_from_program(from_program_id, discipline.id)
+        if not self.program_repo.get_programs_for_discipline(discipline.id):
+            self.discipline_repo.delete(discipline.id)
+        return new_topic
+
+    def convert_topic_to_discipline(
+        self, topic: Topic, from_discipline_id: int, to_program_id: int
+    ) -> Discipline:
+        if not to_program_id:
+            raise ValueError("Target program is required.")
+        new_discipline = Discipline(
+            name=topic.title,
+            description=topic.description,
+            order_index=topic.order_index,
+        )
+        new_discipline = self.discipline_repo.add(new_discipline)
+        order_index = self._get_next_order_index("program_disciplines", "program_id", to_program_id)
+        self.program_repo.add_discipline_to_program(to_program_id, new_discipline.id, order_index)
+
+        new_topic = Topic(
+            title=topic.title,
+            description=topic.description,
+            order_index=1,
+        )
+        new_topic = self.topic_repo.add(new_topic)
+        self.discipline_repo.add_topic_to_discipline(new_discipline.id, new_topic.id, 1)
+
+        for lesson, order in self._get_topic_lessons_with_order(topic.id):
+            self.topic_repo.remove_lesson_from_topic(topic.id, lesson.id)
+            self.topic_repo.add_lesson_to_topic(new_topic.id, lesson.id, order or lesson.order_index)
+
+        for material in self.material_repo.get_materials_for_entity("topic", topic.id):
+            self.material_repo.add_material_to_entity(material.id, "discipline", new_discipline.id)
+            self.material_repo.remove_material_from_entity(material.id, "topic", topic.id)
+
+        if from_discipline_id:
+            self.discipline_repo.remove_topic_from_discipline(from_discipline_id, topic.id)
+        if not self.discipline_repo.get_disciplines_for_topic(topic.id) and not self.program_repo.get_programs_for_topic(topic.id):
+            self.topic_repo.delete(topic.id)
+        return new_discipline
+
     # Lessons
     def get_lessons(self) -> List[Lesson]:
         return self.lesson_repo.get_all()

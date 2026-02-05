@@ -140,10 +140,25 @@ class ProgramDialog(QDialog):
 class DisciplineDialog(QDialog):
     """Dialog for creating or editing a discipline."""
 
-    def __init__(self, discipline: Optional[Discipline] = None, parent=None):
+    def __init__(
+        self,
+        discipline: Optional[Discipline] = None,
+        parent=None,
+        enable_type_switch: bool = False,
+        programs: Optional[list[EducationalProgram]] = None,
+        disciplines: Optional[list[Discipline]] = None,
+        initial_parent_type: Optional[str] = None,
+        initial_parent_id: Optional[int] = None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Discipline"))
         self._discipline = discipline
+        self._enable_type_switch = enable_type_switch
+        self._programs = programs or []
+        self._disciplines = disciplines or []
+        self._initial_parent_type = initial_parent_type
+        self._initial_parent_id = initial_parent_id
+        self._parent_type = None
         layout = QFormLayout(self)
         self.name = QLineEdit(discipline.name if discipline else "")
         self.description = QTextEdit(discipline.description if discipline else "")
@@ -151,6 +166,16 @@ class DisciplineDialog(QDialog):
         self.order_index.setRange(0, 999)
         if discipline:
             self.order_index.setValue(discipline.order_index)
+        if self._enable_type_switch:
+            self.type_combo = QComboBox()
+            self.type_combo.addItem(self.tr("Discipline"), "discipline")
+            self.type_combo.addItem(self.tr("Topic"), "topic")
+            self.parent_label = QLabel(self.tr("Program"))
+            self.parent_combo = QComboBox()
+            self.type_combo.currentIndexChanged.connect(self._refresh_parents)
+            layout.addRow(self.tr("Type"), self.type_combo)
+            layout.addRow(self.parent_label, self.parent_combo)
+            self._refresh_parents()
         layout.addRow(self.tr("Name"), self.name)
         layout.addRow(self.tr("Description"), self.description)
         layout.addRow(self.tr("Order index"), self.order_index)
@@ -159,6 +184,26 @@ class DisciplineDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
 
+    def _refresh_parents(self) -> None:
+        if not self._enable_type_switch:
+            return
+        self.parent_combo.clear()
+        selected_type = self.type_combo.currentData()
+        if selected_type == "topic":
+            self._parent_type = "discipline"
+            self.parent_label.setText(self.tr("Discipline"))
+            for discipline in self._disciplines:
+                self.parent_combo.addItem(discipline.name, discipline.id)
+        else:
+            self._parent_type = "program"
+            self.parent_label.setText(self.tr("Program"))
+            for program in self._programs:
+                self.parent_combo.addItem(program.name, program.id)
+        if self._initial_parent_type == self._parent_type and self._initial_parent_id is not None:
+            idx = self.parent_combo.findData(self._initial_parent_id)
+            if idx >= 0:
+                self.parent_combo.setCurrentIndex(idx)
+
     def get_discipline(self) -> Discipline:
         discipline = self._discipline or Discipline()
         discipline.name = self.name.text().strip()
@@ -166,14 +211,34 @@ class DisciplineDialog(QDialog):
         discipline.order_index = self.order_index.value()
         return discipline
 
+    def get_type_payload(self) -> tuple[str, Optional[str], Optional[int]]:
+        if not self._enable_type_switch:
+            return "discipline", None, None
+        return self.type_combo.currentData(), self._parent_type, self.parent_combo.currentData()
+
 
 class TopicDialog(QDialog):
     """Dialog for creating or editing a topic."""
 
-    def __init__(self, topic: Optional[Topic] = None, parent=None):
+    def __init__(
+        self,
+        topic: Optional[Topic] = None,
+        parent=None,
+        enable_type_switch: bool = False,
+        programs: Optional[list[EducationalProgram]] = None,
+        disciplines: Optional[list[Discipline]] = None,
+        initial_parent_type: Optional[str] = None,
+        initial_parent_id: Optional[int] = None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Topic"))
         self._topic = topic
+        self._enable_type_switch = enable_type_switch
+        self._programs = programs or []
+        self._disciplines = disciplines or []
+        self._initial_parent_type = initial_parent_type
+        self._initial_parent_id = initial_parent_id
+        self._parent_type = None
         layout = QFormLayout(self)
         self.title = QLineEdit(topic.title if topic else "")
         self.description = QTextEdit(topic.description if topic else "")
@@ -181,6 +246,16 @@ class TopicDialog(QDialog):
         self.order_index.setRange(0, 999)
         if topic:
             self.order_index.setValue(topic.order_index)
+        if self._enable_type_switch:
+            self.type_combo = QComboBox()
+            self.type_combo.addItem(self.tr("Topic"), "topic")
+            self.type_combo.addItem(self.tr("Discipline"), "discipline")
+            self.parent_label = QLabel(self.tr("Discipline"))
+            self.parent_combo = QComboBox()
+            self.type_combo.currentIndexChanged.connect(self._refresh_parents)
+            layout.addRow(self.tr("Type"), self.type_combo)
+            layout.addRow(self.parent_label, self.parent_combo)
+            self._refresh_parents()
         layout.addRow(self.tr("Title"), self.title)
         layout.addRow(self.tr("Description"), self.description)
         layout.addRow(self.tr("Order index"), self.order_index)
@@ -189,6 +264,26 @@ class TopicDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
 
+    def _refresh_parents(self) -> None:
+        if not self._enable_type_switch:
+            return
+        self.parent_combo.clear()
+        selected_type = self.type_combo.currentData()
+        if selected_type == "discipline":
+            self._parent_type = "program"
+            self.parent_label.setText(self.tr("Program"))
+            for program in self._programs:
+                self.parent_combo.addItem(program.name, program.id)
+        else:
+            self._parent_type = "discipline"
+            self.parent_label.setText(self.tr("Discipline"))
+            for discipline in self._disciplines:
+                self.parent_combo.addItem(discipline.name, discipline.id)
+        if self._initial_parent_type == self._parent_type and self._initial_parent_id is not None:
+            idx = self.parent_combo.findData(self._initial_parent_id)
+            if idx >= 0:
+                self.parent_combo.setCurrentIndex(idx)
+
     def get_topic(self) -> Topic:
         topic = self._topic or Topic()
         topic.title = self.title.text().strip()
@@ -196,15 +291,26 @@ class TopicDialog(QDialog):
         topic.order_index = self.order_index.value()
         return topic
 
+    def get_type_payload(self) -> tuple[str, Optional[str], Optional[int]]:
+        if not self._enable_type_switch:
+            return "topic", None, None
+        return self.type_combo.currentData(), self._parent_type, self.parent_combo.currentData()
+
 
 class LessonDialog(QDialog):
     """Dialog for creating or editing a lesson."""
 
-    def __init__(self, lesson: Optional[Lesson] = None, lesson_types: Optional[list[LessonType]] = None, parent=None):
+    def __init__(
+        self,
+        lesson: Optional[Lesson] = None,
+        lesson_types: Optional[list[LessonType]] = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Lesson"))
         self._lesson = lesson
         self._lesson_types = lesson_types or []
+        self._new_questions: list[Question] = []
         layout = QFormLayout(self)
         self.title = QLineEdit(lesson.title if lesson else "")
         self.description = QTextEdit(lesson.description if lesson else "")
@@ -226,10 +332,30 @@ class LessonDialog(QDialog):
         self.lesson_type = QComboBox()
         for lesson_type in self._lesson_types:
             self.lesson_type.addItem(lesson_type.name, lesson_type.id)
+            for synonym in self._parse_synonyms(lesson_type.synonyms):
+                self.lesson_type.addItem(f"{lesson_type.name} - {synonym}", lesson_type.id)
         if lesson and lesson.lesson_type_id:
             idx = self.lesson_type.findData(lesson.lesson_type_id)
             if idx >= 0:
                 self.lesson_type.setCurrentIndex(idx)
+        self.question_list = None
+        self.question_add = None
+        self.question_edit = None
+        self.question_remove = None
+        if lesson is None:
+            self.question_list = QListWidget()
+            self.question_list.setSelectionMode(QAbstractItemView.SingleSelection)
+            self.question_add = QPushButton(self.tr("Add question"))
+            self.question_edit = QPushButton(self.tr("Edit"))
+            self.question_remove = QPushButton(self.tr("Remove"))
+            btns = QHBoxLayout()
+            btns.addWidget(self.question_add)
+            btns.addWidget(self.question_edit)
+            btns.addWidget(self.question_remove)
+            btns.addStretch(1)
+            self.question_add.clicked.connect(self._add_new_question)
+            self.question_edit.clicked.connect(self._edit_new_question)
+            self.question_remove.clicked.connect(self._remove_new_question)
         self.order_index = QSpinBox()
         self.order_index.setRange(0, 999)
         if lesson:
@@ -240,6 +366,9 @@ class LessonDialog(QDialog):
         layout.addRow(self.tr("Classroom hours"), self.classroom_hours)
         layout.addRow(self.tr("Self-study hours"), self.self_study_hours)
         layout.addRow(self.tr("Lesson type"), self.lesson_type)
+        if self.question_list is not None:
+            layout.addRow(self.tr("Questions"), self.question_list)
+            layout.addRow("", btns)
         layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -257,6 +386,71 @@ class LessonDialog(QDialog):
         lesson.order_index = self.order_index.value()
         return lesson
 
+    def get_new_questions(self) -> list[Question]:
+        return list(self._new_questions)
+
+    def _add_new_question(self) -> None:
+        dialog = QuestionDialog(parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        question = dialog.get_question()
+        if not question.content:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Question text is required."))
+            return
+        self._new_questions.append(question)
+        self._append_question_item(question)
+
+    def _edit_new_question(self) -> None:
+        if not self.question_list:
+            return
+        item = self.question_list.currentItem()
+        if not item:
+            return
+        question = item.data(Qt.UserRole)
+        if not question:
+            return
+        dialog = QuestionDialog(question, self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        updated = dialog.get_question()
+        question.content = updated.content
+        question.difficulty_level = updated.difficulty_level
+        question.order_index = updated.order_index
+        item.setText(self._question_label(question))
+
+    def _remove_new_question(self) -> None:
+        if not self.question_list:
+            return
+        row = self.question_list.currentRow()
+        if row < 0:
+            return
+        item = self.question_list.takeItem(row)
+        question = item.data(Qt.UserRole)
+        if question in self._new_questions:
+            self._new_questions.remove(question)
+
+    def _append_question_item(self, question: Question) -> None:
+        if not self.question_list:
+            return
+        item = QListWidgetItem(self._question_label(question))
+        item.setData(Qt.UserRole, question)
+        self.question_list.addItem(item)
+
+    def _question_label(self, question: Question) -> str:
+        content = question.content or ""
+        title = content if len(content) <= 80 else f"{content[:80]}..."
+        return f"{title} [{question.difficulty_level}]"
+
+    def _parse_synonyms(self, raw: Optional[str]) -> list[str]:
+        if not raw:
+            return []
+        parts: list[str] = []
+        for chunk in raw.replace(";", ",").split(","):
+            value = chunk.strip()
+            if value:
+                parts.append(value)
+        return parts
+
 
 class LessonTypeDialog(QDialog):
     """Dialog for creating or editing a lesson type."""
@@ -267,7 +461,9 @@ class LessonTypeDialog(QDialog):
         self._lesson_type = lesson_type
         layout = QFormLayout(self)
         self.name = QLineEdit(lesson_type.name if lesson_type else "")
+        self.synonyms = QLineEdit(lesson_type.synonyms if lesson_type else "")
         layout.addRow(self.tr("Name"), self.name)
+        layout.addRow(self.tr("Synonyms (comma-separated)"), self.synonyms)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -276,6 +472,7 @@ class LessonTypeDialog(QDialog):
     def get_lesson_type(self) -> LessonType:
         lesson_type = self._lesson_type or LessonType()
         lesson_type.name = self.name.text().strip()
+        lesson_type.synonyms = self.synonyms.text().strip() or None
         return lesson_type
 
 

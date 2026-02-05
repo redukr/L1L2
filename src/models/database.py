@@ -115,6 +115,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS lesson_types (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL UNIQUE,
+                    synonyms TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -429,6 +430,10 @@ class Database:
             self._migrate_to_program_year(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (9)")
             current_version = 9
+        if current_version < 10:
+            self._migrate_to_lesson_type_synonyms(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (10)")
+            current_version = 10
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""
@@ -545,6 +550,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS lesson_types (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
+                synonyms TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -562,6 +568,13 @@ class Database:
                 SET lesson_type_id = ?
                 WHERE lesson_type_id IS NULL
             """, (row["id"],))
+
+    def _migrate_to_lesson_type_synonyms(self, cursor) -> None:
+        """Add synonyms column to lesson types if missing."""
+        cursor.execute("PRAGMA table_info(lesson_types)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "synonyms" not in columns:
+            cursor.execute("ALTER TABLE lesson_types ADD COLUMN synonyms TEXT")
 
     def _migrate_to_lesson_hours(self, cursor) -> None:
         """Add classroom/self-study hour columns to lessons."""
