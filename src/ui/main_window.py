@@ -25,10 +25,13 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QAbstractScrollArea,
     QTabWidget,
+    QDialog,
 )
 from PySide6.QtGui import QFont, QColor, QBrush
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
+from ..ui.editor_wizard import EditorWizardDialog
+from ..services.auth_service import AuthService
 from ..services.i18n import I18nManager
 from ..services.file_storage import FileStorageManager
 
@@ -42,6 +45,7 @@ class MainWindow(QMainWindow):
         self.i18n = i18n
         self.settings = settings
         self.file_storage = FileStorageManager()
+        self.auth_service = AuthService()
         self.program_items: Dict[int, QListWidgetItem] = {}
         self.tree_items: Dict[Tuple[str, int], QTreeWidgetItem] = {}
         self.last_program_id = None
@@ -68,12 +72,14 @@ class MainWindow(QMainWindow):
         self.language_combo.addItem(self.tr("English"), "en")
         self.font_combo = QComboBox()
         self.font_combo.addItems(["10", "11", "12", "13", "14", "15", "16", "18"])
+        self.editor_button = QPushButton(self.tr("Editor Mode"))
         self.admin_button = QPushButton(self.tr("Admin Mode"))
         top_bar.addWidget(self.search_input)
         top_bar.addWidget(self.search_button)
         top_bar.addWidget(self.language_combo)
         top_bar.addWidget(self.font_combo)
         top_bar.addStretch(1)
+        top_bar.addWidget(self.editor_button)
         top_bar.addWidget(self.admin_button)
         layout.addLayout(top_bar)
 
@@ -160,6 +166,7 @@ class MainWindow(QMainWindow):
         self.search_results.cellDoubleClicked.connect(self._on_search_result_activated)
         self.search_results.itemSelectionChanged.connect(self._on_search_result_selected)
         self.admin_button.clicked.connect(self._on_open_admin)
+        self.editor_button.clicked.connect(self._on_open_editor)
         self.open_material_button.clicked.connect(self._on_open_material)
         self.show_material_button.clicked.connect(self._on_show_material)
         self.copy_material_button.clicked.connect(self._on_copy_material)
@@ -453,6 +460,29 @@ class MainWindow(QMainWindow):
         if self.last_program_id:
             self._refresh_report(self.last_program_id)
 
+    def _on_open_editor(self) -> None:
+        from ..ui.dialogs import PasswordDialog
+
+        dialog = PasswordDialog(
+            self,
+            title=self.tr("Editor Access"),
+            label=self.tr("Enter editor password:"),
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return
+        if not self.auth_service.verify_editor_password(dialog.get_password()):
+            QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid editor password."))
+            return
+        wizard = EditorWizardDialog(self.controller.db, self.i18n, self)
+        wizard.exec()
+        self._load_programs()
+        if self.last_program_id and self.last_program_id in self.program_items:
+            self.program_list.setCurrentItem(self.program_items[self.last_program_id])
+        else:
+            self._load_program_structure(self.last_program_id) if self.last_program_id else None
+        if self.last_program_id:
+            self._refresh_report(self.last_program_id)
+
     def _on_open_material(self) -> None:
         items = self.materials_list.selectedItems()
         if not items:
@@ -698,6 +728,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.tr("Educational Program Manager"))
         self.search_label.setText(self.tr("Search:"))
         self.search_button.setText(self.tr("Search"))
+        self.editor_button.setText(self.tr("Editor Mode"))
         self.admin_button.setText(self.tr("Admin Mode"))
         self.program_label.setText(self.tr("Programs"))
         self.structure_label.setText(self.tr("Program Structure"))

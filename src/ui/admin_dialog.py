@@ -75,7 +75,11 @@ class AdminDialog(QDialog):
         self.i18n.language_changed.connect(self.retranslate_ui)
 
     def _authorize(self) -> bool:
-        dialog = PasswordDialog(self)
+        dialog = PasswordDialog(
+            self,
+            title=self.tr("Admin Access"),
+            label=self.tr("Enter admin password:"),
+        )
         if dialog.exec() != QDialog.Accepted:
             return False
         if not self.controller.verify_password(dialog.get_password()):

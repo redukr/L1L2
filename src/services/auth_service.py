@@ -8,29 +8,41 @@ from .app_paths import get_settings_dir
 
 
 class AuthService:
-    """Handles admin password verification using local storage."""
+    """Handles admin/editor password verification using local storage."""
 
     def __init__(self):
-        self.credentials_path = get_settings_dir() / "admin_credentials.json"
-        self._ensure_credentials()
+        self.admin_credentials_path = get_settings_dir() / "admin_credentials.json"
+        self.editor_credentials_path = get_settings_dir() / "editor_credentials.json"
+        self._ensure_credentials(self.admin_credentials_path, "admin123", legacy_name="admin_credentials.json")
+        self._ensure_credentials(self.editor_credentials_path, "editor123", legacy_name=None)
 
-    def _ensure_credentials(self) -> None:
-        if self.credentials_path.exists():
+    def _ensure_credentials(self, path, default_password: str, legacy_name: str | None) -> None:
+        if path.exists():
             return
-        legacy_path = get_data_dir() / "admin_credentials.json"
-        if legacy_path.exists():
-            self.credentials_path.write_bytes(legacy_path.read_bytes())
-            return
+        if legacy_name:
+            legacy_path = get_data_dir() / legacy_name
+            if legacy_path.exists():
+                path.write_bytes(legacy_path.read_bytes())
+                return
         salt = secrets.token_hex(16)
-        password_hash = self._hash_password("admin123", salt)
+        password_hash = self._hash_password(default_password, salt)
         payload = {"salt": salt, "password_hash": password_hash}
-        with open(self.credentials_path, "w", encoding="utf-8") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
 
     def verify_password(self, password: str) -> bool:
-        if not self.credentials_path.exists():
+        return self.verify_admin_password(password)
+
+    def verify_admin_password(self, password: str) -> bool:
+        return self._verify_password(self.admin_credentials_path, password)
+
+    def verify_editor_password(self, password: str) -> bool:
+        return self._verify_password(self.editor_credentials_path, password)
+
+    def _verify_password(self, path, password: str) -> bool:
+        if not path.exists():
             return False
-        with open(self.credentials_path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data: Dict[str, str] = json.load(f)
         salt = data.get("salt", "")
         stored_hash = data.get("password_hash", "")

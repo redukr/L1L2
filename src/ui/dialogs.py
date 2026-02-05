@@ -43,11 +43,11 @@ from ..services.import_service import extract_text_from_file, parse_curriculum_t
 class PasswordDialog(QDialog):
     """Password prompt dialog."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, title: Optional[str] = None, label: Optional[str] = None):
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Admin Access"))
+        self.setWindowTitle(title or self.tr("Admin Access"))
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(self.tr("Enter admin password:")))
+        layout.addWidget(QLabel(label or self.tr("Enter admin password:")))
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.password_input)
