@@ -67,7 +67,6 @@ class Question:
     id: Optional[int] = None
     content: str = ""
     answer: Optional[str] = None
-    difficulty_level: int = 1
     order_index: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

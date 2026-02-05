@@ -30,12 +30,11 @@ class QuestionRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO questions (content, answer, difficulty_level, order_index)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO questions (content, answer, order_index)
+                VALUES (?, ?, ?)
             """, (
                 question.content,
                 question.answer,
-                question.difficulty_level,
                 question.order_index
             ))
             question.id = cursor.lastrowid
@@ -55,13 +54,12 @@ class QuestionRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE questions
-                SET content = ?, answer = ?, difficulty_level = ?, 
+                SET content = ?, answer = ?, 
                     order_index = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
                 question.content,
                 question.answer,
-                question.difficulty_level,
                 question.order_index,
                 question.id
             ))
@@ -95,7 +93,7 @@ class QuestionRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, content, answer, difficulty_level, order_index, 
+                SELECT id, content, answer, order_index, 
                        created_at, updated_at
                 FROM questions WHERE id = ?
             """, (question_id,))
@@ -115,7 +113,7 @@ class QuestionRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, content, answer, difficulty_level, order_index, 
+                SELECT id, content, answer, order_index, 
                        created_at, updated_at
                 FROM questions ORDER BY content
             """)
@@ -134,7 +132,7 @@ class QuestionRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, content, answer, difficulty_level, order_index, 
+                SELECT id, content, answer, order_index, 
                        created_at, updated_at
                 FROM questions
                 WHERE content LIKE ?
@@ -156,7 +154,6 @@ class QuestionRepository:
             id=row['id'],
             content=row['content'],
             answer=row['answer'],
-            difficulty_level=row['difficulty_level'],
             order_index=row['order_index'],
             created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
             updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None

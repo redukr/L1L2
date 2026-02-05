@@ -123,6 +123,20 @@ class AdminController:
     def remove_lesson_from_topic(self, topic_id: int, lesson_id: int) -> bool:
         return self.topic_repo.remove_lesson_from_topic(topic_id, lesson_id)
 
+    def update_topic_lesson_order(self, topic_id: int, lesson_id: int, order_index: int) -> bool:
+        return self.topic_repo.update_lesson_order(topic_id, lesson_id, order_index)
+
+    def normalize_topic_lesson_order(self, topic_id: int) -> None:
+        lessons = self.topic_repo.get_topic_lessons(topic_id)
+        if not lessons:
+            return
+        def sort_key(lesson: Lesson) -> tuple:
+            order = lesson.order_index if lesson.order_index and lesson.order_index > 0 else 10**9
+            return (order, lesson.title or "")
+        ordered = sorted(lessons, key=sort_key)
+        for idx, lesson in enumerate(ordered, start=1):
+            self.topic_repo.update_lesson_order(topic_id, lesson.id, idx)
+
     # Disciplines
     def get_disciplines(self) -> List[Discipline]:
         return self.discipline_repo.get_all()
@@ -459,7 +473,6 @@ class AdminController:
         new_question = Question(
             content=question.content,
             answer=question.answer,
-            difficulty_level=question.difficulty_level,
             order_index=question.order_index,
         )
         new_question = self.question_repo.add(new_question)
@@ -516,7 +529,6 @@ class AdminController:
         new_question = Question(
             content=question.content,
             answer=question.answer,
-            difficulty_level=question.difficulty_level,
             order_index=question.order_index,
         )
         new_question = self.question_repo.add(new_question)
@@ -623,7 +635,6 @@ class AdminController:
             new_question = Question(
                 content=question.content,
                 answer=question.answer,
-                difficulty_level=question.difficulty_level,
                 order_index=question.order_index,
             )
             new_question = self.question_repo.add(new_question)
@@ -732,7 +743,7 @@ class AdminController:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT q.id, q.content, q.answer, q.difficulty_level,
+                SELECT q.id, q.content, q.answer,
                        q.order_index, q.created_at, q.updated_at,
                        lq.order_index as link_order
                 FROM questions q

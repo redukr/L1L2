@@ -5,6 +5,7 @@
     <message><source>Educational Program Manager</source><translation>Educational Program Manager</translation></message>
     <message><source>Search:</source><translation>Search:</translation></message>
     <message><source>Search</source><translation>Search</translation></message>
+    <message><source>Editor Mode</source><translation>Editor Mode</translation></message>
     <message><source>Admin Mode</source><translation>Admin Mode</translation></message>
     <message><source>Ukrainian</source><translation>Ukrainian</translation></message>
     <message><source>English</source><translation>English</translation></message>
@@ -31,7 +32,6 @@
     <message><source>Duration</source><translation>Duration</translation></message>
     <message><source>hours</source><translation>hours</translation></message>
     <message><source>Order</source><translation>Order</translation></message>
-    <message><source>Difficulty</source><translation>Difficulty</translation></message>
     <message><source>Not provided</source><translation>Not provided</translation></message>
     <message><source>File</source><translation>File</translation></message>
     <message><source>Teachers</source><translation>Teachers</translation></message>
@@ -98,6 +98,7 @@
     <message><source>Lessons</source><translation>Lessons</translation></message>
     <message><source>Questions</source><translation>Questions</translation></message>
     <message><source>Materials</source><translation>Materials</translation></message>
+    <message><source>Synonyms</source><translation>Synonyms</translation></message>
     <message><source>Check database</source><translation>Check database</translation></message>
     <message><source>Cleanup unused data</source><translation>Cleanup unused data</translation></message>
     <message><source>Refresh</source><translation>Refresh</translation></message>
@@ -125,7 +126,6 @@
     <message><source>Topic lessons</source><translation>Topic lessons</translation></message>
     <message><source>Lesson questions</source><translation>Lesson questions</translation></message>
     <message><source>Question</source><translation>Question</translation></message>
-    <message><source>Difficulty</source><translation>Difficulty</translation></message>
     <message><source>Type</source><translation>Type</translation></message>
     <message><source>File</source><translation>File</translation></message>
     <message><source>Authors</source><translation>Authors</translation></message>
@@ -174,6 +174,8 @@
     <name>PasswordDialog</name>
     <message><source>Admin Access</source><translation>Admin Access</translation></message>
     <message><source>Enter admin password:</source><translation>Enter admin password:</translation></message>
+    <message><source>Editor Access</source><translation>Editor Access</translation></message>
+    <message><source>Enter editor password:</source><translation>Enter editor password:</translation></message>
   </context>
   <context>
     <name>TeacherDialog</name>
@@ -213,12 +215,19 @@
     <message><source>Title</source><translation>Title</translation></message>
     <message><source>Description</source><translation>Description</translation></message>
     <message><source>Duration (hours)</source><translation>Duration (hours)</translation></message>
+    <message><source>Total hours</source><translation>Total hours</translation></message>
+    <message><source>Classroom hours</source><translation>Classroom hours</translation></message>
+    <message><source>Self-study hours</source><translation>Self-study hours</translation></message>
+    <message><source>Lesson type</source><translation>Lesson type</translation></message>
+    <message><source>Questions</source><translation>Questions</translation></message>
+    <message><source>Add question</source><translation>Add question</translation></message>
+    <message><source>Edit</source><translation>Edit</translation></message>
+    <message><source>Remove</source><translation>Remove</translation></message>
     <message><source>Order index</source><translation>Order index</translation></message>
   </context>
   <context>
     <name>QuestionDialog</name>
     <message><source>Question</source><translation>Question</translation></message>
-    <message><source>Difficulty (1-5)</source><translation>Difficulty (1-5)</translation></message>
     <message><source>Order index</source><translation>Order index</translation></message>
   </context>
   <context>
@@ -243,5 +252,52 @@
     <message><source>guide</source><translation>guide</translation></message>
     <message><source>presentation</source><translation>presentation</translation></message>
     <message><source>attachment</source><translation>attachment</translation></message>
+  </context>
+  <context>
+    <name>LessonTypeDialog</name>
+    <message><source>Lesson type</source><translation>Lesson type</translation></message>
+    <message><source>Name</source><translation>Name</translation></message>
+    <message><source>Synonyms (comma-separated)</source><translation>Synonyms (comma-separated)</translation></message>
+  </context>
+  <context>
+    <name>EditorWizardDialog</name>
+    <message><source>Editor Wizard</source><translation>Editor Wizard</translation></message>
+    <message><source>Step 1: Select context</source><translation>Step 1: Select context</translation></message>
+    <message><source>Step 2: Add lessons</source><translation>Step 2: Add lessons</translation></message>
+    <message><source>Step 3: Add questions</source><translation>Step 3: Add questions</translation></message>
+    <message><source>Step 4: Add materials</source><translation>Step 4: Add materials</translation></message>
+    <message><source>Step 5: Summary</source><translation>Step 5: Summary</translation></message>
+    <message><source>Back</source><translation>Back</translation></message>
+    <message><source>Next</source><translation>Next</translation></message>
+    <message><source>Finish</source><translation>Finish</translation></message>
+    <message><source>Cancel</source><translation>Cancel</translation></message>
+    <message><source>Program</source><translation>Program</translation></message>
+    <message><source>Discipline</source><translation>Discipline</translation></message>
+    <message><source>Topic</source><translation>Topic</translation></message>
+    <message><source>Lesson</source><translation>Lesson</translation></message>
+    <message><source>Questions</source><translation>Questions</translation></message>
+    <message><source>Materials</source><translation>Materials</translation></message>
+    <message><source>Add program</source><translation>Add program</translation></message>
+    <message><source>Add discipline</source><translation>Add discipline</translation></message>
+    <message><source>Add topic</source><translation>Add topic</translation></message>
+    <message><source>Add lesson</source><translation>Add lesson</translation></message>
+    <message><source>Add question</source><translation>Add question</translation></message>
+    <message><source>Add material</source><translation>Add material</translation></message>
+    <message><source>Title</source><translation>Title</translation></message>
+    <message><source>Description</source><translation>Description</translation></message>
+    <message><source>Total hours</source><translation>Total hours</translation></message>
+    <message><source>Classroom hours</source><translation>Classroom hours</translation></message>
+    <message><source>Self-study hours</source><translation>Self-study hours</translation></message>
+    <message><source>Lesson type</source><translation>Lesson type</translation></message>
+    <message><source>Order index</source><translation>Order index</translation></message>
+    <message><source>Target</source><translation>Target</translation></message>
+    <message><source>Select a topic first.</source><translation>Select a topic first.</translation></message>
+    <message><source>Select a program first.</source><translation>Select a program first.</translation></message>
+    <message><source>Select a discipline first.</source><translation>Select a discipline first.</translation></message>
+    <message><source>Select a lesson first.</source><translation>Select a lesson first.</translation></message>
+    <message><source>Lesson title is required.</source><translation>Lesson title is required.</translation></message>
+    <message><source>Question text is required.</source><translation>Question text is required.</translation></message>
+    <message><source>Material title is required.</source><translation>Material title is required.</translation></message>
+    <message><source>Select a target first.</source><translation>Select a target first.</translation></message>
   </context>
 </TS>

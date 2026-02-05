@@ -838,10 +838,10 @@ def _insert_questions(cursor, lesson_id: int, questions: List[CurriculumQuestion
             continue
         cursor.execute(
             """
-            INSERT INTO questions (content, answer, difficulty_level, order_index)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO questions (content, answer, order_index)
+            VALUES (?, ?, ?)
             """,
-            (content, "", 1, question.number or added + 1),
+            (content, "", question.number or added + 1),
         )
         question_id = cursor.lastrowid
         cursor.execute(

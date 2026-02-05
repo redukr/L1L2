@@ -75,17 +75,17 @@ class AdminDialog(QDialog):
         self.i18n.language_changed.connect(self.retranslate_ui)
 
     def _authorize(self) -> bool:
-        dialog = PasswordDialog(
-            self,
-            title=self.tr("Admin Access"),
-            label=self.tr("Enter admin password:"),
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return False
-        if not self.controller.verify_password(dialog.get_password()):
+        while True:
+            dialog = PasswordDialog(
+                self,
+                title=self.tr("Admin Access"),
+                label=self.tr("Enter admin password:"),
+            )
+            if dialog.exec() != QDialog.Accepted:
+                return False
+            if self.controller.verify_password(dialog.get_password()):
+                return True
             QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid admin password."))
-            return False
-        return True
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -214,6 +214,7 @@ class AdminDialog(QDialog):
                 continue
             widget.setWordWrap(True)
             widget.setTextElideMode(Qt.ElideNone)
+            widget.setUniformItemSizes(False)
 
         for name in tree_names:
             tree = getattr(self, name, None)
@@ -655,8 +656,8 @@ class AdminDialog(QDialog):
     def _build_questions_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.questions_table = QTableWidget(0, 2)
-        self.questions_table.setHorizontalHeaderLabels([self.tr("Question"), self.tr("Difficulty")])
+        self.questions_table = QTableWidget(0, 1)
+        self.questions_table.setHorizontalHeaderLabels([self.tr("Question")])
         self.questions_table.horizontalHeader().setStretchLastSection(True)
         self.questions_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.questions_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -883,12 +884,7 @@ class AdminDialog(QDialog):
                         topic_item.addChild(lesson_item)
                         item_index[("lesson", lesson.id)] = lesson_item
                         for question in self.controller.get_lesson_questions(lesson.id):
-                            title = (
-                                question.content
-                                if len(question.content) <= 60
-                                else f"{question.content[:60]}..."
-                            )
-                            question_item = QTreeWidgetItem([title])
+                            question_item = QTreeWidgetItem([question.content])
                             question_item.setData(0, Qt.UserRole, question)
                             question_item.setData(0, Qt.UserRole + 1, "question")
                             lesson_item.addChild(question_item)
@@ -911,15 +907,18 @@ class AdminDialog(QDialog):
         if entity_type == "lesson":
             self.controller.normalize_lesson_question_order(entity.id)
         elif entity_type == "topic":
+            self.controller.normalize_topic_lesson_order(entity.id)
             for lesson in self.controller.get_topic_lessons(entity.id):
                 self.controller.normalize_lesson_question_order(lesson.id)
         elif entity_type == "discipline":
             for topic in self.controller.get_discipline_topics(entity.id):
+                self.controller.normalize_topic_lesson_order(topic.id)
                 for lesson in self.controller.get_topic_lessons(topic.id):
                     self.controller.normalize_lesson_question_order(lesson.id)
         elif entity_type == "program":
             for discipline in self.controller.get_program_disciplines(entity.id):
                 for topic in self.controller.get_discipline_topics(discipline.id):
+                    self.controller.normalize_topic_lesson_order(topic.id)
                     for lesson in self.controller.get_topic_lessons(topic.id):
                         self.controller.normalize_lesson_question_order(lesson.id)
         self._refresh_structure_tree()
@@ -1317,7 +1316,10 @@ class AdminDialog(QDialog):
             dialog = LessonDialog(entity, self.controller.get_lesson_types(), self)
             if dialog.exec() != QDialog.Accepted:
                 return
-            self.controller.update_lesson(dialog.get_lesson())
+            updated = dialog.get_lesson()
+            self.controller.update_lesson(updated)
+            if topic and updated.order_index > 0:
+                self.controller.update_topic_lesson_order(topic.id, updated.id, updated.order_index)
             self._refresh_structure_tree()
             self._select_structure_entity(entity_type, entity.id)
             return
@@ -1849,7 +1851,11 @@ class AdminDialog(QDialog):
         dialog = LessonDialog(lesson, self.controller.get_lesson_types(), self)
         if dialog.exec() != QDialog.Accepted:
             return
-        self.controller.update_lesson(dialog.get_lesson())
+        updated = dialog.get_lesson()
+        self.controller.update_lesson(updated)
+        topic = self._current_entity(self.topics_table) if hasattr(self, "topics_table") else None
+        if topic and updated.order_index > 0:
+            self.controller.update_topic_lesson_order(topic.id, updated.id, updated.order_index)
         self._refresh_lessons()
 
     def _delete_lesson(self) -> None:
@@ -2011,7 +2017,6 @@ class AdminDialog(QDialog):
             self.questions_table.insertRow(row)
             title = question.content if len(question.content) <= 80 else f"{question.content[:80]}..."
             self.questions_table.setItem(row, 0, QTableWidgetItem(title))
-            self.questions_table.setItem(row, 1, QTableWidgetItem(str(question.difficulty_level)))
             self.questions_table.item(row, 0).setData(Qt.UserRole, question)
 
     def _filtered_disciplines(self):
@@ -2869,7 +2874,7 @@ class AdminDialog(QDialog):
             [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
         )
         self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
-        self.questions_table.setHorizontalHeaderLabels([self.tr("Question"), self.tr("Difficulty")])
+        self.questions_table.setHorizontalHeaderLabels([self.tr("Question")])
         self.materials_table.setHorizontalHeaderLabels(
             [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
         )

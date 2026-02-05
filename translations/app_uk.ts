@@ -5,6 +5,7 @@
     <message><source>Educational Program Manager</source><translation>Менеджер освітніх програм</translation></message>
     <message><source>Search:</source><translation>Пошук:</translation></message>
     <message><source>Search</source><translation>Пошук</translation></message>
+    <message><source>Editor Mode</source><translation>Режим редактора</translation></message>
     <message><source>Admin Mode</source><translation>Режим адміністратора</translation></message>
     <message><source>Ukrainian</source><translation>Українська</translation></message>
     <message><source>English</source><translation>Англійська</translation></message>
@@ -34,7 +35,6 @@
     <message><source>Duration</source><translation>Тривалість</translation></message>
     <message><source>hours</source><translation>год</translation></message>
     <message><source>Order</source><translation>Порядок</translation></message>
-    <message><source>Difficulty</source><translation>Складність</translation></message>
     <message><source>Not provided</source><translation>Не вказано</translation></message>
     <message><source>File</source><translation>Файл</translation></message>
     <message><source>Teachers</source><translation>Викладачі</translation></message>
@@ -65,6 +65,7 @@
     <message><source>Lessons</source><translation>Заняття</translation></message>
     <message><source>Questions</source><translation>Питання</translation></message>
     <message><source>Materials</source><translation>Матеріали</translation></message>
+    <message><source>Synonyms</source><translation>Синоніми</translation></message>
     <message><source>Check database</source><translation>Перевірка БД</translation></message>
     <message><source>Cleanup unused data</source><translation>Видалити зайву інформацію</translation></message>
     <message><source>Refresh</source><translation>Оновити</translation></message>
@@ -95,7 +96,6 @@
     <message><source>Lesson questions</source><translation>Питання заняття</translation></message>
     <message><source>Lesson materials</source><translation>Матеріали заняття</translation></message>
     <message><source>Question</source><translation>Питання</translation></message>
-    <message><source>Difficulty</source><translation>Складність</translation></message>
     <message><source>Type</source><translation>Тип</translation></message>
     <message><source>File</source><translation>Файл</translation></message>
     <message><source>Authors</source><translation>Автори</translation></message>
@@ -199,6 +199,8 @@
     <name>PasswordDialog</name>
     <message><source>Admin Access</source><translation>Доступ адміністратора</translation></message>
     <message><source>Enter admin password:</source><translation>Введіть пароль адміністратора:</translation></message>
+    <message><source>Editor Access</source><translation>Доступ редактора</translation></message>
+    <message><source>Enter editor password:</source><translation>Введіть пароль редактора:</translation></message>
   </context>
   <context>
     <name>TeacherDialog</name>
@@ -243,12 +245,15 @@
     <message><source>Classroom hours</source><translation>Аудиторні години</translation></message>
     <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
     <message><source>Lesson type</source><translation>Тип заняття</translation></message>
+    <message><source>Questions</source><translation>Питання</translation></message>
+    <message><source>Add question</source><translation>Додати питання</translation></message>
+    <message><source>Edit</source><translation>Редагувати</translation></message>
+    <message><source>Remove</source><translation>Прибрати</translation></message>
     <message><source>Order index</source><translation>Порядковий індекс</translation></message>
   </context>
   <context>
     <name>QuestionDialog</name>
     <message><source>Question</source><translation>Питання</translation></message>
-    <message><source>Difficulty (1-5)</source><translation>Складність (1-5)</translation></message>
     <message><source>Order index</source><translation>Порядковий індекс</translation></message>
   </context>
   <context>
@@ -278,6 +283,48 @@
     <name>LessonTypeDialog</name>
     <message><source>Lesson type</source><translation>Тип заняття</translation></message>
     <message><source>Name</source><translation>Назва</translation></message>
+    <message><source>Synonyms (comma-separated)</source><translation>Синоніми (через кому)</translation></message>
+  </context>
+  <context>
+    <name>EditorWizardDialog</name>
+    <message><source>Editor Wizard</source><translation>Майстер редактора</translation></message>
+    <message><source>Step 1: Select context</source><translation>Крок 1: Виберіть контекст</translation></message>
+    <message><source>Step 2: Add lessons</source><translation>Крок 2: Додайте заняття</translation></message>
+    <message><source>Step 3: Add questions</source><translation>Крок 3: Додайте питання</translation></message>
+    <message><source>Step 4: Add materials</source><translation>Крок 4: Додайте матеріали</translation></message>
+    <message><source>Step 5: Summary</source><translation>Крок 5: Підсумок</translation></message>
+    <message><source>Back</source><translation>Назад</translation></message>
+    <message><source>Next</source><translation>Далі</translation></message>
+    <message><source>Finish</source><translation>Готово</translation></message>
+    <message><source>Cancel</source><translation>Скасувати</translation></message>
+    <message><source>Program</source><translation>Програма</translation></message>
+    <message><source>Discipline</source><translation>Дисципліна</translation></message>
+    <message><source>Topic</source><translation>Тема</translation></message>
+    <message><source>Lesson</source><translation>Заняття</translation></message>
+    <message><source>Questions</source><translation>Питання</translation></message>
+    <message><source>Materials</source><translation>Матеріали</translation></message>
+    <message><source>Add program</source><translation>Додати програму</translation></message>
+    <message><source>Add discipline</source><translation>Додати дисципліну</translation></message>
+    <message><source>Add topic</source><translation>Додати тему</translation></message>
+    <message><source>Add lesson</source><translation>Додати заняття</translation></message>
+    <message><source>Add question</source><translation>Додати питання</translation></message>
+    <message><source>Add material</source><translation>Додати матеріал</translation></message>
+    <message><source>Title</source><translation>Назва</translation></message>
+    <message><source>Description</source><translation>Опис</translation></message>
+    <message><source>Total hours</source><translation>Всього годин</translation></message>
+    <message><source>Classroom hours</source><translation>Аудиторні години</translation></message>
+    <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
+    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
+    <message><source>Order index</source><translation>Порядковий індекс</translation></message>
+    <message><source>Target</source><translation>Призначення</translation></message>
+    <message><source>Select a topic first.</source><translation>Спочатку виберіть тему.</translation></message>
+    <message><source>Select a program first.</source><translation>Спочатку виберіть програму.</translation></message>
+    <message><source>Select a discipline first.</source><translation>Спочатку виберіть дисципліну.</translation></message>
+    <message><source>Select a lesson first.</source><translation>Спочатку виберіть заняття.</translation></message>
+    <message><source>Lesson title is required.</source><translation>Потрібна назва заняття.</translation></message>
+    <message><source>Question text is required.</source><translation>Потрібний текст питання.</translation></message>
+    <message><source>Material title is required.</source><translation>Потрібна назва матеріалу.</translation></message>
+    <message><source>Select a target first.</source><translation>Спочатку виберіть призначення.</translation></message>
   </context>
   <context>
     <name>ImportPreviewDialog</name>

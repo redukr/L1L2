@@ -241,7 +241,7 @@ class LessonRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT q.id, q.content, q.answer, q.difficulty_level, 
+                SELECT q.id, q.content, q.answer, 
                        q.order_index, q.created_at, q.updated_at
                 FROM questions q
                 JOIN lesson_questions lq ON q.id = lq.question_id

@@ -145,7 +145,6 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     content TEXT NOT NULL,
                     answer TEXT,
-                    difficulty_level INTEGER DEFAULT 1,
                     order_index INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

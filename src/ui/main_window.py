@@ -2,7 +2,7 @@
 import os
 import re
 from typing import Dict, Tuple
-from PySide6.QtCore import Qt, QSettings
+from PySide6.QtCore import Qt, QSettings, QSize, QRect
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -26,8 +26,11 @@ from PySide6.QtWidgets import (
     QAbstractScrollArea,
     QTabWidget,
     QDialog,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QStyle,
 )
-from PySide6.QtGui import QFont, QColor, QBrush
+from PySide6.QtGui import QFont, QColor, QBrush, QTextDocument
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
 from ..ui.editor_wizard import EditorWizardDialog
@@ -100,7 +103,8 @@ class MainWindow(QMainWindow):
         self.content_tree.setColumnWidth(0, 350)
         self.content_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.content_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.content_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        self.content_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
+        self.content_tree.setItemDelegateForColumn(0, _WrapItemDelegate(self.content_tree))
         self.structure_label = QLabel(self.tr("Program Structure"))
         self.report_table = QTableWidget(0, 0)
         self.report_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -167,6 +171,8 @@ class MainWindow(QMainWindow):
         self.search_results.itemSelectionChanged.connect(self._on_search_result_selected)
         self.admin_button.clicked.connect(self._on_open_admin)
         self.editor_button.clicked.connect(self._on_open_editor)
+        self.materials_list.itemDoubleClicked.connect(self._on_open_material_item)
+        self.report_table.itemSelectionChanged.connect(self._on_report_selection_changed)
         self.open_material_button.clicked.connect(self._on_open_material)
         self.show_material_button.clicked.connect(self._on_show_material)
         self.copy_material_button.clicked.connect(self._on_copy_material)
@@ -176,8 +182,10 @@ class MainWindow(QMainWindow):
     def _apply_word_wrap(self) -> None:
         self.program_list.setWordWrap(True)
         self.program_list.setTextElideMode(Qt.ElideNone)
+        self.program_list.setUniformItemSizes(False)
         self.materials_list.setWordWrap(True)
         self.materials_list.setTextElideMode(Qt.ElideNone)
+        self.materials_list.setUniformItemSizes(False)
         self.content_tree.setWordWrap(True)
         self.content_tree.setUniformRowHeights(False)
         self.content_tree.setTextElideMode(Qt.ElideNone)
@@ -243,8 +251,7 @@ class MainWindow(QMainWindow):
                     lesson_item.setData(0, Qt.UserRole, ("lesson", lesson.id))
                     self.tree_items[("lesson", lesson.id)] = lesson_item
                     for question in lesson.questions:
-                        title = question.content if len(question.content) <= 60 else f"{question.content[:60]}..."
-                        question_item = QTreeWidgetItem([title, self.tr("Question")])
+                        question_item = QTreeWidgetItem([question.content, self.tr("Question")])
                         question_item.setData(0, Qt.UserRole, ("question", question.id))
                         self.tree_items[("question", question.id)] = question_item
                         lesson_item.addChild(question_item)
@@ -252,6 +259,10 @@ class MainWindow(QMainWindow):
                 discipline_item.addChild(topic_item)
             self.content_tree.addTopLevelItem(discipline_item)
         self.content_tree.expandAll()
+        self.content_tree.resizeColumnToContents(0)
+        self._update_tree_item_sizes()
+        self.content_tree.doItemsLayout()
+        self.content_tree.viewport().update()
         if select_last_discipline and self.last_discipline_id:
             item = self.tree_items.get(("discipline", self.last_discipline_id))
             if item:
@@ -307,8 +318,6 @@ class MainWindow(QMainWindow):
             if "lesson_type" in meta:
                 lesson_type = meta.get("lesson_type") or self.tr("N/A")
                 meta_lines.append(f"{self.tr('Lesson type')}: {lesson_type}")
-            if "difficulty_level" in meta:
-                meta_lines.append(f"{self.tr('Difficulty')}: {meta.get('difficulty_level')}")
             if "material_type" in meta:
                 material_type = meta.get("material_type")
                 material_type_label = self._translate_material_type(material_type)
@@ -355,6 +364,24 @@ class MainWindow(QMainWindow):
             item = QListWidgetItem(label)
             item.setData(Qt.UserRole, material)
             self.materials_list.addItem(item)
+
+    def _update_tree_item_sizes(self) -> None:
+        delegate = self.content_tree.itemDelegateForColumn(0)
+        if delegate is None:
+            return
+
+        def update_item(item):
+            if not item:
+                return
+            index = self.content_tree.indexFromItem(item, 0)
+            size = delegate.sizeHint(self.content_tree.viewOptions(), index)
+            if size.isValid():
+                item.setSizeHint(0, size)
+            for i in range(item.childCount()):
+                update_item(item.child(i))
+
+        for i in range(self.content_tree.topLevelItemCount()):
+            update_item(self.content_tree.topLevelItem(i))
 
     def _on_search(self) -> None:
         keyword = self.search_input.text().strip()
@@ -463,16 +490,17 @@ class MainWindow(QMainWindow):
     def _on_open_editor(self) -> None:
         from ..ui.dialogs import PasswordDialog
 
-        dialog = PasswordDialog(
-            self,
-            title=self.tr("Editor Access"),
-            label=self.tr("Enter editor password:"),
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return
-        if not self.auth_service.verify_editor_password(dialog.get_password()):
+        while True:
+            dialog = PasswordDialog(
+                self,
+                title=self.tr("Editor Access"),
+                label=self.tr("Enter editor password:"),
+            )
+            if dialog.exec() != QDialog.Accepted:
+                return
+            if self.auth_service.verify_editor_password(dialog.get_password()):
+                break
             QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid editor password."))
-            return
         wizard = EditorWizardDialog(self.controller.db, self.i18n, self)
         wizard.exec()
         self._load_programs()
@@ -494,6 +522,16 @@ class MainWindow(QMainWindow):
                 continue
             if not self.file_storage.open_file(material.relative_path):
                 QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+
+    def _on_open_material_item(self, item: QListWidgetItem) -> None:
+        material = item.data(Qt.UserRole)
+        if not material:
+            return
+        if not material.relative_path:
+            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
+            return
+        if not self.file_storage.open_file(material.relative_path):
+            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
 
     def _on_show_material(self) -> None:
         items = self.materials_list.selectedItems()
@@ -549,6 +587,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_report(self, program_id: int) -> None:
         self.report_table.clear()
+        self._report_rows = []
         disciplines = self.controller.get_program_disciplines(program_id)
         discipline_ids = [d.id for d in disciplines if d and d.id is not None]
         teachers = self.controller.get_teachers_for_disciplines(discipline_ids)
@@ -560,7 +599,12 @@ class MainWindow(QMainWindow):
             for topic in discipline.topics:
                 lesson_index = 1
                 for lesson in topic.lessons:
-                    code = f"Т.{topic_index}.З.{lesson_index}"
+                    lesson_type = (lesson.lesson_type_name or "").strip().lower()
+                    is_self_study = "самостійна" in lesson_type or "self-study" in lesson_type or "self study" in lesson_type
+                    if is_self_study:
+                        code = f"т.{topic_index}.ср"
+                    else:
+                        code = f"т.{topic_index}.з.{lesson_index}"
                     lessons.append(
                         {
                             "code": code,
@@ -569,7 +613,9 @@ class MainWindow(QMainWindow):
                             "topic": topic,
                         }
                     )
-                    lesson_index += 1
+                    self._report_rows.append(lesson)
+                    if not is_self_study:
+                        lesson_index += 1
                 topic_index += 1
 
         if not teachers or not lessons:
@@ -630,6 +676,26 @@ class MainWindow(QMainWindow):
                 row_item.setToolTip(tooltip)
         self.report_table.resizeRowsToContents()
         self.report_table.resizeColumnsToContents()
+
+    def _on_report_selection_changed(self) -> None:
+        item = self.report_table.currentItem()
+        if not item:
+            return
+        row = item.row()
+        col = item.column()
+        if not hasattr(self, "_report_rows"):
+            return
+        if row < 0 or row >= len(self._report_rows):
+            return
+        # Column 0 is the lesson code; other columns are per-teacher materials.
+        if col > 0 and not item.text().strip():
+            self._show_details({})
+            self.materials_list.clear()
+            return
+        lesson = self._report_rows[row]
+        details = self.controller.get_entity_details("lesson", lesson.id)
+        self._show_details(details)
+        self._load_materials("lesson", lesson.id)
 
     def _material_copy_name_parts(self, material) -> Tuple[str, str]:
         original = material.original_filename or ""
@@ -785,3 +851,48 @@ class MainWindow(QMainWindow):
             "attachment": self.tr("attachment"),
         }
         return mapping.get(material_type or "", material_type or "")
+
+
+class _WrapItemDelegate(QStyledItemDelegate):
+    def __init__(self, view):
+        super().__init__(view)
+        self._view = view
+
+    def initStyleOption(self, option, index):  # noqa: ANN001
+        super().initStyleOption(option, index)
+        option.textElideMode = Qt.ElideNone
+        option.wrapText = True
+
+    def sizeHint(self, option, index):  # noqa: ANN001
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        style = opt.widget.style() if opt.widget else self._view.style()
+        text_rect = style.subElementRect(QStyle.SE_ItemViewItemText, opt, opt.widget)
+        width = text_rect.width()
+        if width <= 0 and self._view is not None:
+            width = self._view.columnWidth(index.column())
+        if width <= 0:
+            return super().sizeHint(option, index)
+        doc = QTextDocument()
+        doc.setDefaultFont(opt.font)
+        doc.setTextWidth(width)
+        doc.setPlainText(opt.text)
+        height = max(int(doc.size().height()) + opt.fontMetrics.leading() + 10, opt.fontMetrics.height() + 10)
+        return QSize(int(opt.rect.width()), height)
+
+    def paint(self, painter, option, index):  # noqa: ANN001
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        text = opt.text
+        opt.text = ""
+        style = opt.widget.style() if opt.widget else self._view.style()
+        style.drawControl(QStyle.CE_ItemViewItem, opt, painter, opt.widget)
+        doc = QTextDocument()
+        doc.setDefaultFont(opt.font)
+        doc.setTextWidth(opt.rect.width())
+        doc.setPlainText(text)
+        text_rect = style.subElementRect(QStyle.SE_ItemViewItemText, opt, opt.widget)
+        painter.save()
+        painter.translate(text_rect.topLeft())
+        doc.drawContents(painter, QRect(0, 0, text_rect.width(), text_rect.height()))
+        painter.restore()

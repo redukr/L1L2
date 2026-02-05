@@ -257,7 +257,7 @@ class SearchService:
             cursor = conn.cursor()
             try:
                 cursor.execute("""
-                    SELECT q.id, q.content, q.answer, q.difficulty_level, 
+                    SELECT q.id, q.content, q.answer, 
                            bm25(questions_fts) as score
                     FROM questions q
                     JOIN questions_fts ON q.id = questions_fts.rowid
@@ -267,7 +267,7 @@ class SearchService:
 
                 for row in cursor.fetchall():
                     matched_text = self._get_matched_text(row, ['content'])
-                    description = f"Difficulty: {row['difficulty_level']}"
+                    description = ""
                     results.append(SearchResult(
                         entity_type='question',
                         entity_id=row['id'],
@@ -438,7 +438,7 @@ class SearchService:
             matched_text = " | ".join(
                 value for value in [question.content] if value
             )
-            description = f"Difficulty: {question.difficulty_level}"
+            description = ""
             results.append(SearchResult(
                 entity_type='question',
                 entity_id=question.id,

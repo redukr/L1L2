@@ -345,6 +345,9 @@ class LessonDialog(QDialog):
         if lesson is None:
             self.question_list = QListWidget()
             self.question_list.setSelectionMode(QAbstractItemView.SingleSelection)
+            self.question_list.setWordWrap(True)
+            self.question_list.setTextElideMode(Qt.ElideNone)
+            self.question_list.setUniformItemSizes(False)
             self.question_add = QPushButton(self.tr("Add question"))
             self.question_edit = QPushButton(self.tr("Edit"))
             self.question_remove = QPushButton(self.tr("Remove"))
@@ -414,7 +417,6 @@ class LessonDialog(QDialog):
             return
         updated = dialog.get_question()
         question.content = updated.content
-        question.difficulty_level = updated.difficulty_level
         question.order_index = updated.order_index
         item.setText(self._question_label(question))
 
@@ -439,7 +441,7 @@ class LessonDialog(QDialog):
     def _question_label(self, question: Question) -> str:
         content = question.content or ""
         title = content if len(content) <= 80 else f"{content[:80]}..."
-        return f"{title} [{question.difficulty_level}]"
+        return title
 
     def _parse_synonyms(self, raw: Optional[str]) -> list[str]:
         if not raw:
@@ -485,16 +487,11 @@ class QuestionDialog(QDialog):
         self._question = question
         layout = QFormLayout(self)
         self.content = QTextEdit(question.content if question else "")
-        self.difficulty = QSpinBox()
-        self.difficulty.setRange(1, 5)
-        if question:
-            self.difficulty.setValue(question.difficulty_level)
         self.order_index = QSpinBox()
         self.order_index.setRange(0, 999)
         if question:
             self.order_index.setValue(question.order_index)
         layout.addRow(self.tr("Question"), self.content)
-        layout.addRow(self.tr("Difficulty (1-5)"), self.difficulty)
         layout.addRow(self.tr("Order index"), self.order_index)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -508,7 +505,6 @@ class QuestionDialog(QDialog):
             question.answer = self._question.answer
         else:
             question.answer = None
-        question.difficulty_level = self.difficulty.value()
         question.order_index = self.order_index.value()
         return question
 

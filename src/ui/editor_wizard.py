@@ -31,6 +31,10 @@ class EditorWizardDialog(QDialog):
         self.controller = AdminController(database)
         self.i18n = i18n
         self.lesson_context_label = QLabel("")
+        self.lesson_context_label.setWordWrap(True)
+        self._selected_program_id = None
+        self._selected_discipline_id = None
+        self._selected_topic_id = None
         self._created_counts = {
             "programs": 0,
             "disciplines": 0,
@@ -156,6 +160,9 @@ class EditorWizardDialog(QDialog):
         layout.addLayout(add_row)
 
         self.lessons_list = QListWidget()
+        self.lessons_list.setWordWrap(True)
+        self.lessons_list.setTextElideMode(Qt.ElideNone)
+        self.lessons_list.setUniformItemSizes(False)
         layout.addWidget(self.lessons_list)
 
         self.lesson_add_btn.clicked.connect(self._add_lesson_from_form)
@@ -171,13 +178,10 @@ class EditorWizardDialog(QDialog):
         form = QFormLayout()
         self.question_lesson_combo = QComboBox()
         self.question_content = QTextEdit()
-        self.question_difficulty = QSpinBox()
-        self.question_difficulty.setRange(1, 5)
         self.question_order = QSpinBox()
         self.question_order.setRange(0, 999)
         form.addRow(self.tr("Lesson"), self.question_lesson_combo)
         form.addRow(self.tr("Question"), self.question_content)
-        form.addRow(self.tr("Difficulty (1-5)"), self.question_difficulty)
         form.addRow(self.tr("Order index"), self.question_order)
         layout.addLayout(form)
 
@@ -188,6 +192,9 @@ class EditorWizardDialog(QDialog):
         layout.addLayout(add_row)
 
         self.questions_list = QListWidget()
+        self.questions_list.setWordWrap(True)
+        self.questions_list.setTextElideMode(Qt.ElideNone)
+        self.questions_list.setUniformItemSizes(False)
         layout.addWidget(self.questions_list)
 
         self.question_add_btn.clicked.connect(self._add_question_from_form)
@@ -216,6 +223,9 @@ class EditorWizardDialog(QDialog):
         layout.addLayout(add_row)
 
         self.materials_list = QListWidget()
+        self.materials_list.setWordWrap(True)
+        self.materials_list.setTextElideMode(Qt.ElideNone)
+        self.materials_list.setUniformItemSizes(False)
         layout.addWidget(self.materials_list)
 
         self.material_target_combo.currentIndexChanged.connect(self._toggle_material_target)
@@ -229,6 +239,7 @@ class EditorWizardDialog(QDialog):
         header = QLabel(self.tr("Step 5: Summary"))
         layout.addWidget(header)
         self.summary_label = QLabel("")
+        self.summary_label.setWordWrap(True)
         layout.addWidget(self.summary_label)
         layout.addStretch(1)
         return page
@@ -250,6 +261,9 @@ class EditorWizardDialog(QDialog):
             if self._current_topic_id() is None:
                 QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a topic first."))
                 return
+            self._selected_program_id = self.program_combo.currentData()
+            self._selected_discipline_id = self.discipline_combo.currentData()
+            self._selected_topic_id = self.topic_combo.currentData()
         if self.stack.currentIndex() == 1:
             self._refresh_lessons_list()
             self._refresh_lesson_combo()
@@ -262,12 +276,18 @@ class EditorWizardDialog(QDialog):
         self._update_nav()
 
     def _current_program_id(self):
+        if self.stack.currentIndex() > 0 and self._selected_program_id is not None:
+            return self._selected_program_id
         return self.program_combo.currentData()
 
     def _current_discipline_id(self):
+        if self.stack.currentIndex() > 0 and self._selected_discipline_id is not None:
+            return self._selected_discipline_id
         return self.discipline_combo.currentData()
 
     def _current_topic_id(self):
+        if self.stack.currentIndex() > 0 and self._selected_topic_id is not None:
+            return self._selected_topic_id
         return self.topic_combo.currentData()
 
     def _refresh_programs(self) -> None:
@@ -299,12 +319,35 @@ class EditorWizardDialog(QDialog):
     def _refresh_context_labels(self) -> None:
         if not hasattr(self, "lesson_context_label") or self.lesson_context_label is None:
             return
-        program = self.program_combo.currentText() or self.tr("N/A")
-        discipline = self.discipline_combo.currentText() or self.tr("N/A")
-        topic = self.topic_combo.currentText() or self.tr("N/A")
+        if self.stack.currentIndex() > 0 and self._selected_topic_id is not None:
+            program = self._lookup_program_name(self._selected_program_id) or self.tr("N/A")
+            discipline = self._lookup_discipline_name(self._selected_discipline_id) or self.tr("N/A")
+            topic = self._lookup_topic_title(self._selected_topic_id) or self.tr("N/A")
+        else:
+            program = self.program_combo.currentText() or self.tr("N/A")
+            discipline = self.discipline_combo.currentText() or self.tr("N/A")
+            topic = self.topic_combo.currentText() or self.tr("N/A")
         self.lesson_context_label.setText(
             f"{self.tr('Program')}: {program} | {self.tr('Discipline')}: {discipline} | {self.tr('Topic')}: {topic}"
         )
+
+    def _lookup_program_name(self, program_id: int | None) -> str | None:
+        if not program_id:
+            return None
+        program = self.controller.program_repo.get_by_id(program_id)
+        return program.name if program else None
+
+    def _lookup_discipline_name(self, discipline_id: int | None) -> str | None:
+        if not discipline_id:
+            return None
+        discipline = self.controller.discipline_repo.get_by_id(discipline_id)
+        return discipline.name if discipline else None
+
+    def _lookup_topic_title(self, topic_id: int | None) -> str | None:
+        if not topic_id:
+            return None
+        topic = self.controller.topic_repo.get_by_id(topic_id)
+        return topic.title if topic else None
 
     def _refresh_lesson_types(self) -> None:
         self.lesson_type.clear()
@@ -452,7 +495,6 @@ class EditorWizardDialog(QDialog):
         question = Question(
             content=content,
             answer=None,
-            difficulty_level=self.question_difficulty.value(),
             order_index=self.question_order.value(),
         )
         question = self.controller.add_question(question)
@@ -462,7 +504,6 @@ class EditorWizardDialog(QDialog):
         self.controller.add_question_to_lesson(lesson_id, question.id, order_index)
         self._created_counts["questions"] += 1
         self.question_content.clear()
-        self.question_difficulty.setValue(1)
         self.question_order.setValue(0)
         self._refresh_questions_list()
 

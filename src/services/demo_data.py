@@ -204,31 +204,26 @@ def seed_demo_data(database: Database) -> None:
         Question(
             content="Why is informed consent required when collecting personal data?",
             answer="It ensures participants understand how their data will be used and can agree knowingly.",
-            difficulty_level=1,
             order_index=1,
         ),
         Question(
             content="Name two common sources of selection bias in surveys.",
             answer="Voluntary response bias and undercoverage of key groups.",
-            difficulty_level=2,
             order_index=2,
         ),
         Question(
             content="Give an example of categorical data and numeric data.",
             answer="Categorical: customer segment; numeric: monthly revenue.",
-            difficulty_level=1,
             order_index=1,
         ),
         Question(
             content="When is a bar chart more appropriate than a line chart?",
             answer="When comparing discrete categories rather than trends over time.",
-            difficulty_level=1,
             order_index=1,
         ),
         Question(
             content="What does a 95% confidence interval represent?",
             answer="A range that would contain the true parameter 95% of the time in repeated samples.",
-            difficulty_level=3,
             order_index=1,
         ),
     ]

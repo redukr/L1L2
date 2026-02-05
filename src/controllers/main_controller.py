@@ -100,9 +100,7 @@ class MainController:
             return {
                 "title": question.content,
                 "description": "",
-                "meta": {
-                    "difficulty_level": question.difficulty_level,
-                },
+                "meta": {},
             }
         if entity_type == "material":
             material = self.material_repo.get_by_id(entity_id)

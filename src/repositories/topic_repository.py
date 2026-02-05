@@ -182,6 +182,27 @@ class TopicRepository:
             """, (topic_id, lesson_id))
             return cursor.rowcount > 0
 
+    def update_lesson_order(self, topic_id: int, lesson_id: int, order_index: int) -> bool:
+        """
+        Update order index for a lesson within a topic.
+
+        Args:
+            topic_id: ID of the topic
+            lesson_id: ID of the lesson
+            order_index: New order index
+
+        Returns:
+            bool: True if updated successfully
+        """
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE topic_lessons
+                SET order_index = ?
+                WHERE topic_id = ? AND lesson_id = ?
+            """, (order_index, topic_id, lesson_id))
+            return cursor.rowcount > 0
+
     def get_topic_lessons(self, topic_id: int) -> List[Lesson]:
         """
         Get all lessons for a specific topic.
