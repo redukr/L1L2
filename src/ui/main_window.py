@@ -1,6 +1,7 @@
 """Main application window."""
 import os
 import re
+import sys
 from typing import Dict, Tuple
 from PySide6.QtCore import Qt, QSettings, QSize, QRect
 from PySide6.QtWidgets import (
@@ -30,7 +31,8 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QStyle,
 )
-from PySide6.QtGui import QFont, QColor, QBrush, QTextDocument
+from PySide6.QtGui import QFont, QColor, QBrush, QTextDocument, QFontMetrics
+from PySide6.QtCore import QProcess
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
 from ..ui.editor_wizard import EditorWizardDialog
@@ -51,6 +53,7 @@ class MainWindow(QMainWindow):
         self.auth_service = AuthService()
         self.program_items: Dict[int, QListWidgetItem] = {}
         self.tree_items: Dict[Tuple[str, int], QTreeWidgetItem] = {}
+        self._tree_syncing_columns = False
         self.last_program_id = None
         self.last_discipline_id = None
         self.setWindowTitle(self.tr("Educational Program Manager"))
@@ -64,6 +67,12 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         central = QWidget()
         layout = QVBoxLayout(central)
+
+        app_menu = self.menuBar().addMenu(self.tr("Application"))
+        self.action_restart = app_menu.addAction(self.tr("Restart application"))
+        self.action_exit = app_menu.addAction(self.tr("Exit application"))
+        self.action_restart.triggered.connect(self._restart_application)
+        self.action_exit.triggered.connect(self._close_application)
 
         top_bar = QHBoxLayout()
         self.search_label = QLabel(self.tr("Search:"))
@@ -101,10 +110,14 @@ class MainWindow(QMainWindow):
         self.content_tree = QTreeWidget()
         self.content_tree.setHeaderLabels([self.tr("Title"), self.tr("Type")])
         self.content_tree.setColumnWidth(0, 350)
-        self.content_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.content_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header = self.content_tree.header()
+        header.setSectionResizeMode(0, QHeaderView.Interactive)
+        header.setSectionResizeMode(1, QHeaderView.Interactive)
+        self.content_tree.setColumnWidth(1, 120)
+        header.setStretchLastSection(False)
+        header.setMinimumSectionSize(40)
+        header.sectionResized.connect(self._on_tree_header_resized)
         self.content_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
-        self.content_tree.setItemDelegateForColumn(0, _WrapItemDelegate(self.content_tree))
         self.structure_label = QLabel(self.tr("Program Structure"))
         self.report_table = QTableWidget(0, 0)
         self.report_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -146,6 +159,21 @@ class MainWindow(QMainWindow):
 
         self.materials_list = QListWidget()
         self.materials_list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.materials_list.setAlternatingRowColors(True)
+        self.materials_list.setStyleSheet(
+            "QListWidget::item {"
+            "  background: #ffffff;"
+            "  border-bottom: 1px solid #000000;"
+            "  padding: 4px;"
+            "}"
+            "QListWidget::item:alternate {"
+            "  background: #f2f2f2;"
+            "}"
+            "QListWidget::item:selected {"
+            "  background: #cfe8ff;"
+            "  color: #000000;"
+            "}"
+        )
         self.materials_label = QLabel(self.tr("Methodical Materials"))
         right_layout.addWidget(self._wrap_with_label(self.materials_list, self.materials_label))
 
@@ -200,11 +228,22 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         self.search_results.resizeRowsToContents()
         self.search_results.resizeColumnsToContents()
+        self._sync_tree_columns()
+        self._rewrap_tree_texts()
+        self._update_tree_item_sizes()
         self.content_tree.doItemsLayout()
+        self.content_tree.viewport().update()
         self.program_list.doItemsLayout()
         self.materials_list.doItemsLayout()
         self.report_table.resizeRowsToContents()
         self.report_table.resizeColumnsToContents()
+
+    def _restart_application(self) -> None:
+        QProcess.startDetached(sys.executable, sys.argv)
+        QApplication.quit()
+
+    def _close_application(self) -> None:
+        QApplication.quit()
 
     def _wrap_with_label(self, widget: QWidget, label: QLabel) -> QWidget:
         wrapper = QWidget()
@@ -240,18 +279,22 @@ class MainWindow(QMainWindow):
         disciplines = self.controller.get_program_structure(program_id)
         for discipline in disciplines:
             discipline_item = QTreeWidgetItem([discipline.name, self.tr("Discipline")])
+            discipline_item.setData(0, Qt.UserRole + 10, discipline.name)
             discipline_item.setData(0, Qt.UserRole, ("discipline", discipline.id))
             self.tree_items[("discipline", discipline.id)] = discipline_item
             for topic in discipline.topics:
                 topic_item = QTreeWidgetItem([topic.title, self.tr("Topic")])
+                topic_item.setData(0, Qt.UserRole + 10, topic.title)
                 topic_item.setData(0, Qt.UserRole, ("topic", topic.id))
                 self.tree_items[("topic", topic.id)] = topic_item
                 for lesson in topic.lessons:
                     lesson_item = QTreeWidgetItem([lesson.title, self.tr("Lesson")])
+                    lesson_item.setData(0, Qt.UserRole + 10, lesson.title)
                     lesson_item.setData(0, Qt.UserRole, ("lesson", lesson.id))
                     self.tree_items[("lesson", lesson.id)] = lesson_item
                     for question in lesson.questions:
                         question_item = QTreeWidgetItem([question.content, self.tr("Question")])
+                        question_item.setData(0, Qt.UserRole + 10, question.content)
                         question_item.setData(0, Qt.UserRole, ("question", question.id))
                         self.tree_items[("question", question.id)] = question_item
                         lesson_item.addChild(question_item)
@@ -259,7 +302,8 @@ class MainWindow(QMainWindow):
                 discipline_item.addChild(topic_item)
             self.content_tree.addTopLevelItem(discipline_item)
         self.content_tree.expandAll()
-        self.content_tree.resizeColumnToContents(0)
+        self._sync_tree_columns()
+        self._rewrap_tree_texts()
         self._update_tree_item_sizes()
         self.content_tree.doItemsLayout()
         self.content_tree.viewport().update()
@@ -336,7 +380,8 @@ class MainWindow(QMainWindow):
                 rank = meta.get("rank") or self.tr("N/A")
                 meta_lines.append(f"{self.tr('Military rank')}: {rank}")
             if meta_lines:
-                lines.extend(["", " | ".join(meta_lines)])
+                lines.append("")
+                lines.extend(meta_lines)
         else:
             lines.extend(["", str(meta)])
         text = "\n".join(line for line in lines if line is not None)
@@ -366,22 +411,118 @@ class MainWindow(QMainWindow):
             self.materials_list.addItem(item)
 
     def _update_tree_item_sizes(self) -> None:
-        delegate = self.content_tree.itemDelegateForColumn(0)
-        if delegate is None:
-            return
+        fm = self.content_tree.fontMetrics()
+        line_height = fm.lineSpacing()
+        padding = 6
 
         def update_item(item):
             if not item:
                 return
-            index = self.content_tree.indexFromItem(item, 0)
-            size = delegate.sizeHint(self.content_tree.viewOptions(), index)
-            if size.isValid():
-                item.setSizeHint(0, size)
+            text = item.text(0) or ""
+            lines = text.count("\n") + 1
+            height = max(line_height * lines + padding, line_height + padding)
+            item.setSizeHint(0, QSize(self.content_tree.columnWidth(0), height))
+            item.setSizeHint(1, QSize(self.content_tree.columnWidth(1), height))
             for i in range(item.childCount()):
                 update_item(item.child(i))
 
         for i in range(self.content_tree.topLevelItemCount()):
             update_item(self.content_tree.topLevelItem(i))
+
+    def _rewrap_tree_texts(self) -> None:
+        base_width = self.content_tree.columnWidth(0) - 8
+        if base_width <= 0:
+            return
+        font = self.content_tree.font()
+        indent_step = self.content_tree.indentation() or 0
+
+        def depth(item):
+            d = 0
+            parent = item.parent()
+            while parent is not None:
+                d += 1
+                parent = parent.parent()
+            return d
+
+        def wrap_item(item):
+            if not item:
+                return
+            d = depth(item)
+            width = max(120, base_width - (indent_step * d) - 8)
+            full_text = item.data(0, Qt.UserRole + 10) or item.text(0)
+            wrapped = self._wrap_text(full_text, width, font)
+            item.setText(0, wrapped)
+            for i in range(item.childCount()):
+                wrap_item(item.child(i))
+
+        for i in range(self.content_tree.topLevelItemCount()):
+            wrap_item(self.content_tree.topLevelItem(i))
+
+    def _sync_tree_columns(self) -> None:
+        header = self.content_tree.header()
+        if header is None:
+            return
+        viewport_width = self.content_tree.viewport().width()
+        if viewport_width <= 0:
+            return
+        type_width = self.content_tree.columnWidth(1)
+        min_title_width = 200
+        min_type_width = 60
+        if type_width < min_type_width:
+            type_width = min_type_width
+            self._tree_syncing_columns = True
+            try:
+                self.content_tree.setColumnWidth(1, type_width)
+            finally:
+                self._tree_syncing_columns = False
+        title_width = max(min_title_width, viewport_width - type_width - 12)
+        self._tree_syncing_columns = True
+        try:
+            self.content_tree.setColumnWidth(0, title_width)
+        finally:
+            self._tree_syncing_columns = False
+
+    def _on_tree_header_resized(self, logical_index: int, old_size: int, new_size: int) -> None:
+        if self._tree_syncing_columns:
+            return
+        if logical_index == 1:
+            self._sync_tree_columns()
+        self._rewrap_tree_texts()
+        self._update_tree_item_sizes()
+        self.content_tree.doItemsLayout()
+        self.content_tree.viewport().update()
+
+    def _wrap_text(self, text: str, width: int, font: QFont) -> str:
+        if not text:
+            return ""
+        fm = QFontMetrics(font)
+        if fm.horizontalAdvance(text) <= width:
+            return text
+        words = text.split(" ")
+        lines = []
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if fm.horizontalAdvance(candidate) <= width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                if fm.horizontalAdvance(word) > width:
+                    chunk = ""
+                    for ch in word:
+                        if fm.horizontalAdvance(chunk + ch) <= width:
+                            chunk += ch
+                        else:
+                            if chunk:
+                                lines.append(chunk)
+                            chunk = ch
+                    current = chunk
+                else:
+                    current = word
+        if current:
+            lines.append(current)
+        return "\n".join(lines)
 
     def _on_search(self) -> None:
         keyword = self.search_input.text().strip()
@@ -611,6 +752,7 @@ class MainWindow(QMainWindow):
                             "lesson": lesson,
                             "discipline": discipline,
                             "topic": topic,
+                            "is_self_study": is_self_study,
                         }
                     )
                     self._report_rows.append(lesson)
@@ -658,15 +800,26 @@ class MainWindow(QMainWindow):
                 titles = cell_map.get((row_index, teacher.id), [])
                 item = QTableWidgetItem("\n".join(titles) if titles else "")
                 types = cell_types.get((row_index, teacher.id), set())
-                has_plan = "plan" in types
-                has_guide = "guide" in types
-                has_presentation = "presentation" in types
-                if has_plan and has_guide and has_presentation:
-                    item.setBackground(QBrush(QColor(198, 239, 206)))
-                elif types:
-                    item.setBackground(QBrush(QColor(255, 242, 204)))
+                if info.get("is_self_study"):
+                    normalized = [title.lower() for title in titles]
+                    has_cadets = any(("курсант" in t) or ("слухач" in t) for t in normalized)
+                    has_teachers = any("викладач" in t for t in normalized)
+                    if len(titles) >= 2 and has_cadets and has_teachers:
+                        item.setBackground(QBrush(QColor(198, 239, 206)))
+                    elif titles:
+                        item.setBackground(QBrush(QColor(255, 242, 204)))
+                    else:
+                        item.setBackground(QBrush(QColor(255, 199, 206)))
                 else:
-                    item.setBackground(QBrush(QColor(255, 199, 206)))
+                    has_plan = "plan" in types
+                    has_guide = "guide" in types
+                    has_presentation = "presentation" in types
+                    if has_plan and has_guide and has_presentation:
+                        item.setBackground(QBrush(QColor(198, 239, 206)))
+                    elif types:
+                        item.setBackground(QBrush(QColor(255, 242, 204)))
+                    else:
+                        item.setBackground(QBrush(QColor(255, 199, 206)))
                 self.report_table.setItem(row_index, col_offset, item)
 
         for idx, info in enumerate(lessons):
@@ -796,6 +949,12 @@ class MainWindow(QMainWindow):
         self.search_button.setText(self.tr("Search"))
         self.editor_button.setText(self.tr("Editor Mode"))
         self.admin_button.setText(self.tr("Admin Mode"))
+        self.menuBar().clear()
+        app_menu = self.menuBar().addMenu(self.tr("Application"))
+        self.action_restart = app_menu.addAction(self.tr("Restart application"))
+        self.action_exit = app_menu.addAction(self.tr("Exit application"))
+        self.action_restart.triggered.connect(self._restart_application)
+        self.action_exit.triggered.connect(self._close_application)
         self.program_label.setText(self.tr("Programs"))
         self.structure_label.setText(self.tr("Program Structure"))
         self.search_results_label.setText(self.tr("Search Results"))
@@ -860,10 +1019,13 @@ class _WrapItemDelegate(QStyledItemDelegate):
 
     def initStyleOption(self, option, index):  # noqa: ANN001
         super().initStyleOption(option, index)
-        option.textElideMode = Qt.ElideNone
-        option.wrapText = True
+        if index.column() == 0:
+            option.textElideMode = Qt.ElideNone
+            option.wrapText = True
 
     def sizeHint(self, option, index):  # noqa: ANN001
+        if index.column() != 0:
+            return super().sizeHint(option, index)
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
         style = opt.widget.style() if opt.widget else self._view.style()
@@ -881,6 +1043,8 @@ class _WrapItemDelegate(QStyledItemDelegate):
         return QSize(int(opt.rect.width()), height)
 
     def paint(self, painter, option, index):  # noqa: ANN001
+        if index.column() != 0:
+            return super().paint(painter, option, index)
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
         text = opt.text

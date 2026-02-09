@@ -15,10 +15,16 @@ def main() -> int:
     QCoreApplication.setOrganizationName("EduDesk")
     QCoreApplication.setOrganizationDomain("local")
     QCoreApplication.setApplicationName("Educational Program Manager")
-    settings = QSettings()
+    bootstrap_settings = QSettings()
+    settings_path = bootstrap_settings.value("app/ui_settings_path", "")
+    if settings_path:
+        settings = QSettings(settings_path, QSettings.IniFormat)
+    else:
+        settings = QSettings()
     i18n = I18nManager(settings)
     i18n.load_from_settings()
-    database = Database()
+    db_path = bootstrap_settings.value("app/db_path", "")
+    database = Database(db_path or None)
     FileStorageManager().migrate_legacy_materials(database)
     seed_demo_data(database)
     controller = MainController(database)

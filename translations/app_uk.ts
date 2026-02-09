@@ -6,6 +6,9 @@
     <message><source>Search:</source><translation>Пошук:</translation></message>
     <message><source>Search</source><translation>Пошук</translation></message>
     <message><source>Editor Mode</source><translation>Режим редактора</translation></message>
+    <message><source>Application</source><translation>Програма</translation></message>
+    <message><source>Restart application</source><translation>Перезавантажити програму</translation></message>
+    <message><source>Exit application</source><translation>Закрити програму</translation></message>
     <message><source>Admin Mode</source><translation>Режим адміністратора</translation></message>
     <message><source>Ukrainian</source><translation>Українська</translation></message>
     <message><source>English</source><translation>Англійська</translation></message>
@@ -54,6 +57,11 @@
     <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
     <message><source>Lesson type</source><translation>Тип заняття</translation></message>
     <message><source>Military rank</source><translation>Військове звання</translation></message>
+      <message><source>Access denied</source><translation>Access denied</translation></message>
+    <message><source>Editor Access</source><translation>Editor Access</translation></message>
+    <message><source>Enter editor password:</source><translation>Enter editor password:</translation></message>
+    <message><source>Invalid editor password.</source><translation>Невірний пароль редактора.</translation></message>
+    <message><source>Structure</source><translation>Structure</translation></message>
   </context>
   <context>
     <name>AdminDialog</name>
@@ -115,6 +123,8 @@
     <message><source>Select materials folder</source><translation>Вибрати папку матеріалів</translation></message>
     <message><source>Database (*.db);;All files (*)</source><translation>База даних (*.db);;Усі файли (*)</translation></message>
     <message><source>Database exported.</source><translation>Базу даних експортовано.</translation></message>
+    <message><source>Repair database</source><translation>Відновити базу даних</translation></message>
+    <message><source>Database repaired. Restart the app to apply changes.</source><translation>Базу даних відновлено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
     <message><source>Replace the current database with the selected file?</source><translation>Замінити поточну базу даних вибраним файлом?</translation></message>
     <message><source>Database imported. Restart the app.</source><translation>Базу даних імпортовано. Перезапустіть застосунок.</translation></message>
     <message><source>Material teachers</source><translation>Викладачі матеріалу</translation></message>
@@ -184,8 +194,21 @@
     <message><source>Select a discipline first.</source><translation>Спочатку виберіть дисципліну.</translation></message>
     <message><source>Delete selected item?</source><translation>Видалити вибраний елемент?</translation></message>
     <message><source>Export user settings</source><translation>Експорт налаштувань користувача</translation></message>
+    <message><source>Database file</source><translation>Файл бази даних</translation></message>
+    <message><source>UI settings file</source><translation>Файл налаштувань інтерфейсу</translation></message>
+    <message><source>Select database file</source><translation>Обрати файл бази даних</translation></message>
+    <message><source>Select UI settings file</source><translation>Обрати файл налаштувань інтерфейсу</translation></message>
+    <message><source>Database files (*.db);;All files (*)</source><translation>Файли бази даних (*.db);;Усі файли (*)</translation></message>
+    <message><source>Settings files (*.ini);;All files (*)</source><translation>Файли налаштувань (*.ini);;Усі файли (*)</translation></message>
+    <message><source>Restart required</source><translation>Потрібен перезапуск</translation></message>
+    <message><source>Database selection saved. Restart the app to apply changes.</source><translation>Вибір бази даних збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
+    <message><source>Settings file selection saved. Restart the app to apply changes.</source><translation>Вибір файлу налаштувань збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
+    <message><source>Translations file</source><translation>Файл перекладів</translation></message>
+    <message><source>Select translations file</source><translation>Обрати файл перекладів</translation></message>
+    <message><source>Translation files (*.ts *.qm);;All files (*)</source><translation>Файли перекладів (*.ts *.qm);;Усі файли (*)</translation></message>
+    <message><source>Translations file selection saved. Restart the app to apply changes.</source><translation>Вибір файлу перекладів збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
     <message><source>Import user settings</source><translation>Імпорт налаштувань користувача</translation></message>
-    <message><source>Settings (*.json);;All files (*)</source><translation>Налаштування (*.json);;Усі файли (*)</translation></message>
+    <message><source>Settings (*.ini);;All files (*)</source><translation>Налаштування (*.ini);;Усі файли (*)</translation></message>
     <message><source>User settings exported.</source><translation>Налаштування користувача експортовано.</translation></message>
     <message><source>Replace the current user settings with the selected file?</source><translation>Замінити поточні налаштування користувача вибраним файлом?</translation></message>
     <message><source>User settings imported. Restart the app.</source><translation>Налаштування користувача імпортовано. Перезапустіть застосунок.</translation></message>
@@ -194,6 +217,23 @@
     <message><source>Material type</source><translation>Тип матеріалу</translation></message>
     <message><source>Delete selected material type?</source><translation>Видалити вибраний тип матеріалу?</translation></message>
     <message><source>Lesson materials</source><translation>Матеріали заняття</translation></message>
+      <message><source><- Remove</source><translation><- Видалити</translation></message>
+    <message><source>Add -></source><translation>Додати -></translation></message>
+    <message><source>Added teachers: {0}\nSkipped: {1}</source><translation>Додано викладачів: {0}\nПропущено: {1}</translation></message>
+    <message><source>Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}</source><translation>Додано тем: {0}\nДодано занять: {1}\nДодано питань: {2}</translation></message>
+    <message><source>Admin Access</source><translation>Admin Access</translation></message>
+    <message><source>Application</source><translation>Application</translation></message>
+    <message><source>Delete selected lesson type?</source><translation>Видалити вибраний тип заняття?</translation></message>
+    <message><source>Discipline is not linked to any program.</source><translation>Дисципліна не прив'язана до жодної програми.</translation></message>
+    <message><source>Enter admin password:</source><translation>Enter admin password:</translation></message>
+    <message><source>Exit application</source><translation>Exit application</translation></message>
+    <message><source>Name is required.</source><translation>Потрібна назва.</translation></message>
+    <message><source>Restart application</source><translation>Restart application</translation></message>
+    <message><source>Select a discipline from the same program.</source><translation>Оберіть дисципліну з цієї ж програми.</translation></message>
+    <message><source>Select a lesson first.</source><translation>Select a lesson first.</translation></message>
+    <message><source>Select a topic first.</source><translation>Select a topic first.</translation></message>
+    <message><source>Teacher</source><translation>Teacher</translation></message>
+    <message><source>Topic is not linked to any discipline.</source><translation>Тема не прив'язана до жодної дисципліни.</translation></message>
   </context>
   <context>
     <name>PasswordDialog</name>
@@ -227,6 +267,9 @@
     <message><source>Name</source><translation>Назва</translation></message>
     <message><source>Description</source><translation>Опис</translation></message>
     <message><source>Order index</source><translation>Порядковий індекс</translation></message>
+      <message><source>Program</source><translation>Program</translation></message>
+    <message><source>Topic</source><translation>Topic</translation></message>
+    <message><source>Type</source><translation>Type</translation></message>
   </context>
   <context>
     <name>TopicDialog</name>
@@ -234,6 +277,9 @@
     <message><source>Title</source><translation>Назва</translation></message>
     <message><source>Description</source><translation>Опис</translation></message>
     <message><source>Order index</source><translation>Порядковий індекс</translation></message>
+      <message><source>Discipline</source><translation>Discipline</translation></message>
+    <message><source>Program</source><translation>Program</translation></message>
+    <message><source>Type</source><translation>Type</translation></message>
   </context>
   <context>
     <name>LessonDialog</name>
@@ -250,6 +296,8 @@
     <message><source>Edit</source><translation>Редагувати</translation></message>
     <message><source>Remove</source><translation>Прибрати</translation></message>
     <message><source>Order index</source><translation>Порядковий індекс</translation></message>
+      <message><source>Question text is required.</source><translation>Question text is required.</translation></message>
+    <message><source>Validation</source><translation>Validation</translation></message>
   </context>
   <context>
     <name>QuestionDialog</name>
@@ -278,6 +326,9 @@
     <message><source>guide</source><translation>методичний посібник</translation></message>
     <message><source>presentation</source><translation>презентація</translation></message>
     <message><source>attachment</source><translation>додаток</translation></message>
+      <message><source>All files (*)</source><translation>All files (*)</translation></message>
+    <message><source>Attach File</source><translation>Attach File</translation></message>
+    <message><source>Attach existing file</source><translation>Attach existing file</translation></message>
   </context>
   <context>
     <name>LessonTypeDialog</name>
@@ -325,6 +376,16 @@
     <message><source>Question text is required.</source><translation>Потрібний текст питання.</translation></message>
     <message><source>Material title is required.</source><translation>Потрібна назва матеріалу.</translation></message>
     <message><source>Select a target first.</source><translation>Спочатку виберіть призначення.</translation></message>
+      <message><source>Application</source><translation>Application</translation></message>
+    <message><source>Discipline name is required.</source><translation>Discipline name is required.</translation></message>
+    <message><source>Exit application</source><translation>Exit application</translation></message>
+    <message><source>Import error</source><translation>Import error</translation></message>
+    <message><source>N/A</source><translation>N/A</translation></message>
+    <message><source>Program name is required.</source><translation>Program name is required.</translation></message>
+    <message><source>Question</source><translation>Question</translation></message>
+    <message><source>Restart application</source><translation>Restart application</translation></message>
+    <message><source>Topic title is required.</source><translation>Topic title is required.</translation></message>
+    <message><source>Validation</source><translation>Validation</translation></message>
   </context>
   <context>
     <name>ImportPreviewDialog</name>
@@ -350,5 +411,6 @@
     <message><source>Create new...</source><translation>Створити нову...</translation></message>
     <message><source>Preview is available for single-file import only.</source><translation>Перегляд доступний лише для імпорту одного файлу.</translation></message>
     <message><source>Import error</source><translation>Помилка імпорту</translation></message>
+      <message><source>New discipline name</source><translation>Нова назва дисципліни</translation></message>
   </context>
 </TS>

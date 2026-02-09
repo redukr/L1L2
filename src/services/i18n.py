@@ -1,6 +1,7 @@
 """Translation management using Qt QTranslator."""
 from typing import Dict, Optional, Tuple
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QSettings
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtCore import QTranslator
@@ -63,16 +64,27 @@ class I18nManager(QObject):
         if self._translator is not None:
             QCoreApplication.removeTranslator(self._translator)
 
-        translations_dir = get_translations_dir()
-        qm_path = translations_dir / f"app_{language}.qm"
-        if qm_path.exists():
+        translations_path = QSettings().value("app/translations_path", "")
+        if translations_path:
+            path = Path(str(translations_path))
+            if path.suffix.lower() == ".qm":
+                qm_path = path
+                ts_path = None
+            else:
+                ts_path = path
+                qm_path = None
+        else:
+            translations_dir = get_translations_dir()
+            qm_path = translations_dir / f"app_{language}.qm"
+            ts_path = translations_dir / f"app_{language}.ts"
+
+        if qm_path and qm_path.exists():
             translator = QTranslator()
             translator.load(str(qm_path))
             QCoreApplication.installTranslator(translator)
             self._translator = translator
         else:
-            ts_path = translations_dir / f"app_{language}.ts"
-            if ts_path.exists():
+            if ts_path and ts_path.exists():
                 translator = TsTranslator(str(ts_path))
                 QCoreApplication.installTranslator(translator)
                 self._translator = translator

@@ -28,13 +28,18 @@ from PySide6.QtWidgets import (
     QStyle,
     QAbstractScrollArea,
     QMenu,
+    QGroupBox,
+    QApplication,
 )
+from PySide6.QtCore import QProcess
+import sys
+import sqlite3
 from PySide6.QtGui import QTextDocument
 from pathlib import Path
 from ..controllers.admin_controller import AdminController
 from ..models.database import Database
 from ..services.i18n import I18nManager
-from ..services.app_paths import get_settings_dir
+from ..services.app_paths import get_settings_dir, get_translations_dir
 from ..ui.dialogs import (
     PasswordDialog,
     TeacherDialog,
@@ -64,7 +69,11 @@ class AdminDialog(QDialog):
         self.controller = AdminController(database)
         self.i18n = i18n
         self.settings = settings
+        self.bootstrap_settings = QSettings()
         self.file_storage = FileStorageManager()
+        desired_db_path = self.bootstrap_settings.value("app/db_path", "")
+        if desired_db_path and str(self.controller.db.db_path) != str(desired_db_path):
+            self.controller = AdminController(Database(str(desired_db_path)))
         self.setWindowTitle(self.tr("Admin Panel"))
         self.resize(1200, 760)
         if not self._authorize():
@@ -72,6 +81,7 @@ class AdminDialog(QDialog):
             return
         self._build_ui()
         self._refresh_all()
+        self.showMaximized()
         self.i18n.language_changed.connect(self.retranslate_ui)
 
     def _authorize(self) -> bool:
@@ -89,11 +99,17 @@ class AdminDialog(QDialog):
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
+        menu_bar = QMenuBar()
+        app_menu = menu_bar.addMenu(self.tr("Application"))
+        action_restart = app_menu.addAction(self.tr("Restart application"))
+        action_exit = app_menu.addAction(self.tr("Exit application"))
+        action_restart.triggered.connect(self._restart_application)
+        action_exit.triggered.connect(self._close_application)
+        layout.addWidget(menu_bar)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
         self.tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
         self.tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
-        self.tabs.addTab(self._build_lesson_types_tab(), self.tr("Lesson types"))
         self.tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
         self.tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
         self._apply_word_wrap()
@@ -119,6 +135,7 @@ class AdminDialog(QDialog):
         self.teachers_table.customContextMenuRequested.connect(
             lambda pos: self._show_context_menu(self.teachers_table, pos, self._edit_teacher, self._delete_teacher)
         )
+        self.teachers_table.itemChanged.connect(self._on_teacher_item_changed)
         layout.addWidget(self.teachers_table)
         btn_layout = QHBoxLayout()
         self.teacher_add = QPushButton(self.tr("Add"))
@@ -623,36 +640,6 @@ class AdminDialog(QDialog):
         self.lesson_material_remove.clicked.connect(self._remove_material_from_lesson)
         return tab
 
-    def _build_lesson_types_tab(self) -> QWidget:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        self.lesson_types_table = QTableWidget(0, 2)
-        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
-        self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
-        self.lesson_types_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.lesson_types_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.lesson_types_table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.lesson_types_table.customContextMenuRequested.connect(
-            lambda pos: self._show_context_menu(
-                self.lesson_types_table, pos, self._edit_lesson_type, self._delete_lesson_type
-            )
-        )
-        layout.addWidget(self.lesson_types_table)
-        btn_layout = QHBoxLayout()
-        self.lesson_type_add = QPushButton(self.tr("Add"))
-        self.lesson_type_edit = QPushButton(self.tr("Edit"))
-        self.lesson_type_delete = QPushButton(self.tr("Delete"))
-        btn_layout.addWidget(self.lesson_type_add)
-        btn_layout.addWidget(self.lesson_type_edit)
-        btn_layout.addWidget(self.lesson_type_delete)
-        btn_layout.addStretch(1)
-        layout.addLayout(btn_layout)
-
-        self.lesson_type_add.clicked.connect(self._add_lesson_type)
-        self.lesson_type_edit.clicked.connect(self._edit_lesson_type)
-        self.lesson_type_delete.clicked.connect(self._delete_lesson_type)
-        return tab
-
     def _build_questions_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -680,6 +667,11 @@ class AdminDialog(QDialog):
     def _build_materials_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        splitter = QSplitter(Qt.Vertical)
+        layout.addWidget(splitter)
+
+        self.materials_group = QGroupBox(self.tr("Materials"))
+        materials_layout = QVBoxLayout(self.materials_group)
         self.material_types_table = QTableWidget(0, 1)
         self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
         self.material_types_table.horizontalHeader().setStretchLastSection(True)
@@ -691,7 +683,7 @@ class AdminDialog(QDialog):
                 self.material_types_table, pos, self._edit_material_type, self._delete_material_type
             )
         )
-        layout.addWidget(self.material_types_table)
+        materials_layout.addWidget(self.material_types_table)
         btn_layout = QHBoxLayout()
         self.material_type_add = QPushButton(self.tr("Add"))
         self.material_type_edit = QPushButton(self.tr("Edit"))
@@ -700,18 +692,81 @@ class AdminDialog(QDialog):
         btn_layout.addWidget(self.material_type_edit)
         btn_layout.addWidget(self.material_type_delete)
         btn_layout.addStretch(1)
-        layout.addLayout(btn_layout)
+        materials_layout.addLayout(btn_layout)
+        splitter.addWidget(self.materials_group)
+
+        self.lesson_types_group = QGroupBox(self.tr("Lesson types"))
+        lesson_types_layout = QVBoxLayout(self.lesson_types_group)
+        self.lesson_types_table = QTableWidget(0, 2)
+        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
+        self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
+        self.lesson_types_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.lesson_types_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.lesson_types_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lesson_types_table.customContextMenuRequested.connect(
+            lambda pos: self._show_context_menu(
+                self.lesson_types_table, pos, self._edit_lesson_type, self._delete_lesson_type
+            )
+        )
+        lesson_types_layout.addWidget(self.lesson_types_table)
+        btn_layout = QHBoxLayout()
+        self.lesson_type_add = QPushButton(self.tr("Add"))
+        self.lesson_type_edit = QPushButton(self.tr("Edit"))
+        self.lesson_type_delete = QPushButton(self.tr("Delete"))
+        btn_layout.addWidget(self.lesson_type_add)
+        btn_layout.addWidget(self.lesson_type_edit)
+        btn_layout.addWidget(self.lesson_type_delete)
+        btn_layout.addStretch(1)
+        lesson_types_layout.addLayout(btn_layout)
+        splitter.addWidget(self.lesson_types_group)
 
         self.material_type_add.clicked.connect(self._add_material_type)
         self.material_type_edit.clicked.connect(self._edit_material_type)
         self.material_type_delete.clicked.connect(self._delete_material_type)
+        self.lesson_type_add.clicked.connect(self._add_lesson_type)
+        self.lesson_type_edit.clicked.connect(self._edit_lesson_type)
+        self.lesson_type_delete.clicked.connect(self._delete_lesson_type)
 
         self._refresh_material_types()
+        self._refresh_lesson_types()
         return tab
 
     def _build_settings_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+
+        info_group = QWidget()
+        info_layout = QVBoxLayout(info_group)
+        db_row = QHBoxLayout()
+        self.database_path_label = QLabel(self.tr("Database file"))
+        self.database_path = QLineEdit()
+        self.database_path.setReadOnly(True)
+        self.database_path_browse = QPushButton(self.tr("Change..."))
+        db_row.addWidget(self.database_path_label)
+        db_row.addWidget(self.database_path, 1)
+        db_row.addWidget(self.database_path_browse)
+        info_layout.addLayout(db_row)
+
+        settings_row = QHBoxLayout()
+        self.ui_settings_path_label = QLabel(self.tr("UI settings file"))
+        self.ui_settings_path = QLineEdit()
+        self.ui_settings_path.setReadOnly(True)
+        self.ui_settings_path_browse = QPushButton(self.tr("Change..."))
+        settings_row.addWidget(self.ui_settings_path_label)
+        settings_row.addWidget(self.ui_settings_path, 1)
+        settings_row.addWidget(self.ui_settings_path_browse)
+        info_layout.addLayout(settings_row)
+
+        translations_row = QHBoxLayout()
+        self.translations_path_label = QLabel(self.tr("Translations file"))
+        self.translations_path = QLineEdit()
+        self.translations_path.setReadOnly(True)
+        self.translations_path_browse = QPushButton(self.tr("Change..."))
+        translations_row.addWidget(self.translations_path_label)
+        translations_row.addWidget(self.translations_path, 1)
+        translations_row.addWidget(self.translations_path_browse)
+        info_layout.addLayout(translations_row)
+        layout.addWidget(info_group)
 
         storage_group = QWidget()
         storage_layout = QHBoxLayout(storage_group)
@@ -730,10 +785,12 @@ class AdminDialog(QDialog):
         self.db_import = QPushButton(self.tr("Import database"))
         self.db_check = QPushButton(self.tr("Check database"))
         self.db_cleanup = QPushButton(self.tr("Cleanup unused data"))
+        self.db_repair = QPushButton(self.tr("Repair database"))
         db_layout.addWidget(self.db_export)
         db_layout.addWidget(self.db_import)
         db_layout.addWidget(self.db_check)
         db_layout.addWidget(self.db_cleanup)
+        db_layout.addWidget(self.db_repair)
         db_layout.addStretch(1)
         layout.addWidget(db_group)
 
@@ -750,10 +807,14 @@ class AdminDialog(QDialog):
         layout.addStretch(1)
 
         self.materials_location_browse.clicked.connect(self._change_materials_location)
+        self.database_path_browse.clicked.connect(self._change_database_path)
+        self.ui_settings_path_browse.clicked.connect(self._change_ui_settings_path)
+        self.translations_path_browse.clicked.connect(self._change_translations_path)
         self.db_export.clicked.connect(self._export_database)
         self.db_import.clicked.connect(self._import_database)
         self.db_check.clicked.connect(self._check_database)
         self.db_cleanup.clicked.connect(self._cleanup_unused_data)
+        self.db_repair.clicked.connect(self._repair_database)
         self.user_settings_export.clicked.connect(self._export_user_settings)
         self.user_settings_import.clicked.connect(self._import_user_settings)
         self.user_settings_save.clicked.connect(self._save_user_settings)
@@ -769,8 +830,11 @@ class AdminDialog(QDialog):
 
     # Teachers
     def _refresh_teachers(self) -> None:
+        self._teachers_updating = True
         self.teachers_table.setRowCount(0)
-        for teacher in self.controller.get_teachers():
+        teachers = list(self.controller.get_teachers())
+        teachers.sort(key=self._teacher_sort_key)
+        for teacher in teachers:
             row = self.teachers_table.rowCount()
             self.teachers_table.insertRow(row)
             self.teachers_table.setItem(row, 0, QTableWidgetItem(teacher.full_name))
@@ -780,7 +844,90 @@ class AdminDialog(QDialog):
             self.teachers_table.setItem(row, 4, QTableWidgetItem(teacher.email or ""))
             self.teachers_table.setItem(row, 5, QTableWidgetItem(teacher.phone or ""))
             self.teachers_table.item(row, 0).setData(Qt.UserRole, teacher)
+        self._teachers_updating = False
         self._refresh_teacher_disciplines()
+
+    def _on_teacher_item_changed(self, item: QTableWidgetItem) -> None:
+        if getattr(self, "_teachers_updating", False):
+            return
+        row = item.row()
+        teacher_item = self.teachers_table.item(row, 0)
+        if not teacher_item:
+            return
+        teacher = teacher_item.data(Qt.UserRole)
+        if not teacher or teacher.id is None:
+            return
+        value = (item.text() or "").strip()
+        if item.column() == 0:
+            teacher.full_name = value
+        elif item.column() == 1:
+            teacher.military_rank = value or None
+        elif item.column() == 2:
+            teacher.position = value or None
+        elif item.column() == 3:
+            teacher.department = value or None
+        elif item.column() == 4:
+            teacher.email = value or None
+        elif item.column() == 5:
+            teacher.phone = value or None
+        else:
+            return
+        self.controller.update_teacher(teacher)
+        self._teachers_updating = True
+        try:
+            teacher_item.setData(Qt.UserRole, teacher)
+        finally:
+            self._teachers_updating = False
+
+    def _teacher_sort_key(self, teacher) -> tuple:
+        position = (teacher.position or "").lower()
+        department = (teacher.department or "").lower()
+        rank = (teacher.military_rank or "").strip()
+        rank_lower = rank.lower()
+        has_rank = bool(rank)
+
+        is_head = "начальник кафедри" in position
+        is_deputy = "заступник начальника кафедри" in position
+        is_docent = "доцент" in position
+        is_senior = "старший викладач" in position
+        is_teacher = "викладач" in position
+        is_zsu = ("зсу" in position) or ("зсу" in department)
+
+        rank_order = [
+            "полковник",
+            "підполковник",
+            "майор",
+            "капітан",
+            "старший лейтенант",
+            "лейтенант",
+            "молодший лейтенант",
+        ]
+        rank_index = len(rank_order)
+        for idx, token in enumerate(rank_order):
+            if token in rank_lower:
+                rank_index = idx
+                break
+
+        if is_zsu:
+            group = 6
+        elif is_head:
+            group = 1
+        elif is_deputy:
+            group = 2
+        elif is_docent and has_rank:
+            group = 3
+        elif is_senior and has_rank:
+            group = 4
+        elif is_teacher and has_rank:
+            group = 5
+        else:
+            group = 7
+
+        sub = 0
+        if group == 6:
+            sub = 0 if is_docent else 1
+
+        return (group, sub, rank_index, teacher.full_name.lower())
 
     def _refresh_teacher_disciplines(self) -> None:
         if not hasattr(self, "teacher_disciplines_available"):
@@ -791,8 +938,17 @@ class AdminDialog(QDialog):
         if not teacher:
             return
         assigned = {d.id for d in self.controller.get_teacher_disciplines(teacher.id)}
+        discipline_programs = {}
+        for program in self.controller.get_programs():
+            for discipline in self.controller.get_program_disciplines(program.id):
+                discipline_programs.setdefault(discipline.id, []).append(program.name)
         for discipline in self.controller.get_disciplines():
-            item = QListWidgetItem(discipline.name)
+            programs = discipline_programs.get(discipline.id, [])
+            if programs:
+                label = "\n".join(f"{program} | {discipline.name}" for program in programs)
+            else:
+                label = discipline.name
+            item = QListWidgetItem(label)
             item.setData(Qt.UserRole, discipline)
             if discipline.id in assigned:
                 self.teacher_disciplines_assigned.addItem(item)
@@ -835,7 +991,10 @@ class AdminDialog(QDialog):
         dialog = TeacherDialog(teacher, self)
         if dialog.exec() != QDialog.Accepted:
             return
-        self.controller.update_teacher(dialog.get_teacher())
+        updated = dialog.get_teacher()
+        if updated.id is None:
+            updated.id = teacher.id
+        self.controller.update_teacher(updated)
         self._refresh_teachers()
 
     def _delete_teacher(self) -> None:
@@ -2451,6 +2610,76 @@ class AdminDialog(QDialog):
 
     def _refresh_settings(self) -> None:
         self.materials_location.setText(str(self.file_storage.files_root))
+        self.database_path.setText(str(self.controller.db.db_path))
+        settings_path = self.bootstrap_settings.value("app/ui_settings_path", "")
+        if not settings_path:
+            settings_path = self.settings.fileName() or ""
+        self.ui_settings_path.setText(settings_path)
+        translations_path = self.bootstrap_settings.value("app/translations_path", "")
+        if not translations_path:
+            language = self.i18n.current_language() if self.i18n else "uk"
+            translations_path = str(get_translations_dir() / f"app_{language}.ts")
+        self.translations_path.setText(translations_path)
+
+    def _change_database_path(self) -> None:
+        current = self.bootstrap_settings.value("app/db_path", "")
+        start_dir = current or str(self.controller.db.db_path)
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Select database file"),
+            start_dir,
+            self.tr("Database files (*.db);;All files (*)"),
+        )
+        if not path:
+            return
+        self.bootstrap_settings.setValue("app/db_path", path)
+        self.bootstrap_settings.sync()
+        self.database_path.setText(path)
+        QMessageBox.information(
+            self,
+            self.tr("Restart required"),
+            self.tr("Database selection saved. Restart the app to apply changes."),
+        )
+
+    def _change_ui_settings_path(self) -> None:
+        current = self.bootstrap_settings.value("app/ui_settings_path", "")
+        start_dir = current or str(get_settings_dir() / "user_settings.ini")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Select UI settings file"),
+            start_dir,
+            self.tr("Settings files (*.ini);;All files (*)"),
+        )
+        if not path:
+            return
+        self.bootstrap_settings.setValue("app/ui_settings_path", path)
+        self.bootstrap_settings.sync()
+        self.ui_settings_path.setText(path)
+        QMessageBox.information(
+            self,
+            self.tr("Restart required"),
+            self.tr("Settings file selection saved. Restart the app to apply changes."),
+        )
+
+    def _change_translations_path(self) -> None:
+        current = self.bootstrap_settings.value("app/translations_path", "")
+        start_dir = current or str(get_translations_dir() / "app_uk.ts")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Select translations file"),
+            start_dir,
+            self.tr("Translation files (*.ts *.qm);;All files (*)"),
+        )
+        if not path:
+            return
+        self.bootstrap_settings.setValue("app/translations_path", path)
+        self.bootstrap_settings.sync()
+        self.translations_path.setText(path)
+        QMessageBox.information(
+            self,
+            self.tr("Restart required"),
+            self.tr("Translations file selection saved. Restart the app to apply changes."),
+        )
 
     def _change_materials_location(self) -> None:
         path = QFileDialog.getExistingDirectory(
@@ -2516,19 +2745,62 @@ class AdminDialog(QDialog):
             self.tr("Database imported. Restart the app."),
         )
 
-    def _export_user_settings(self) -> None:
-        default_path = get_settings_dir() / "user_settings.json"
+    def _repair_database(self) -> None:
+        src_path = Path(self.controller.db.db_path)
+        default_path = src_path.with_name(f"{src_path.stem}_recovered.db")
         path, _ = QFileDialog.getSaveFileName(
             self,
-            self.tr("Export user settings"),
+            self.tr("Repair database"),
             str(default_path),
-            self.tr("Settings (*.json);;All files (*)"),
+            self.tr("Database (*.db);;All files (*)"),
         )
         if not path:
             return
         try:
-            payload = self._serialize_settings(self.settings)
-            Path(path).write_text(payload, encoding="utf-8")
+            conn = sqlite3.connect(src_path)
+            conn.text_factory = lambda b: b.decode(errors="ignore")
+            try:
+                dump_lines = list(conn.iterdump())
+            finally:
+                conn.close()
+
+            skip_tokens = ("_fts_config", "_fts_docsize", "_fts_data", "_fts_idx")
+            filtered = [line for line in dump_lines if not any(t in line.lower() for t in skip_tokens)]
+
+            out = sqlite3.connect(path)
+            try:
+                out.executescript("\n".join(filtered))
+                out.commit()
+            finally:
+                out.close()
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Import error"), str(exc))
+            return
+        self.bootstrap_settings.setValue("app/db_path", path)
+        self.bootstrap_settings.sync()
+        self.database_path.setText(path)
+        QMessageBox.information(
+            self,
+            self.tr("Restart required"),
+            self.tr("Database repaired. Restart the app to apply changes."),
+        )
+
+    def _export_user_settings(self) -> None:
+        default_path = get_settings_dir() / "user_settings.ini"
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export user settings"),
+            str(default_path),
+            self.tr("Settings (*.ini);;All files (*)"),
+        )
+        if not path:
+            return
+        try:
+            export_settings = QSettings(path, QSettings.IniFormat)
+            export_settings.clear()
+            for key in self.settings.allKeys():
+                export_settings.setValue(key, self.settings.value(key))
+            export_settings.sync()
         except Exception as exc:
             QMessageBox.warning(self, self.tr("Import error"), str(exc))
             return
@@ -2539,7 +2811,7 @@ class AdminDialog(QDialog):
             self,
             self.tr("Import user settings"),
             "",
-            self.tr("Settings (*.json);;All files (*)"),
+            self.tr("Settings (*.ini);;All files (*)"),
         )
         if not path:
             return
@@ -2550,8 +2822,10 @@ class AdminDialog(QDialog):
         ) != QMessageBox.Yes:
             return
         try:
-            content = Path(path).read_text(encoding="utf-8")
-            self._deserialize_settings(self.settings, content)
+            import_settings = QSettings(path, QSettings.IniFormat)
+            self.settings.clear()
+            for key in import_settings.allKeys():
+                self.settings.setValue(key, import_settings.value(key))
             self.settings.sync()
             self.i18n.load_from_settings()
         except Exception as exc:
@@ -2837,13 +3111,30 @@ class AdminDialog(QDialog):
         elif action == copy_action:
             self._copy_structure_selected()
 
+    def _restart_application(self) -> None:
+        QProcess.startDetached(sys.executable, sys.argv)
+        QApplication.quit()
+
+    def _close_application(self) -> None:
+        QApplication.quit()
+
     def retranslate_ui(self, *_args) -> None:
         self.setWindowTitle(self.tr("Admin Panel"))
+        for child in self.findChildren(QMenuBar):
+            child.clear()
+            app_menu = child.addMenu(self.tr("Application"))
+            action_restart = app_menu.addAction(self.tr("Restart application"))
+            action_exit = app_menu.addAction(self.tr("Exit application"))
+            action_restart.triggered.connect(self._restart_application)
+            action_exit.triggered.connect(self._close_application)
         self.tabs.setTabText(0, self.tr("Structure"))
         self.tabs.setTabText(1, self.tr("Materials"))
-        self.tabs.setTabText(2, self.tr("Lesson types"))
-        self.tabs.setTabText(3, self.tr("Teachers"))
-        self.tabs.setTabText(4, self.tr("Settings"))
+        self.tabs.setTabText(2, self.tr("Teachers"))
+        self.tabs.setTabText(3, self.tr("Settings"))
+        if hasattr(self, "materials_group"):
+            self.materials_group.setTitle(self.tr("Materials"))
+        if hasattr(self, "lesson_types_group"):
+            self.lesson_types_group.setTitle(self.tr("Lesson types"))
         self.structure_tree.setHeaderLabels([self.tr("Structure")])
         self.structure_add_program.setText(self.tr("Add program"))
         self.structure_add_discipline.setText(self.tr("Add discipline"))
@@ -2856,6 +3147,11 @@ class AdminDialog(QDialog):
         self.structure_delete.setText(self.tr("Delete"))
         self.structure_duplicate.setText(self.tr("Duplicate"))
         self.structure_copy.setText(self.tr("Copy"))
+
+        if hasattr(self, "database_path_label"):
+            self.database_path_label.setText(self.tr("Database file"))
+        if hasattr(self, "ui_settings_path_label"):
+            self.ui_settings_path_label.setText(self.tr("UI settings file"))
 
         self.teachers_table.setHorizontalHeaderLabels(
             [
@@ -2947,10 +3243,23 @@ class AdminDialog(QDialog):
 
         self.materials_location_label.setText(self.tr("Materials location"))
         self.materials_location_browse.setText(self.tr("Change..."))
+        if hasattr(self, "database_path_label"):
+            self.database_path_label.setText(self.tr("Database file"))
+        if hasattr(self, "database_path_browse"):
+            self.database_path_browse.setText(self.tr("Change..."))
+        if hasattr(self, "ui_settings_path_label"):
+            self.ui_settings_path_label.setText(self.tr("UI settings file"))
+        if hasattr(self, "ui_settings_path_browse"):
+            self.ui_settings_path_browse.setText(self.tr("Change..."))
+        if hasattr(self, "translations_path_label"):
+            self.translations_path_label.setText(self.tr("Translations file"))
+        if hasattr(self, "translations_path_browse"):
+            self.translations_path_browse.setText(self.tr("Change..."))
         self.db_export.setText(self.tr("Export database"))
         self.db_import.setText(self.tr("Import database"))
         self.db_check.setText(self.tr("Check database"))
         self.db_cleanup.setText(self.tr("Cleanup unused data"))
+        self.db_repair.setText(self.tr("Repair database"))
         self.user_settings_export.setText(self.tr("Export user settings"))
         self.user_settings_import.setText(self.tr("Import user settings"))
         self.user_settings_save.setText(self.tr("Save user settings"))

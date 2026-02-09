@@ -1,5 +1,6 @@
 """Editor mode wizard dialog."""
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QProcess
+import sys
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -17,6 +18,8 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QMessageBox,
     QWidget,
+    QMenuBar,
+    QApplication,
 )
 from ..controllers.admin_controller import AdminController
 from ..models.entities import Lesson, Question
@@ -46,11 +49,19 @@ class EditorWizardDialog(QDialog):
         self.setWindowTitle(self.tr("Editor Wizard"))
         self.resize(980, 640)
         self._build_ui()
+        self.showMaximized()
         if self.i18n:
             self.i18n.language_changed.connect(self._retranslate_ui)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
+        menu_bar = QMenuBar()
+        app_menu = menu_bar.addMenu(self.tr("Application"))
+        action_restart = app_menu.addAction(self.tr("Restart application"))
+        action_exit = app_menu.addAction(self.tr("Exit application"))
+        action_restart.triggered.connect(self._restart_application)
+        action_exit.triggered.connect(self._close_application)
+        layout.addWidget(menu_bar)
         self.stack = QStackedWidget()
         layout.addWidget(self.stack)
 
@@ -232,6 +243,13 @@ class EditorWizardDialog(QDialog):
         self.material_add_btn.clicked.connect(self._add_material_from_dialog)
         self._toggle_material_target()
         return page
+
+    def _restart_application(self) -> None:
+        QProcess.startDetached(sys.executable, sys.argv)
+        QApplication.quit()
+
+    def _close_application(self) -> None:
+        QApplication.quit()
 
     def _build_summary_page(self) -> QWidget:
         page = QWidget()

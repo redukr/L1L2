@@ -6,6 +6,9 @@
     <message><source>Search:</source><translation>Search:</translation></message>
     <message><source>Search</source><translation>Search</translation></message>
     <message><source>Editor Mode</source><translation>Editor Mode</translation></message>
+    <message><source>Application</source><translation>Application</translation></message>
+    <message><source>Restart application</source><translation>Restart application</translation></message>
+    <message><source>Exit application</source><translation>Exit application</translation></message>
     <message><source>Admin Mode</source><translation>Admin Mode</translation></message>
     <message><source>Ukrainian</source><translation>Ukrainian</translation></message>
     <message><source>English</source><translation>English</translation></message>
@@ -64,6 +67,8 @@
     <message><source>Select materials folder</source><translation>Select materials folder</translation></message>
     <message><source>Database (*.db);;All files (*)</source><translation>Database (*.db);;All files (*)</translation></message>
     <message><source>Database exported.</source><translation>Database exported.</translation></message>
+    <message><source>Repair database</source><translation>Repair database</translation></message>
+    <message><source>Database repaired. Restart the app to apply changes.</source><translation>Database repaired. Restart the app to apply changes.</translation></message>
     <message><source>Replace the current database with the selected file?</source><translation>Replace the current database with the selected file?</translation></message>
     <message><source>Database imported. Restart the app.</source><translation>Database imported. Restart the app.</translation></message>
     <message><source>File is missing in storage.</source><translation>File is missing in storage.</translation></message>
@@ -77,8 +82,21 @@
     <message><source>Select a discipline first.</source><translation>Select a discipline first.</translation></message>
     <message><source>Delete selected item?</source><translation>Delete selected item?</translation></message>
     <message><source>Export user settings</source><translation>Export user settings</translation></message>
+    <message><source>Database file</source><translation>Database file</translation></message>
+    <message><source>UI settings file</source><translation>UI settings file</translation></message>
+    <message><source>Select database file</source><translation>Select database file</translation></message>
+    <message><source>Select UI settings file</source><translation>Select UI settings file</translation></message>
+    <message><source>Database files (*.db);;All files (*)</source><translation>Database files (*.db);;All files (*)</translation></message>
+    <message><source>Settings files (*.ini);;All files (*)</source><translation>Settings files (*.ini);;All files (*)</translation></message>
+    <message><source>Restart required</source><translation>Restart required</translation></message>
+    <message><source>Database selection saved. Restart the app to apply changes.</source><translation>Database selection saved. Restart the app to apply changes.</translation></message>
+    <message><source>Settings file selection saved. Restart the app to apply changes.</source><translation>Settings file selection saved. Restart the app to apply changes.</translation></message>
+    <message><source>Translations file</source><translation>Translations file</translation></message>
+    <message><source>Select translations file</source><translation>Select translations file</translation></message>
+    <message><source>Translation files (*.ts *.qm);;All files (*)</source><translation>Translation files (*.ts *.qm);;All files (*)</translation></message>
+    <message><source>Translations file selection saved. Restart the app to apply changes.</source><translation>Translations file selection saved. Restart the app to apply changes.</translation></message>
     <message><source>Import user settings</source><translation>Import user settings</translation></message>
-    <message><source>Settings (*.json);;All files (*)</source><translation>Settings (*.json);;All files (*)</translation></message>
+    <message><source>Settings (*.ini);;All files (*)</source><translation>Settings (*.ini);;All files (*)</translation></message>
     <message><source>User settings exported.</source><translation>User settings exported.</translation></message>
     <message><source>Replace the current user settings with the selected file?</source><translation>Replace the current user settings with the selected file?</translation></message>
     <message><source>User settings imported. Restart the app.</source><translation>User settings imported. Restart the app.</translation></message>
@@ -87,6 +105,11 @@
     <message><source>Material type</source><translation>Material type</translation></message>
     <message><source>Delete selected material type?</source><translation>Delete selected material type?</translation></message>
     <message><source>Lesson materials</source><translation>Lesson materials</translation></message>
+      <message><source>Access denied</source><translation>Access denied</translation></message>
+    <message><source>All files (*)</source><translation>All files (*)</translation></message>
+    <message><source>Editor Access</source><translation>Editor Access</translation></message>
+    <message><source>Enter editor password:</source><translation>Enter editor password:</translation></message>
+    <message><source>Invalid editor password.</source><translation>Invalid editor password.</translation></message>
   </context>
   <context>
     <name>AdminDialog</name>
@@ -169,6 +192,90 @@
     <message><source>guide</source><translation>guide</translation></message>
     <message><source>presentation</source><translation>presentation</translation></message>
     <message><source>attachment</source><translation>attachment</translation></message>
+      <message><source><- Remove</source><translation><- Remove</translation></message>
+    <message><source>Add -></source><translation>Add -></translation></message>
+    <message><source>Add discipline</source><translation>Add discipline</translation></message>
+    <message><source>Add lesson</source><translation>Add lesson</translation></message>
+    <message><source>Add program</source><translation>Add program</translation></message>
+    <message><source>Add question</source><translation>Add question</translation></message>
+    <message><source>Add topic</source><translation>Add topic</translation></message>
+    <message><source>Added teachers: {0}\nSkipped: {1}</source><translation>Added teachers: {0}\nSkipped: {1}</translation></message>
+    <message><source>Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}</source><translation>Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}</translation></message>
+    <message><source>Admin Access</source><translation>Admin Access</translation></message>
+    <message><source>All files (*)</source><translation>All files (*)</translation></message>
+    <message><source>Application</source><translation>Application</translation></message>
+    <message><source>Attach existing file</source><translation>Attach existing file</translation></message>
+    <message><source>Cancel</source><translation>Cancel</translation></message>
+    <message><source>Change...</source><translation>Change...</translation></message>
+    <message><source>Copy file as...</source><translation>Copy file as...</translation></message>
+    <message><source>Database (*.db);;All files (*)</source><translation>Database (*.db);;All files (*)</translation></message>
+    <message><source>Database exported.</source><translation>Database exported.</translation></message>
+    <message><source>Database file</source><translation>Database file</translation></message>
+    <message><source>Database files (*.db);;All files (*)</source><translation>Database files (*.db);;All files (*)</translation></message>
+    <message><source>Database imported. Restart the app.</source><translation>Database imported. Restart the app.</translation></message>
+    <message><source>Database repaired. Restart the app to apply changes.</source><translation>Database repaired. Restart the app to apply changes.</translation></message>
+    <message><source>Database selection saved. Restart the app to apply changes.</source><translation>Database selection saved. Restart the app to apply changes.</translation></message>
+    <message><source>Delete selected item?</source><translation>Delete selected item?</translation></message>
+    <message><source>Delete selected lesson type?</source><translation>Delete selected lesson type?</translation></message>
+    <message><source>Delete selected material type?</source><translation>Delete selected material type?</translation></message>
+    <message><source>Discipline is not linked to any program.</source><translation>Discipline is not linked to any program.</translation></message>
+    <message><source>Enter admin password:</source><translation>Enter admin password:</translation></message>
+    <message><source>Exit application</source><translation>Exit application</translation></message>
+    <message><source>Export database</source><translation>Export database</translation></message>
+    <message><source>Export user settings</source><translation>Export user settings</translation></message>
+    <message><source>File is missing in storage.</source><translation>File is missing in storage.</translation></message>
+    <message><source>Import complete</source><translation>Import complete</translation></message>
+    <message><source>Import curriculum structure</source><translation>Import curriculum structure</translation></message>
+    <message><source>Import database</source><translation>Import database</translation></message>
+    <message><source>Import error</source><translation>Import error</translation></message>
+    <message><source>Import teachers</source><translation>Import teachers</translation></message>
+    <message><source>Import teachers from DOCX</source><translation>Import teachers from DOCX</translation></message>
+    <message><source>Import user settings</source><translation>Import user settings</translation></message>
+    <message><source>Lesson materials</source><translation>Lesson materials</translation></message>
+    <message><source>Lesson types</source><translation>Lesson types</translation></message>
+    <message><source>Materials location</source><translation>Materials location</translation></message>
+    <message><source>Military rank</source><translation>Military rank</translation></message>
+    <message><source>Name is required.</source><translation>Name is required.</translation></message>
+    <message><source>No File</source><translation>No File</translation></message>
+    <message><source>No input text provided.</source><translation>No input text provided.</translation></message>
+    <message><source>OK</source><translation>OK</translation></message>
+    <message><source>Open file</source><translation>Open file</translation></message>
+    <message><source>Repair database</source><translation>Repair database</translation></message>
+    <message><source>Replace the current database with the selected file?</source><translation>Replace the current database with the selected file?</translation></message>
+    <message><source>Replace the current user settings with the selected file?</source><translation>Replace the current user settings with the selected file?</translation></message>
+    <message><source>Restart application</source><translation>Restart application</translation></message>
+    <message><source>Restart required</source><translation>Restart required</translation></message>
+    <message><source>Save user settings</source><translation>Save user settings</translation></message>
+    <message><source>Select UI settings file</source><translation>Select UI settings file</translation></message>
+    <message><source>Select a discipline first.</source><translation>Select a discipline first.</translation></message>
+    <message><source>Select a discipline from the same program.</source><translation>Select a discipline from the same program.</translation></message>
+    <message><source>Select a lesson first.</source><translation>Select a lesson first.</translation></message>
+    <message><source>Select a program first.</source><translation>Select a program first.</translation></message>
+    <message><source>Select a topic first.</source><translation>Select a topic first.</translation></message>
+    <message><source>Select an item</source><translation>Select an item</translation></message>
+    <message><source>Select database file</source><translation>Select database file</translation></message>
+    <message><source>Select material location</source><translation>Select material location</translation></message>
+    <message><source>Select materials folder</source><translation>Select materials folder</translation></message>
+    <message><source>Select translations file</source><translation>Select translations file</translation></message>
+    <message><source>Settings</source><translation>Settings</translation></message>
+    <message><source>Settings (*.ini);;All files (*)</source><translation>Settings (*.ini);;All files (*)</translation></message>
+    <message><source>Settings file selection saved. Restart the app to apply changes.</source><translation>Settings file selection saved. Restart the app to apply changes.</translation></message>
+    <message><source>Settings files (*.ini);;All files (*)</source><translation>Settings files (*.ini);;All files (*)</translation></message>
+    <message><source>Show in folder</source><translation>Show in folder</translation></message>
+    <message><source>Structure</source><translation>Structure</translation></message>
+    <message><source>Teacher</source><translation>Teacher</translation></message>
+    <message><source>This material has no attached file.</source><translation>This material has no attached file.</translation></message>
+    <message><source>Topic is not linked to any discipline.</source><translation>Topic is not linked to any discipline.</translation></message>
+    <message><source>Topic materials</source><translation>Topic materials</translation></message>
+    <message><source>Total hours</source><translation>Total hours</translation></message>
+    <message><source>Translation files (*.ts *.qm);;All files (*)</source><translation>Translation files (*.ts *.qm);;All files (*)</translation></message>
+    <message><source>Translations file</source><translation>Translations file</translation></message>
+    <message><source>Translations file selection saved. Restart the app to apply changes.</source><translation>Translations file selection saved. Restart the app to apply changes.</translation></message>
+    <message><source>UI settings file</source><translation>UI settings file</translation></message>
+    <message><source>User settings exported.</source><translation>User settings exported.</translation></message>
+    <message><source>User settings imported. Restart the app.</source><translation>User settings imported. Restart the app.</translation></message>
+    <message><source>User settings saved.</source><translation>User settings saved.</translation></message>
+    <message><source>Word documents (*.docx);;All files (*)</source><translation>Word documents (*.docx);;All files (*)</translation></message>
   </context>
   <context>
     <name>PasswordDialog</name>
@@ -185,6 +292,7 @@
     <message><source>Department</source><translation>Department</translation></message>
     <message><source>Email</source><translation>Email</translation></message>
     <message><source>Phone</source><translation>Phone</translation></message>
+      <message><source>Military rank</source><translation>Military rank</translation></message>
   </context>
   <context>
     <name>ProgramDialog</name>
@@ -201,6 +309,9 @@
     <message><source>Name</source><translation>Name</translation></message>
     <message><source>Description</source><translation>Description</translation></message>
     <message><source>Order index</source><translation>Order index</translation></message>
+      <message><source>Program</source><translation>Program</translation></message>
+    <message><source>Topic</source><translation>Topic</translation></message>
+    <message><source>Type</source><translation>Type</translation></message>
   </context>
   <context>
     <name>TopicDialog</name>
@@ -208,6 +319,9 @@
     <message><source>Title</source><translation>Title</translation></message>
     <message><source>Description</source><translation>Description</translation></message>
     <message><source>Order index</source><translation>Order index</translation></message>
+      <message><source>Discipline</source><translation>Discipline</translation></message>
+    <message><source>Program</source><translation>Program</translation></message>
+    <message><source>Type</source><translation>Type</translation></message>
   </context>
   <context>
     <name>LessonDialog</name>
@@ -224,6 +338,8 @@
     <message><source>Edit</source><translation>Edit</translation></message>
     <message><source>Remove</source><translation>Remove</translation></message>
     <message><source>Order index</source><translation>Order index</translation></message>
+      <message><source>Question text is required.</source><translation>Question text is required.</translation></message>
+    <message><source>Validation</source><translation>Validation</translation></message>
   </context>
   <context>
     <name>QuestionDialog</name>
@@ -252,6 +368,9 @@
     <message><source>guide</source><translation>guide</translation></message>
     <message><source>presentation</source><translation>presentation</translation></message>
     <message><source>attachment</source><translation>attachment</translation></message>
+      <message><source>All files (*)</source><translation>All files (*)</translation></message>
+    <message><source>Attach File</source><translation>Attach File</translation></message>
+    <message><source>Attach existing file</source><translation>Attach existing file</translation></message>
   </context>
   <context>
     <name>LessonTypeDialog</name>
@@ -299,5 +418,41 @@
     <message><source>Question text is required.</source><translation>Question text is required.</translation></message>
     <message><source>Material title is required.</source><translation>Material title is required.</translation></message>
     <message><source>Select a target first.</source><translation>Select a target first.</translation></message>
+      <message><source>Application</source><translation>Application</translation></message>
+    <message><source>Discipline name is required.</source><translation>Discipline name is required.</translation></message>
+    <message><source>Exit application</source><translation>Exit application</translation></message>
+    <message><source>Import error</source><translation>Import error</translation></message>
+    <message><source>N/A</source><translation>N/A</translation></message>
+    <message><source>Program name is required.</source><translation>Program name is required.</translation></message>
+    <message><source>Question</source><translation>Question</translation></message>
+    <message><source>Restart application</source><translation>Restart application</translation></message>
+    <message><source>Topic title is required.</source><translation>Topic title is required.</translation></message>
+    <message><source>Validation</source><translation>Validation</translation></message>
+  </context>
+  <context>
+    <name>ImportPreviewDialog</name>
+    <message><source>Import preview</source><translation>Import preview</translation></message>
+    <message><source>Title</source><translation>Title</translation></message>
+    <message><source>Details</source><translation>Details</translation></message>
+    <message><source>Topic</source><translation>Topic</translation></message>
+    <message><source>Question</source><translation>Question</translation></message>
+  </context>
+  <context>
+    <name>ImportCurriculumDialog</name>
+    <message><source>Import curriculum structure</source><translation>Import curriculum structure</translation></message>
+    <message><source>Program</source><translation>Program</translation></message>
+    <message><source>Discipline</source><translation>Discipline</translation></message>
+    <message><source>New discipline</source><translation>New discipline</translation></message>
+    <message><source>Paste table text here...</source><translation>Paste table text here...</translation></message>
+    <message><source>Load file</source><translation>Load file</translation></message>
+    <message><source>Load files (batch)</source><translation>Load files (batch)</translation></message>
+    <message><source>Preview</source><translation>Preview</translation></message>
+    <message><source>Open table file</source><translation>Open table file</translation></message>
+    <message><source>Open table files</source><translation>Open table files</translation></message>
+    <message><source>Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)</source><translation>Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)</translation></message>
+    <message><source>Create new...</source><translation>Create new...</translation></message>
+    <message><source>Preview is available for single-file import only.</source><translation>Preview is available for single-file import only.</translation></message>
+    <message><source>Import error</source><translation>Import error</translation></message>
+    <message><source>New discipline name</source><translation>New discipline name</translation></message>
   </context>
 </TS>
