@@ -7,6 +7,44 @@
     <message><source>Search</source><translation>Пошук</translation></message>
     <message><source>Editor Mode</source><translation>Режим редактора</translation></message>
     <message><source>Application</source><translation>Програма</translation></message>
+    <message><source>About</source><translation>Про програму</translation></message>
+    <message><source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source><translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation></message>
+    <message><source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source><translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation></message>
+    <message><source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source><translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі Одинцовій.</translation></message>
+    <message><source>Synchronization</source><translation>Синхронізація</translation></message>
+    <message><source>Start synchronization</source><translation>Почати синхронізацію</translation></message>
+    <message><source>Apply synchronization</source><translation>Застосувати синхронізацію</translation></message>
+    <message><source>Current structure</source><translation>Поточна структура</translation></message>
+    <message><source>Source structure</source><translation>Структура джерела</translation></message>
+    <message><source>Sync source loaded. Select items to import.</source><translation>Джерело синхронізації завантажено. Оберіть елементи для імпорту.</translation></message>
+    <message><source>Sync source loaded. Select mode.</source><translation>Джерело синхронізації завантажено. Оберіть режим.</translation></message>
+    <message><source>Mode:</source><translation>Режим:</translation></message>
+    <message><source>Import program fully</source><translation>Імпортувати програму повністю</translation></message>
+    <message><source>Synchronize with existing program</source><translation>Синхронізувати з існуючою програмою</translation></message>
+    <message><source>Program to import:</source><translation>Програма для імпорту:</translation></message>
+    <message><source>Import program</source><translation>Імпортувати програму</translation></message>
+    <message><source>Select a program to import.</source><translation>Оберіть програму для імпорту.</translation></message>
+    <message><source>Program imported.</source><translation>Програму імпортовано.</translation></message>
+    <message><source>Target program:</source><translation>Цільова програма:</translation></message>
+    <message><source>Source program:</source><translation>Програма-джерело:</translation></message>
+    <message><source>Target program:</source><translation>Цільова програма:</translation></message>
+    <message><source>Source program:</source><translation>Програма-джерело:</translation></message>
+    <message><source>Sync source loaded. Select mode.</source><translation>Джерело синхронізації завантажено. Оберіть режим.</translation></message>
+    <message><source>Mode:</source><translation>Режим:</translation></message>
+    <message><source>Import program fully</source><translation>Імпортувати програму повністю</translation></message>
+    <message><source>Synchronize with existing program</source><translation>Синхронізувати з існуючою програмою</translation></message>
+    <message><source>Program to import:</source><translation>Програма для імпорту:</translation></message>
+    <message><source>Import program</source><translation>Імпортувати програму</translation></message>
+    <message><source>Select a program to import.</source><translation>Оберіть програму для імпорту.</translation></message>
+    <message><source>Program imported.</source><translation>Програму імпортовано.</translation></message>
+    <message><source>Synchronization completed.</source><translation>Синхронізацію завершено.</translation></message>
+    <message><source>Sync folder not found.</source><translation>Папку sync не знайдено.</translation></message>
+    <message><source>Sync database not found.</source><translation>Базу даних у sync не знайдено.</translation></message>
+    <message><source>Select database</source><translation>Оберіть базу даних</translation></message>
+    <message><source>Discipline for</source><translation>Дисципліна для</translation></message>
+    <message><source>Select only one target program.</source><translation>Оберіть лише одну цільову програму.</translation></message>
+    <message><source>Hide identical elements</source><translation>Приховати ідентичні елементи</translation></message>
+    <message><source>Materials differ</source><translation>Матеріали відрізняються</translation></message>
     <message><source>Restart application</source><translation>Перезавантажити програму</translation></message>
     <message><source>Exit application</source><translation>Закрити програму</translation></message>
     <message><source>Admin Mode</source><translation>Режим адміністратора</translation></message>
@@ -57,14 +95,21 @@
     <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
     <message><source>Lesson type</source><translation>Тип заняття</translation></message>
     <message><source>Military rank</source><translation>Військове звання</translation></message>
-      <message><source>Access denied</source><translation>Access denied</translation></message>
+      <message><source>Access denied</source><translation>Доступ заборонено</translation></message>
     <message><source>Editor Access</source><translation>Editor Access</translation></message>
     <message><source>Enter editor password:</source><translation>Enter editor password:</translation></message>
     <message><source>Invalid editor password.</source><translation>Невірний пароль редактора.</translation></message>
-    <message><source>Structure</source><translation>Structure</translation></message>
+    <message><source>Structure</source><translation>Структура</translation></message>
   </context>
   <context>
     <name>AdminDialog</name>
+    <message><source>Application</source><translation>Програма</translation></message>
+    <message><source>About</source><translation>Про програму</translation></message>
+    <message><source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source><translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation></message>
+    <message><source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source><translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation></message>
+    <message><source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source><translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі Одинцовій.</translation></message>
+    <message><source>Restart application</source><translation>Перезавантажити програму</translation></message>
+    <message><source>Exit application</source><translation>Закрити програму</translation></message>
     <message><source>Admin Panel</source><translation>Панель адміністратора</translation></message>
     <message><source>Teachers</source><translation>Викладачі</translation></message>
     <message><source>Programs</source><translation>Програми</translation></message>
@@ -82,6 +127,17 @@
     <message><source>Copy</source><translation>Копіювати</translation></message>
     <message><source>Year</source><translation>Рік</translation></message>
     <message><source>Settings</source><translation>Налаштування</translation></message>
+    <message><source>Synchronization</source><translation>Синхронізація</translation></message>
+    <message><source>Start synchronization</source><translation>Почати синхронізацію</translation></message>
+    <message><source>Apply synchronization</source><translation>Застосувати синхронізацію</translation></message>
+    <message><source>Current structure</source><translation>Поточна структура</translation></message>
+    <message><source>Source structure</source><translation>Структура джерела</translation></message>
+    <message><source>Sync source loaded. Select items to import.</source><translation>Джерело синхронізації завантажено. Оберіть елементи для імпорту.</translation></message>
+    <message><source>Synchronization completed.</source><translation>Синхронізацію завершено.</translation></message>
+    <message><source>Sync folder not found.</source><translation>Папку sync не знайдено.</translation></message>
+    <message><source>Sync database not found.</source><translation>Базу даних у sync не знайдено.</translation></message>
+    <message><source>Select database</source><translation>Оберіть базу даних</translation></message>
+    <message><source>Discipline for</source><translation>Дисципліна для</translation></message>
     <message><source>Full name</source><translation>Повне ім&apos;я</translation></message>
     <message><source>Position</source><translation>Посада</translation></message>
     <message><source>Department</source><translation>Кафедра</translation></message>
@@ -217,18 +273,18 @@
     <message><source>Material type</source><translation>Тип матеріалу</translation></message>
     <message><source>Delete selected material type?</source><translation>Видалити вибраний тип матеріалу?</translation></message>
     <message><source>Lesson materials</source><translation>Матеріали заняття</translation></message>
-      <message><source><- Remove</source><translation><- Видалити</translation></message>
+      <message><source>&lt;- Remove</source><translation>&lt;- Видалити</translation></message>
     <message><source>Add -></source><translation>Додати -></translation></message>
     <message><source>Added teachers: {0}\nSkipped: {1}</source><translation>Додано викладачів: {0}\nПропущено: {1}</translation></message>
     <message><source>Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}</source><translation>Додано тем: {0}\nДодано занять: {1}\nДодано питань: {2}</translation></message>
-    <message><source>Admin Access</source><translation>Admin Access</translation></message>
-    <message><source>Application</source><translation>Application</translation></message>
+    <message><source>Admin Access</source><translation>Доступ адміністратора</translation></message>
+    \1Програма\3
     <message><source>Delete selected lesson type?</source><translation>Видалити вибраний тип заняття?</translation></message>
     <message><source>Discipline is not linked to any program.</source><translation>Дисципліна не прив'язана до жодної програми.</translation></message>
-    <message><source>Enter admin password:</source><translation>Enter admin password:</translation></message>
-    <message><source>Exit application</source><translation>Exit application</translation></message>
+    <message><source>Enter admin password:</source><translation>Введіть пароль адміністратора:</translation></message>
+    \1Закрити програму\3
     <message><source>Name is required.</source><translation>Потрібна назва.</translation></message>
-    <message><source>Restart application</source><translation>Restart application</translation></message>
+    \1Перезавантажити програму\3
     <message><source>Select a discipline from the same program.</source><translation>Оберіть дисципліну з цієї ж програми.</translation></message>
     <message><source>Select a lesson first.</source><translation>Select a lesson first.</translation></message>
     <message><source>Select a topic first.</source><translation>Select a topic first.</translation></message>
@@ -338,6 +394,9 @@
   </context>
   <context>
     <name>EditorWizardDialog</name>
+    <message><source>Application</source><translation>Програма</translation></message>
+    <message><source>Restart application</source><translation>Перезавантажити програму</translation></message>
+    <message><source>Exit application</source><translation>Закрити програму</translation></message>
     <message><source>Editor Wizard</source><translation>Майстер редактора</translation></message>
     <message><source>Step 1: Select context</source><translation>Крок 1: Виберіть контекст</translation></message>
     <message><source>Step 2: Add lessons</source><translation>Крок 2: Додайте заняття</translation></message>
@@ -376,14 +435,14 @@
     <message><source>Question text is required.</source><translation>Потрібний текст питання.</translation></message>
     <message><source>Material title is required.</source><translation>Потрібна назва матеріалу.</translation></message>
     <message><source>Select a target first.</source><translation>Спочатку виберіть призначення.</translation></message>
-      <message><source>Application</source><translation>Application</translation></message>
+      \1Програма\3
     <message><source>Discipline name is required.</source><translation>Discipline name is required.</translation></message>
-    <message><source>Exit application</source><translation>Exit application</translation></message>
+    \1Закрити програму\3
     <message><source>Import error</source><translation>Import error</translation></message>
     <message><source>N/A</source><translation>N/A</translation></message>
     <message><source>Program name is required.</source><translation>Program name is required.</translation></message>
     <message><source>Question</source><translation>Question</translation></message>
-    <message><source>Restart application</source><translation>Restart application</translation></message>
+    \1Перезавантажити програму\3
     <message><source>Topic title is required.</source><translation>Topic title is required.</translation></message>
     <message><source>Validation</source><translation>Validation</translation></message>
   </context>

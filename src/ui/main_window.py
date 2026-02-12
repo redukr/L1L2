@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QStyle,
+    QApplication,
 )
 from PySide6.QtGui import QFont, QColor, QBrush, QTextDocument, QFontMetrics
 from PySide6.QtCore import QProcess
@@ -69,8 +70,10 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
 
         app_menu = self.menuBar().addMenu(self.tr("Application"))
+        self.action_about = app_menu.addAction(self.tr("About"))
         self.action_restart = app_menu.addAction(self.tr("Restart application"))
         self.action_exit = app_menu.addAction(self.tr("Exit application"))
+        self.action_about.triggered.connect(self._show_about)
         self.action_restart.triggered.connect(self._restart_application)
         self.action_exit.triggered.connect(self._close_application)
 
@@ -239,11 +242,29 @@ class MainWindow(QMainWindow):
         self.report_table.resizeColumnsToContents()
 
     def _restart_application(self) -> None:
-        QProcess.startDetached(sys.executable, sys.argv)
+        args = list(sys.argv)
+        if args and args[0].replace("\\", "/").endswith("src/app.py"):
+            args = ["run_app.py"]
+        QProcess.startDetached(sys.executable, args)
         QApplication.quit()
 
     def _close_application(self) -> None:
         QApplication.quit()
+
+    def _show_about(self) -> None:
+        text = "\n".join(
+            [
+                self.tr(
+                    "Copyright on the program idea belongs to the Department of Military Leadership "
+                    "of the Military Academy, Odesa."
+                ),
+                self.tr("Developer: Lieutenant Heorhii FYLYPOVYCH."),
+                self.tr(
+                    "Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova."
+                ),
+            ]
+        )
+        QMessageBox.information(self, self.tr("About"), text)
 
     def _wrap_with_label(self, widget: QWidget, label: QLabel) -> QWidget:
         wrapper = QWidget()
@@ -951,8 +972,10 @@ class MainWindow(QMainWindow):
         self.admin_button.setText(self.tr("Admin Mode"))
         self.menuBar().clear()
         app_menu = self.menuBar().addMenu(self.tr("Application"))
+        self.action_about = app_menu.addAction(self.tr("About"))
         self.action_restart = app_menu.addAction(self.tr("Restart application"))
         self.action_exit = app_menu.addAction(self.tr("Exit application"))
+        self.action_about.triggered.connect(self._show_about)
         self.action_restart.triggered.connect(self._restart_application)
         self.action_exit.triggered.connect(self._close_application)
         self.program_label.setText(self.tr("Programs"))

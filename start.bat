@@ -8,4 +8,4 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
-".venv\Scripts\python.exe" -m src.app
+".venv\Scripts\python.exe" run_app.py

@@ -10,6 +10,26 @@ def get_app_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def make_relative_to_app(path: Path | str) -> str:
+    """Return a path relative to app base dir when possible."""
+    base = get_app_base_dir().resolve()
+    target = Path(path).resolve()
+    try:
+        return str(target.relative_to(base))
+    except ValueError:
+        return str(target)
+
+
+def resolve_app_path(path: Path | str) -> Path:
+    """Resolve a possibly-relative path under app base dir."""
+    if not path:
+        return Path("")
+    p = Path(path)
+    if p.is_absolute():
+        return p
+    return (get_app_base_dir() / p).resolve()
+
+
 def get_resource_base_dir() -> Path:
     """Return the directory for bundled resources."""
     if getattr(sys, "frozen", False):

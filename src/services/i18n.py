@@ -5,7 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QSettings
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtCore import QTranslator
-from .app_paths import get_translations_dir
+from .app_paths import get_translations_dir, resolve_app_path, make_relative_to_app
 
 
 class TsTranslator(QTranslator):
@@ -64,9 +64,12 @@ class I18nManager(QObject):
         if self._translator is not None:
             QCoreApplication.removeTranslator(self._translator)
 
-        translations_path = QSettings().value("app/translations_path", "")
+        settings = QSettings()
+        translations_path = settings.value("app/translations_path", "")
         if translations_path:
-            path = Path(str(translations_path))
+            path = resolve_app_path(translations_path)
+            if str(path) != str(translations_path):
+                settings.setValue("app/translations_path", make_relative_to_app(path))
             if path.suffix.lower() == ".qm":
                 qm_path = path
                 ts_path = None

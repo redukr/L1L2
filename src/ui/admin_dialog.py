@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QFileDialog,
     QComboBox,
+    QRadioButton,
     QSplitter,
     QMenuBar,
     QAbstractItemView,
@@ -30,16 +31,38 @@ from PySide6.QtWidgets import (
     QMenu,
     QGroupBox,
     QApplication,
+    QCheckBox,
+    QInputDialog,
+    QSizePolicy,
 )
+import json
+import zlib
 from PySide6.QtCore import QProcess
 import sys
 import sqlite3
-from PySide6.QtGui import QTextDocument
+from PySide6.QtGui import QTextDocument, QBrush, QColor
 from pathlib import Path
 from ..controllers.admin_controller import AdminController
+from ..controllers.main_controller import MainController
 from ..models.database import Database
+from ..models.entities import (
+    EducationalProgram,
+    Discipline,
+    Topic,
+    Lesson,
+    Question,
+    MethodicalMaterial,
+    MaterialType,
+    LessonType,
+)
 from ..services.i18n import I18nManager
-from ..services.app_paths import get_settings_dir, get_translations_dir
+from ..services.app_paths import (
+    get_settings_dir,
+    get_translations_dir,
+    get_app_base_dir,
+    resolve_app_path,
+    make_relative_to_app,
+)
 from ..ui.dialogs import (
     PasswordDialog,
     TeacherDialog,
@@ -72,8 +95,10 @@ class AdminDialog(QDialog):
         self.bootstrap_settings = QSettings()
         self.file_storage = FileStorageManager()
         desired_db_path = self.bootstrap_settings.value("app/db_path", "")
-        if desired_db_path and str(self.controller.db.db_path) != str(desired_db_path):
-            self.controller = AdminController(Database(str(desired_db_path)))
+        if desired_db_path:
+            resolved = resolve_app_path(desired_db_path)
+            if str(self.controller.db.db_path) != str(resolved):
+                self.controller = AdminController(Database(str(resolved)))
         self.setWindowTitle(self.tr("Admin Panel"))
         self.resize(1200, 760)
         if not self._authorize():
@@ -101,8 +126,10 @@ class AdminDialog(QDialog):
         layout = QVBoxLayout(self)
         menu_bar = QMenuBar()
         app_menu = menu_bar.addMenu(self.tr("Application"))
+        action_about = app_menu.addAction(self.tr("About"))
         action_restart = app_menu.addAction(self.tr("Restart application"))
         action_exit = app_menu.addAction(self.tr("Exit application"))
+        action_about.triggered.connect(self._show_about)
         action_restart.triggered.connect(self._restart_application)
         action_exit.triggered.connect(self._close_application)
         layout.addWidget(menu_bar)
@@ -111,6 +138,7 @@ class AdminDialog(QDialog):
         self.tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
         self.tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
         self.tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
+        self.tabs.addTab(self._build_sync_tab(), self.tr("Synchronization"))
         self.tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
         self._apply_word_wrap()
 
@@ -729,6 +757,130 @@ class AdminDialog(QDialog):
 
         self._refresh_material_types()
         self._refresh_lesson_types()
+        return tab
+
+    def _build_sync_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        self.sync_mode_panel = QWidget()
+        mode_layout = QHBoxLayout(self.sync_mode_panel)
+        mode_layout.setContentsMargins(0, 0, 0, 0)
+        mode_layout.setSpacing(6)
+        self.sync_mode_label = QLabel(self.tr("Mode:"))
+        mode_layout.addWidget(self.sync_mode_label)
+        self.sync_mode_import = QRadioButton(self.tr("Import program fully"))
+        self.sync_mode_sync = QRadioButton(self.tr("Synchronize with existing program"))
+        self.sync_mode_sync.setChecked(True)
+        mode_layout.addWidget(self.sync_mode_import)
+        mode_layout.addWidget(self.sync_mode_sync)
+        mode_layout.addStretch(1)
+        self.sync_mode_panel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.sync_mode_panel.setMaximumHeight(self.fontMetrics().height() + 10)
+        self.sync_mode_panel.setVisible(False)
+        layout.addWidget(self.sync_mode_panel)
+
+        self.sync_import_panel = QWidget()
+        import_layout = QHBoxLayout(self.sync_import_panel)
+        import_layout.setContentsMargins(0, 0, 0, 0)
+        import_layout.setSpacing(6)
+        self.sync_import_label = QLabel(self.tr("Program to import:"))
+        import_layout.addWidget(self.sync_import_label)
+        self.sync_import_program = QComboBox()
+        import_layout.addWidget(self.sync_import_program, 1)
+        self.sync_import_apply = QPushButton(self.tr("Import program"))
+        import_layout.addWidget(self.sync_import_apply)
+        self.sync_import_panel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.sync_import_panel.setMaximumHeight(self.fontMetrics().height() + 14)
+        self.sync_import_panel.setVisible(False)
+        layout.addWidget(self.sync_import_panel)
+
+        self.sync_start = QPushButton(self.tr("Start synchronization"))
+        self.sync_status = QLabel("")
+        self.sync_status.setWordWrap(True)
+        self.sync_status.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.sync_status.setMaximumHeight(self.fontMetrics().height() * 2 + 6)
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.sync_status)
+        status_row.addStretch(1)
+        layout.addWidget(self.sync_start)
+        layout.addLayout(status_row)
+
+        self.sync_panel = QWidget()
+        panel_layout = QVBoxLayout(self.sync_panel)
+
+        mapping_row = QHBoxLayout()
+        self.sync_target_label = QLabel(self.tr("Target program:"))
+        self.sync_target_program_combo = QComboBox()
+        self.sync_source_label = QLabel(self.tr("Source program:"))
+        self.sync_source_program_combo = QComboBox()
+        mapping_row.addWidget(self.sync_target_label)
+        mapping_row.addWidget(self.sync_target_program_combo, 1)
+        mapping_row.addSpacing(10)
+        mapping_row.addWidget(self.sync_source_label)
+        mapping_row.addWidget(self.sync_source_program_combo, 1)
+        panel_layout.addLayout(mapping_row)
+
+        types_row = QHBoxLayout()
+        self.sync_type_program = QCheckBox(self.tr("Program"))
+        self.sync_type_discipline = QCheckBox(self.tr("Discipline"))
+        self.sync_type_topic = QCheckBox(self.tr("Topic"))
+        self.sync_type_lesson = QCheckBox(self.tr("Lesson"))
+        self.sync_type_question = QCheckBox(self.tr("Question"))
+        self.sync_type_materials = QCheckBox(self.tr("Materials"))
+        for cb in [
+            self.sync_type_program,
+            self.sync_type_discipline,
+            self.sync_type_topic,
+            self.sync_type_lesson,
+            self.sync_type_question,
+            self.sync_type_materials,
+        ]:
+            cb.setChecked(True)
+            types_row.addWidget(cb)
+        types_row.addStretch(1)
+        panel_layout.addLayout(types_row)
+
+        self.sync_hide_identical = QCheckBox(self.tr("Hide identical elements"))
+        panel_layout.addWidget(self.sync_hide_identical)
+
+        splitter = QSplitter(Qt.Horizontal)
+        self.sync_left_tree = QTreeWidget()
+        self.sync_left_tree.setHeaderLabels([self.tr("Current structure")])
+        self.sync_left_tree.header().setSectionResizeMode(QHeaderView.Stretch)
+        self.sync_left_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
+        self.sync_left_tree.setWordWrap(True)
+        self.sync_left_tree.setTextElideMode(Qt.ElideNone)
+        self.sync_left_tree.setUniformRowHeights(False)
+        self.sync_left_tree.setItemDelegateForColumn(0, _WrapItemDelegate(self.sync_left_tree))
+        self.sync_right_tree = QTreeWidget()
+        self.sync_right_tree.setHeaderLabels([self.tr("Source structure")])
+        self.sync_right_tree.header().setSectionResizeMode(QHeaderView.Stretch)
+        self.sync_right_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
+        self.sync_right_tree.setWordWrap(True)
+        self.sync_right_tree.setTextElideMode(Qt.ElideNone)
+        self.sync_right_tree.setUniformRowHeights(False)
+        self.sync_right_tree.setItemDelegateForColumn(0, _WrapItemDelegate(self.sync_right_tree))
+        splitter.addWidget(self.sync_left_tree)
+        splitter.addWidget(self.sync_right_tree)
+        panel_layout.addWidget(splitter)
+
+        self.sync_apply = QPushButton(self.tr("Apply synchronization"))
+        panel_layout.addWidget(self.sync_apply)
+
+        self.sync_panel.setVisible(False)
+        layout.addWidget(self.sync_panel)
+
+        self.sync_start.clicked.connect(self._start_sync)
+        self.sync_apply.clicked.connect(self._apply_sync)
+        self.sync_import_apply.clicked.connect(self._import_selected_program)
+        self.sync_mode_import.toggled.connect(self._on_sync_mode_changed)
+        self.sync_mode_sync.toggled.connect(self._on_sync_mode_changed)
+        self.sync_target_program_combo.currentIndexChanged.connect(self._on_sync_program_mapping_changed)
+        self.sync_source_program_combo.currentIndexChanged.connect(self._on_sync_program_mapping_changed)
+        self.sync_left_tree.itemChanged.connect(self._on_sync_target_changed)
+        self.sync_right_tree.itemChanged.connect(self._on_sync_source_changed)
+        self.sync_hide_identical.stateChanged.connect(self._on_sync_hide_identical_changed)
         return tab
 
     def _build_settings_tab(self) -> QWidget:
@@ -2610,20 +2762,20 @@ class AdminDialog(QDialog):
 
     def _refresh_settings(self) -> None:
         self.materials_location.setText(str(self.file_storage.files_root))
-        self.database_path.setText(str(self.controller.db.db_path))
+        self.database_path.setText(str(resolve_app_path(self.controller.db.db_path)))
         settings_path = self.bootstrap_settings.value("app/ui_settings_path", "")
         if not settings_path:
             settings_path = self.settings.fileName() or ""
-        self.ui_settings_path.setText(settings_path)
+        self.ui_settings_path.setText(str(resolve_app_path(settings_path)))
         translations_path = self.bootstrap_settings.value("app/translations_path", "")
         if not translations_path:
             language = self.i18n.current_language() if self.i18n else "uk"
             translations_path = str(get_translations_dir() / f"app_{language}.ts")
-        self.translations_path.setText(translations_path)
+        self.translations_path.setText(str(resolve_app_path(translations_path)))
 
     def _change_database_path(self) -> None:
         current = self.bootstrap_settings.value("app/db_path", "")
-        start_dir = current or str(self.controller.db.db_path)
+        start_dir = str(resolve_app_path(current)) if current else str(self.controller.db.db_path)
         path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Select database file"),
@@ -2632,7 +2784,7 @@ class AdminDialog(QDialog):
         )
         if not path:
             return
-        self.bootstrap_settings.setValue("app/db_path", path)
+        self.bootstrap_settings.setValue("app/db_path", make_relative_to_app(path))
         self.bootstrap_settings.sync()
         self.database_path.setText(path)
         QMessageBox.information(
@@ -2643,7 +2795,7 @@ class AdminDialog(QDialog):
 
     def _change_ui_settings_path(self) -> None:
         current = self.bootstrap_settings.value("app/ui_settings_path", "")
-        start_dir = current or str(get_settings_dir() / "user_settings.ini")
+        start_dir = str(resolve_app_path(current)) if current else str(get_settings_dir() / "user_settings.ini")
         path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Select UI settings file"),
@@ -2652,7 +2804,7 @@ class AdminDialog(QDialog):
         )
         if not path:
             return
-        self.bootstrap_settings.setValue("app/ui_settings_path", path)
+        self.bootstrap_settings.setValue("app/ui_settings_path", make_relative_to_app(path))
         self.bootstrap_settings.sync()
         self.ui_settings_path.setText(path)
         QMessageBox.information(
@@ -2663,7 +2815,7 @@ class AdminDialog(QDialog):
 
     def _change_translations_path(self) -> None:
         current = self.bootstrap_settings.value("app/translations_path", "")
-        start_dir = current or str(get_translations_dir() / "app_uk.ts")
+        start_dir = str(resolve_app_path(current)) if current else str(get_translations_dir() / "app_uk.ts")
         path, _ = QFileDialog.getOpenFileName(
             self,
             self.tr("Select translations file"),
@@ -2672,7 +2824,7 @@ class AdminDialog(QDialog):
         )
         if not path:
             return
-        self.bootstrap_settings.setValue("app/translations_path", path)
+        self.bootstrap_settings.setValue("app/translations_path", make_relative_to_app(path))
         self.bootstrap_settings.sync()
         self.translations_path.setText(path)
         QMessageBox.information(
@@ -2784,6 +2936,1011 @@ class AdminDialog(QDialog):
             self.tr("Restart required"),
             self.tr("Database repaired. Restart the app to apply changes."),
         )
+
+    def _start_sync(self) -> None:
+        sync_root = get_app_base_dir() / "sync"
+        if not sync_root.exists():
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Sync folder not found."))
+            return
+        db_candidates = list((sync_root / "database").glob("*.db"))
+        if not db_candidates:
+            db_candidates = list(sync_root.glob("*.db"))
+        if not db_candidates:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Sync database not found."))
+            return
+        db_path = None
+        if len(db_candidates) == 1:
+            db_path = db_candidates[0]
+        else:
+            items = [str(p) for p in sorted(db_candidates)]
+            choice, ok = QInputDialog.getItem(
+                self,
+                self.tr("Select database"),
+                self.tr("Select database"),
+                items,
+                0,
+                False,
+            )
+            if not ok or not choice:
+                return
+            db_path = Path(choice)
+
+        self.sync_source_db = Database(str(db_path))
+        self.sync_source_admin = AdminController(self.sync_source_db)
+        self.sync_source_main = MainController(self.sync_source_db)
+        self.sync_source_files_root = self._resolve_sync_files_root(sync_root)
+        self.sync_target_main = MainController(self.controller.db)
+
+        self.sync_source_programs = []
+        for program in self.sync_source_main.get_programs():
+            program.disciplines = self.sync_source_main.get_program_structure(program.id)
+            self.sync_source_programs.append(program)
+
+        self._sync_compare_index = self._build_sync_compare_index(self.sync_target_main)
+        self._populate_sync_program_selectors()
+        self._on_sync_program_mapping_changed()
+        self._populate_sync_import_programs()
+        self.sync_mode_panel.setVisible(True)
+        self._on_sync_mode_changed()
+        self.sync_status.setText(self.tr("Sync source loaded. Select mode."))
+
+    def _populate_sync_import_programs(self) -> None:
+        if not hasattr(self, "sync_import_program"):
+            return
+        self.sync_import_program.clear()
+        if not hasattr(self, "sync_source_programs"):
+            return
+        for program in self.sync_source_programs:
+            self.sync_import_program.addItem(program.name, program)
+        if self.sync_import_program.count() > 0:
+            self.sync_import_program.setCurrentIndex(0)
+
+    def _populate_sync_program_selectors(self) -> None:
+        if not hasattr(self, "sync_target_program_combo"):
+            return
+        self.sync_target_program_combo.clear()
+        for program in self.controller.get_programs():
+            self.sync_target_program_combo.addItem(program.name, program)
+        if self.sync_target_program_combo.count() > 0:
+            self.sync_target_program_combo.setCurrentIndex(0)
+        self.sync_source_program_combo.clear()
+        if hasattr(self, "sync_source_programs"):
+            for program in self.sync_source_programs:
+                self.sync_source_program_combo.addItem(program.name, program)
+        if self.sync_source_program_combo.count() > 0:
+            self.sync_source_program_combo.setCurrentIndex(0)
+
+    def _on_sync_program_mapping_changed(self) -> None:
+        if not hasattr(self, "sync_source_main"):
+            return
+        target_program = self._get_selected_sync_target_program()
+        source_program = self._get_selected_sync_source_program()
+        if target_program:
+            compare = self._build_sync_compare_index_for_program(self.sync_target_main, target_program)
+        else:
+            compare = self._build_sync_compare_index(self.sync_target_main)
+        self._populate_sync_tree(
+            self.sync_left_tree,
+            self.sync_target_main,
+            checkable=True,
+            check_children=True,
+            programs=[target_program] if target_program else None,
+        )
+        self._populate_sync_tree(
+            self.sync_right_tree,
+            self.sync_source_main,
+            checkable=True,
+            compare_index=compare,
+            hide_identical=self.sync_hide_identical.isChecked(),
+            programs=[source_program] if source_program else None,
+        )
+
+    def _get_selected_sync_source_program(self):
+        if hasattr(self, "sync_source_program_combo"):
+            index = self.sync_source_program_combo.currentIndex()
+            if index >= 0:
+                return self.sync_source_program_combo.itemData(index)
+            return None
+        return None
+
+    def _on_sync_mode_changed(self) -> None:
+        if not hasattr(self, "sync_mode_import"):
+            return
+        import_mode = self.sync_mode_import.isChecked()
+        self.sync_import_panel.setVisible(import_mode)
+        self.sync_panel.setVisible(not import_mode)
+
+    def _import_selected_program(self) -> None:
+        if not hasattr(self, "sync_source_main"):
+            return
+        index = self.sync_import_program.currentIndex()
+        if index < 0:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program to import."))
+            return
+        program = self.sync_import_program.itemData(index)
+        if program is None:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program to import."))
+            return
+        self._import_full_program(program)
+        self._refresh_structure_tree()
+        self.sync_status.setText(self.tr("Program imported."))
+
+    def _unique_program_name(self, name: str) -> str:
+        existing = {p.name for p in self.controller.get_programs()}
+        if name not in existing:
+            return name
+        index = 1
+        while True:
+            suffix = f"_{index:02d}"
+            candidate = f"{name}{suffix}"
+            if candidate not in existing:
+                return candidate
+            index += 1
+
+    def _import_full_program(self, program: EducationalProgram) -> None:
+        target_name = self._unique_program_name(program.name)
+        target_program = self.controller.add_program(
+            EducationalProgram(
+                name=target_name,
+                description=program.description,
+                level=program.level,
+                year=program.year,
+                duration_hours=program.duration_hours,
+            )
+        )
+        target_program_id = target_program.id
+        target_program_discipline = self._ensure_program_discipline(target_program_id)
+        self._sync_materials_for_entity(
+            "program",
+            program.id,
+            "program",
+            target_program_id,
+            target_program_id,
+            target_program_discipline,
+        )
+
+        disciplines = self.sync_source_main.get_program_structure(program.id)
+        for discipline in disciplines:
+            target_discipline = self.controller.add_discipline(
+                Discipline(
+                    name=discipline.name,
+                    description=discipline.description,
+                    order_index=discipline.order_index,
+                )
+            )
+            order_index = self.controller._get_next_order_index("program_disciplines", "program_id", target_program_id)
+            self.controller.add_discipline_to_program(target_program_id, target_discipline.id, order_index)
+            self._sync_materials_for_entity(
+                "discipline",
+                discipline.id,
+                "discipline",
+                target_discipline.id,
+                target_program_id,
+                target_discipline.id,
+            )
+            for topic in discipline.topics:
+                target_topic = self.controller.add_topic(
+                    Topic(
+                        title=topic.title,
+                        description=topic.description,
+                        order_index=topic.order_index,
+                    )
+                )
+                order_index = self.controller._get_next_order_index("discipline_topics", "discipline_id", target_discipline.id)
+                self.controller.add_topic_to_discipline(target_discipline.id, target_topic.id, order_index)
+                self._sync_materials_for_entity(
+                    "topic",
+                    topic.id,
+                    "topic",
+                    target_topic.id,
+                    target_program_id,
+                    target_discipline.id,
+                )
+                for lesson in topic.lessons:
+                    lesson_type_id = None
+                    if lesson.lesson_type_name:
+                        lesson_types = {t.name: t for t in self.controller.get_lesson_types()}
+                        lesson_type = lesson_types.get(lesson.lesson_type_name)
+                        if not lesson_type:
+                            lesson_type = self.controller.add_lesson_type(LessonType(name=lesson.lesson_type_name))
+                        lesson_type_id = lesson_type.id
+                    target_lesson = self.controller.add_lesson(
+                        Lesson(
+                            title=lesson.title,
+                            description=lesson.description,
+                            duration_hours=lesson.duration_hours,
+                            lesson_type_id=lesson_type_id,
+                            classroom_hours=lesson.classroom_hours,
+                            self_study_hours=lesson.self_study_hours,
+                            order_index=lesson.order_index,
+                        )
+                    )
+                    order_index = self.controller._get_next_order_index("topic_lessons", "topic_id", target_topic.id)
+                    self.controller.add_lesson_to_topic(target_topic.id, target_lesson.id, order_index)
+                    self._sync_materials_for_entity(
+                        "lesson",
+                        lesson.id,
+                        "lesson",
+                        target_lesson.id,
+                        target_program_id,
+                        target_discipline.id,
+                    )
+                    for question in lesson.questions:
+                        target_question = self.controller.add_question(
+                            Question(
+                                content=question.content,
+                                answer=question.answer,
+                                order_index=question.order_index,
+                            )
+                        )
+                        order_index = self.controller._get_next_order_index(
+                            "lesson_questions",
+                            "lesson_id",
+                            target_lesson.id,
+                        )
+                        self.controller.add_question_to_lesson(target_lesson.id, target_question.id, order_index)
+
+    def _resolve_sync_files_root(self, sync_root: Path) -> Path:
+        settings_path = sync_root / "settings" / "storage.json"
+        if settings_path.exists():
+            try:
+                data = json.loads(settings_path.read_text(encoding="utf-8"))
+                root = data.get("materials_root")
+                if root:
+                    root_path = Path(root)
+                    if root_path.exists():
+                        return root_path
+            except Exception:
+                pass
+        files_root = sync_root / "files"
+        return files_root
+
+    def _populate_sync_tree(
+        self,
+        tree: QTreeWidget,
+        controller,
+        checkable: bool,
+        check_children: bool = True,
+        compare_index: dict | None = None,
+        hide_identical: bool = False,
+        programs: list | None = None,
+    ) -> None:  # noqa: ANN001
+        tree.clear()
+        program_list = programs if programs is not None else controller.get_programs()
+        for program in program_list:
+            if program is None:
+                continue
+            target_program = None
+            if compare_index:
+                target_program = compare_index["programs"].get(program.name) or compare_index.get("selected_program")
+                if hide_identical and target_program:
+                    if self._is_identical_entity(
+                        "program",
+                        program,
+                        target_program,
+                        controller,
+                        self.sync_source_files_root,
+                        self.sync_target_main,
+                        self.file_storage.files_root,
+                    ):
+                        continue
+            program_item = QTreeWidgetItem([program.name])
+            program_item.setData(0, Qt.UserRole, ("program", program))
+            if checkable:
+                program_item.setFlags(program_item.flags() | Qt.ItemIsUserCheckable)
+                program_item.setCheckState(0, Qt.Unchecked)
+                if compare_index:
+                    missing = self._materials_diff("program", program.id, target_program.id if target_program else None)
+                    if missing:
+                        self._mark_materials_diff(program_item, missing)
+            disciplines = controller.get_program_structure(program.id)
+            for discipline in disciplines:
+                target_discipline = None
+                if compare_index and target_program:
+                    target_discipline = compare_index["disciplines"].get(target_program.id, {}).get(discipline.name)
+                    if hide_identical and target_discipline:
+                        if self._is_identical_entity(
+                            "discipline",
+                            discipline,
+                            target_discipline,
+                            controller,
+                            self.sync_source_files_root,
+                            self.sync_target_main,
+                            self.file_storage.files_root,
+                        ):
+                            continue
+                discipline_item = QTreeWidgetItem([discipline.name])
+                discipline_item.setData(0, Qt.UserRole, ("discipline", discipline))
+                if checkable and check_children:
+                    discipline_item.setFlags(discipline_item.flags() | Qt.ItemIsUserCheckable)
+                    discipline_item.setCheckState(0, Qt.Unchecked)
+                    if compare_index:
+                        missing = self._materials_diff(
+                            "discipline",
+                            discipline.id,
+                            target_discipline.id if target_discipline else None,
+                        )
+                        if missing:
+                            self._mark_materials_diff(discipline_item, missing)
+                for topic in discipline.topics:
+                    target_topic = None
+                    if compare_index and target_discipline:
+                        target_topic = compare_index["topics"].get(target_discipline.id, {}).get(topic.title)
+                        if hide_identical and target_topic:
+                            if self._is_identical_entity(
+                                "topic",
+                                topic,
+                                target_topic,
+                                controller,
+                                self.sync_source_files_root,
+                                self.sync_target_main,
+                                self.file_storage.files_root,
+                            ):
+                                continue
+                    topic_item = QTreeWidgetItem([topic.title])
+                    topic_item.setData(0, Qt.UserRole, ("topic", topic))
+                    if checkable and check_children:
+                        topic_item.setFlags(topic_item.flags() | Qt.ItemIsUserCheckable)
+                        topic_item.setCheckState(0, Qt.Unchecked)
+                        if compare_index:
+                            missing = self._materials_diff(
+                                "topic",
+                                topic.id,
+                                target_topic.id if target_topic else None,
+                            )
+                            if missing:
+                                self._mark_materials_diff(topic_item, missing)
+                    for lesson in topic.lessons:
+                        target_lesson = None
+                        target_question_contents = None
+                        if compare_index and target_topic:
+                            target_lesson = compare_index["lessons"].get(target_topic.id, {}).get(lesson.title)
+                            if target_lesson:
+                                target_question_contents = {
+                                    q.content
+                                    for q in self.sync_target_main.lesson_repo.get_lesson_questions(
+                                        target_lesson.id
+                                    )
+                                }
+                            if hide_identical and target_lesson:
+                                if self._is_identical_entity(
+                                    "lesson",
+                                    lesson,
+                                    target_lesson,
+                                    controller,
+                                    self.sync_source_files_root,
+                                    self.sync_target_main,
+                                    self.file_storage.files_root,
+                                ):
+                                    continue
+                        lesson_item = QTreeWidgetItem([lesson.title])
+                        lesson_item.setData(0, Qt.UserRole, ("lesson", lesson))
+                        if checkable and check_children:
+                            lesson_item.setFlags(lesson_item.flags() | Qt.ItemIsUserCheckable)
+                            lesson_item.setCheckState(0, Qt.Unchecked)
+                            if compare_index:
+                                missing = self._materials_diff(
+                                    "lesson",
+                                    lesson.id,
+                                    target_lesson.id if target_lesson else None,
+                                )
+                                if missing:
+                                    self._mark_materials_diff(lesson_item, missing)
+                        for question in lesson.questions:
+                            if hide_identical and target_question_contents is not None:
+                                if question.content in target_question_contents:
+                                    continue
+                            question_item = QTreeWidgetItem([question.content])
+                            question_item.setData(0, Qt.UserRole, ("question", question))
+                            if checkable and check_children:
+                                question_item.setFlags(question_item.flags() | Qt.ItemIsUserCheckable)
+                                question_item.setCheckState(0, Qt.Unchecked)
+                            lesson_item.addChild(question_item)
+                        self._append_material_children(controller, "lesson", lesson.id, lesson_item)
+                        topic_item.addChild(lesson_item)
+                    self._append_material_children(controller, "topic", topic.id, topic_item)
+                    discipline_item.addChild(topic_item)
+                self._append_material_children(controller, "discipline", discipline.id, discipline_item)
+                program_item.addChild(discipline_item)
+            tree.addTopLevelItem(program_item)
+            self._append_material_children(controller, "program", program.id, program_item)
+        tree.expandAll()
+
+    def _apply_sync(self) -> None:
+        if not hasattr(self, "sync_source_main"):
+            return
+        target_program = self._get_selected_sync_target_program()
+        if target_program is False:
+            return
+        type_flags = {
+            "program": self.sync_type_program.isChecked(),
+            "discipline": self.sync_type_discipline.isChecked(),
+            "topic": self.sync_type_topic.isChecked(),
+            "lesson": self.sync_type_lesson.isChecked(),
+            "question": self.sync_type_question.isChecked(),
+            "materials": self.sync_type_materials.isChecked(),
+        }
+        materials_only = type_flags["materials"] and not any(
+            type_flags[t] for t in ["program", "discipline", "topic", "lesson", "question"]
+        )
+
+        def is_checked(item: QTreeWidgetItem) -> bool:
+            return item.checkState(0) == Qt.Checked
+
+        def any_child_checked(item: QTreeWidgetItem) -> bool:
+            for i in range(item.childCount()):
+                child = item.child(i)
+                if is_checked(child) or any_child_checked(child):
+                    return True
+            return False
+
+        program_map = {}
+        discipline_map = {}
+        topic_map = {}
+        lesson_map = {}
+
+        target_programs = {p.name: p for p in self.controller.get_programs()}
+
+        def sync_program(item: QTreeWidgetItem, program):
+            selected = is_checked(item)
+            if not selected and not any_child_checked(item):
+                return
+            target = target_program or target_programs.get(program.name)
+            if target is None and (type_flags["program"] or materials_only):
+                target = self.controller.add_program(
+                    EducationalProgram(
+                        name=program.name,
+                        description=program.description,
+                        level=program.level,
+                        year=program.year,
+                        duration_hours=program.duration_hours,
+                    )
+                )
+                target_programs[target.name] = target
+            if target is None:
+                return
+            program_map[program.id] = target
+            if type_flags["materials"] and (selected or materials_only):
+                self._sync_materials_for_entity(
+                    "program",
+                    program.id,
+                    "program",
+                    target.id,
+                    target.id,
+                    self._ensure_program_discipline(target.id),
+                )
+            for i in range(item.childCount()):
+                child_item = item.child(i)
+                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                if child_type == "discipline":
+                    sync_discipline(child_item, child_obj, target, force_materials=materials_only and selected)
+
+        def sync_discipline(item: QTreeWidgetItem, discipline, target_program, force_materials: bool = False):
+            selected = is_checked(item)
+            if not selected and not any_child_checked(item) and not force_materials:
+                return
+            target_discipline = self._find_or_create_discipline(
+                discipline,
+                target_program,
+                create=type_flags["discipline"] or materials_only,
+            )
+            if not target_discipline:
+                return
+            discipline_map[discipline.id] = target_discipline
+            if type_flags["materials"] and (selected or materials_only or force_materials):
+                self._sync_materials_for_entity(
+                    "discipline",
+                    discipline.id,
+                    "discipline",
+                    target_discipline.id,
+                    target_program.id,
+                    target_discipline.id,
+                )
+            for i in range(item.childCount()):
+                child_item = item.child(i)
+                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                if child_type == "topic":
+                    sync_topic(
+                        child_item,
+                        child_obj,
+                        target_program,
+                        target_discipline,
+                        force_materials=force_materials,
+                    )
+
+        def sync_topic(
+            item: QTreeWidgetItem,
+            topic,
+            target_program,
+            target_discipline,
+            force_materials: bool = False,
+        ):
+            selected = is_checked(item)
+            if not selected and not any_child_checked(item) and not force_materials:
+                return
+            target_topic = self._find_or_create_topic(
+                topic,
+                target_discipline,
+                create=type_flags["topic"] or materials_only,
+            )
+            if not target_topic:
+                return
+            topic_map[topic.id] = target_topic
+            if type_flags["materials"] and (selected or materials_only or force_materials):
+                self._sync_materials_for_entity(
+                    "topic",
+                    topic.id,
+                    "topic",
+                    target_topic.id,
+                    target_program.id,
+                    target_discipline.id,
+                )
+            for i in range(item.childCount()):
+                child_item = item.child(i)
+                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                if child_type == "lesson":
+                    sync_lesson(
+                        child_item,
+                        child_obj,
+                        target_program,
+                        target_discipline,
+                        target_topic,
+                        force_materials=force_materials,
+                    )
+
+        def sync_lesson(
+            item: QTreeWidgetItem,
+            lesson,
+            target_program,
+            target_discipline,
+            target_topic,
+            force_materials: bool = False,
+        ):
+            selected = is_checked(item)
+            if not selected and not any_child_checked(item) and not force_materials:
+                return
+            target_lesson = self._find_or_create_lesson(
+                lesson,
+                target_topic,
+                create=type_flags["lesson"] or materials_only,
+            )
+            if not target_lesson:
+                return
+            lesson_map[lesson.id] = target_lesson
+            if type_flags["materials"] and (selected or materials_only or force_materials):
+                self._sync_materials_for_entity(
+                    "lesson",
+                    lesson.id,
+                    "lesson",
+                    target_lesson.id,
+                    target_program.id,
+                    target_discipline.id,
+                )
+            for i in range(item.childCount()):
+                child_item = item.child(i)
+                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                if child_type == "question":
+                    sync_question(child_item, child_obj, target_lesson, target_program, target_discipline)
+
+        def sync_question(item: QTreeWidgetItem, question, target_lesson, target_program, target_discipline):
+            selected = is_checked(item)
+            if not selected and not any_child_checked(item):
+                return
+            target_question = self._find_or_create_question(
+                question,
+                target_lesson,
+                create=type_flags["question"] or materials_only,
+            )
+
+        for i in range(self.sync_right_tree.topLevelItemCount()):
+            item = self.sync_right_tree.topLevelItem(i)
+            entity_type, entity = item.data(0, Qt.UserRole)
+            if entity_type == "program":
+                sync_program(item, entity)
+
+        self._refresh_structure_tree()
+        self.sync_status.setText(self.tr("Synchronization completed."))
+
+    def _get_selected_sync_target_program(self):
+        if hasattr(self, "sync_target_program_combo"):
+            index = self.sync_target_program_combo.currentIndex()
+            if index >= 0:
+                return self.sync_target_program_combo.itemData(index)
+            return None
+        if not hasattr(self, "sync_left_tree"):
+            return None
+        selected = []
+        for i in range(self.sync_left_tree.topLevelItemCount()):
+            item = self.sync_left_tree.topLevelItem(i)
+            if item.checkState(0) == Qt.Checked:
+                entity_type, entity = item.data(0, Qt.UserRole)
+                if entity_type == "program":
+                    selected.append(entity)
+        if len(selected) > 1:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select only one target program."))
+            return False
+        return selected[0] if selected else None
+
+    def _on_sync_target_changed(self, item: QTreeWidgetItem) -> None:
+        if item is None:
+            return
+        if getattr(self, "_sync_updating_checks", False):
+            return
+        self._sync_updating_checks = True
+        try:
+            state = item.checkState(0)
+            self._set_check_state_recursive(item, state)
+        finally:
+            self._sync_updating_checks = False
+
+    def _on_sync_hide_identical_changed(self, _state: int) -> None:
+        if not hasattr(self, "sync_source_main"):
+            return
+        self._on_sync_program_mapping_changed()
+
+    def _on_sync_source_changed(self, item: QTreeWidgetItem) -> None:
+        if item is None:
+            return
+        if getattr(self, "_sync_updating_checks", False):
+            return
+        self._sync_updating_checks = True
+        try:
+            state = item.checkState(0)
+            self._set_check_state_recursive(item, state)
+        finally:
+            self._sync_updating_checks = False
+
+    def _set_check_state_recursive(self, item: QTreeWidgetItem, state: Qt.CheckState) -> None:
+        for i in range(item.childCount()):
+            child = item.child(i)
+            child.setCheckState(0, state)
+            self._set_check_state_recursive(child, state)
+
+    def _is_identical_entity(
+        self,
+        entity_type: str,
+        source_entity,
+        target_entity,
+        source_controller,
+        source_files_root: Path,
+        target_controller,
+        target_files_root: Path,
+    ) -> bool:  # noqa: ANN001
+        source_sig = self._entity_signature(
+            source_controller, entity_type, source_entity, source_files_root, {}
+        )
+        target_sig = self._entity_signature(
+            target_controller, entity_type, target_entity, target_files_root, {}
+        )
+        return source_sig == target_sig
+
+    def _entity_signature(
+        self,
+        controller,
+        entity_type: str,
+        entity,
+        files_root: Path,
+        cache: dict,
+    ) -> tuple:  # noqa: ANN001
+        cache_key = (entity_type, getattr(entity, "id", None), str(files_root))
+        if cache_key in cache:
+            return cache[cache_key]
+        if entity_type == "lesson":
+            questions = controller.lesson_repo.get_lesson_questions(entity.id)
+            q_sig = tuple(sorted(q.content for q in questions))
+            m_sig = tuple(self._materials_signature(controller, "lesson", entity.id, files_root))
+            sig = ("lesson", q_sig, m_sig)
+        elif entity_type == "topic":
+            lessons = controller.topic_repo.get_topic_lessons(entity.id)
+            l_sig = tuple(
+                sorted(
+                    (
+                        lesson.title,
+                        self._entity_signature(controller, "lesson", lesson, files_root, cache),
+                    )
+                    for lesson in lessons
+                )
+            )
+            m_sig = tuple(self._materials_signature(controller, "topic", entity.id, files_root))
+            sig = ("topic", l_sig, m_sig)
+        elif entity_type == "discipline":
+            topics = controller.discipline_repo.get_discipline_topics(entity.id)
+            t_sig = tuple(
+                sorted(
+                    (
+                        topic.title,
+                        self._entity_signature(controller, "topic", topic, files_root, cache),
+                    )
+                    for topic in topics
+                )
+            )
+            m_sig = tuple(self._materials_signature(controller, "discipline", entity.id, files_root))
+            sig = ("discipline", t_sig, m_sig)
+        elif entity_type == "program":
+            disciplines = controller.program_repo.get_program_disciplines(entity.id)
+            d_sig = tuple(
+                sorted(
+                    (
+                        disc.name,
+                        self._entity_signature(controller, "discipline", disc, files_root, cache),
+                    )
+                    for disc in disciplines
+                )
+            )
+            m_sig = tuple(self._materials_signature(controller, "program", entity.id, files_root))
+            sig = ("program", d_sig, m_sig)
+        else:
+            sig = (entity_type, getattr(entity, "id", None))
+        cache[cache_key] = sig
+        return sig
+
+    def _materials_signature(
+        self,
+        controller,
+        entity_type: str,
+        entity_id: int,
+        files_root: Path,
+    ) -> list[tuple]:  # noqa: ANN001
+        materials = controller.get_materials_for_entity(entity_type, entity_id)
+        sig = []
+        for material in materials:
+            crc = self._material_crc(material, files_root)
+            sig.append((material.title, material.material_type, crc))
+        return sorted(sig)
+
+    def _material_crc(self, material: MethodicalMaterial, files_root: Path) -> int:
+        path = None
+        if material.relative_path:
+            path = files_root / material.relative_path
+        elif material.file_path:
+            path = Path(material.file_path)
+            if not path.is_absolute():
+                path = files_root / material.file_path
+        if not path or not path.exists():
+            return 0
+        checksum = 0
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                checksum = zlib.crc32(chunk, checksum)
+        return checksum & 0xFFFFFFFF
+
+    def _build_sync_compare_index_for_program(self, controller, program: EducationalProgram) -> dict:  # noqa: ANN001
+        programs = {program.name: program}
+        disciplines = {program.id: {d.name: d for d in controller.get_program_disciplines(program.id)}}
+        topics = {}
+        lessons = {}
+        for discipline in disciplines[program.id].values():
+            topics[discipline.id] = {
+                t.title: t for t in controller.discipline_repo.get_discipline_topics(discipline.id)
+            }
+            for topic in topics[discipline.id].values():
+                lessons[topic.id] = {l.title: l for l in controller.topic_repo.get_topic_lessons(topic.id)}
+        return {
+            "programs": programs,
+            "selected_program": program,
+            "disciplines": disciplines,
+            "topics": topics,
+            "lessons": lessons,
+        }
+
+    def _build_sync_compare_index(self, controller) -> dict:  # noqa: ANN001
+        programs = {p.name: p for p in controller.get_programs()}
+        disciplines = {}
+        topics = {}
+        lessons = {}
+        for program in programs.values():
+            disciplines[program.id] = {d.name: d for d in controller.get_program_disciplines(program.id)}
+            for discipline in disciplines[program.id].values():
+                topics[discipline.id] = {
+                    t.title: t for t in controller.discipline_repo.get_discipline_topics(discipline.id)
+                }
+                for topic in topics[discipline.id].values():
+                    lessons[topic.id] = {l.title: l for l in controller.topic_repo.get_topic_lessons(topic.id)}
+        return {
+            "programs": programs,
+            "disciplines": disciplines,
+            "topics": topics,
+            "lessons": lessons,
+        }
+
+    def _materials_diff(self, entity_type: str, source_id: int, target_id: int | None) -> list[str]:
+        if entity_type not in {"program", "discipline", "topic", "lesson"}:
+            return []
+        source_materials = self.sync_source_admin.get_materials_for_entity(entity_type, source_id)
+        if not source_materials:
+            return []
+        if target_id is None:
+            return [m.title for m in source_materials if m.title]
+        target_materials = self.controller.get_materials_for_entity(entity_type, target_id)
+        target_titles = {m.title for m in target_materials}
+        return [m.title for m in source_materials if m.title not in target_titles]
+
+    def _mark_materials_diff(self, item: QTreeWidgetItem, _missing: list[str]) -> None:
+        item.setBackground(0, QBrush(QColor(255, 242, 204)))
+        item.setForeground(0, QBrush(QColor(0, 0, 0)))
+
+    def _append_material_children(
+        self,
+        controller,
+        entity_type: str,
+        entity_id: int,
+        parent_item: QTreeWidgetItem,
+    ) -> None:  # noqa: ANN001
+        if not hasattr(controller, "get_materials_for_entity"):
+            return
+        materials = controller.get_materials_for_entity(entity_type, entity_id)
+        if not materials:
+            return
+        header = QTreeWidgetItem([self.tr("Materials")])
+        header.setForeground(0, QBrush(QColor(0, 128, 0)))
+        header.setBackground(0, QBrush(QColor(226, 239, 218)))
+        header.setFlags(header.flags() & ~Qt.ItemIsUserCheckable)
+        for material in materials:
+            title = material.title or ""
+            label = f"• {title}"
+            teachers = ", ".join(t.full_name for t in material.teachers) if material.teachers else ""
+            if teachers:
+                label += f" | {self.tr('Teachers')}: {teachers}"
+            item = QTreeWidgetItem([label])
+            item.setForeground(0, QBrush(QColor(0, 128, 0)))
+            item.setBackground(0, QBrush(QColor(240, 248, 235)))
+            item.setFlags(item.flags() & ~Qt.ItemIsUserCheckable)
+            header.addChild(item)
+        parent_item.addChild(header)
+
+    def _find_or_create_discipline(self, discipline: Discipline, program: EducationalProgram, create: bool) -> Discipline:
+        existing = {d.name: d for d in self.controller.get_program_disciplines(program.id)}
+        if discipline.name in existing:
+            return existing[discipline.name]
+        if not create:
+            return None
+        all_disciplines = {d.name: d for d in self.controller.get_disciplines()}
+        target = all_disciplines.get(discipline.name)
+        if target is None:
+            target = self.controller.add_discipline(
+                Discipline(
+                    name=discipline.name,
+                    description=discipline.description,
+                    order_index=discipline.order_index,
+                )
+            )
+        order_index = self.controller._get_next_order_index("program_disciplines", "program_id", program.id)
+        self.controller.add_discipline_to_program(program.id, target.id, order_index)
+        return target
+
+    def _find_or_create_topic(self, topic: Topic, discipline: Discipline, create: bool) -> Topic:
+        existing = {t.title: t for t in self.controller.get_discipline_topics(discipline.id)}
+        if topic.title in existing:
+            return existing[topic.title]
+        if not create:
+            return None
+        target = self.controller.add_topic(
+            Topic(
+                title=topic.title,
+                description=topic.description,
+                order_index=topic.order_index,
+            )
+        )
+        order_index = self.controller._get_next_order_index("discipline_topics", "discipline_id", discipline.id)
+        self.controller.add_topic_to_discipline(discipline.id, target.id, order_index)
+        return target
+
+    def _find_or_create_lesson(self, lesson: Lesson, topic: Topic, create: bool) -> Lesson:
+        existing = {l.title: l for l in self.controller.get_topic_lessons(topic.id)}
+        if lesson.title in existing:
+            return existing[lesson.title]
+        if not create:
+            return None
+        lesson_type_id = None
+        if lesson.lesson_type_name:
+            lesson_types = {t.name: t for t in self.controller.get_lesson_types()}
+            lesson_type = lesson_types.get(lesson.lesson_type_name)
+            if lesson_type:
+                lesson_type_id = lesson_type.id
+        target = self.controller.add_lesson(
+            Lesson(
+                title=lesson.title,
+                description=lesson.description,
+                duration_hours=lesson.duration_hours,
+                lesson_type_id=lesson_type_id,
+                classroom_hours=lesson.classroom_hours,
+                self_study_hours=lesson.self_study_hours,
+                order_index=lesson.order_index,
+            )
+        )
+        order_index = self.controller._get_next_order_index("topic_lessons", "topic_id", topic.id)
+        self.controller.add_lesson_to_topic(topic.id, target.id, order_index)
+        return target
+
+    def _find_or_create_question(self, question: Question, lesson: Lesson, create: bool) -> Question:
+        existing = {q.content: q for q in self.controller.get_lesson_questions(lesson.id)}
+        if question.content in existing:
+            return existing[question.content]
+        if not create:
+            return None
+        target = self.controller.add_question(
+            Question(
+                content=question.content,
+                answer=question.answer,
+                order_index=question.order_index,
+            )
+        )
+        order_index = self.controller._get_next_order_index("lesson_questions", "lesson_id", lesson.id)
+        self.controller.add_question_to_lesson(lesson.id, target.id, order_index)
+        return target
+
+    def _ensure_program_discipline(self, program_id: int) -> int:
+        disciplines = self.controller.get_program_disciplines(program_id)
+        if disciplines:
+            return disciplines[0].id
+        program = self.controller.program_repo.get_by_id(program_id)
+        base = program.name if program else str(program_id)
+        name = f"{self.tr('Discipline for')} {base}"
+        discipline = self.controller.add_discipline(Discipline(name=name))
+        order_index = self.controller._get_next_order_index("program_disciplines", "program_id", program_id)
+        self.controller.add_discipline_to_program(program_id, discipline.id, order_index)
+        return discipline.id
+
+    def _sync_materials_for_entity(
+        self,
+        source_entity_type: str,
+        source_entity_id: int,
+        target_entity_type: str,
+        target_entity_id: int,
+        target_program_id: int,
+        target_discipline_id: int,
+    ) -> None:
+        if source_entity_type not in {"program", "discipline", "topic", "lesson"}:
+            return
+        materials = self.sync_source_admin.get_materials_for_entity(source_entity_type, source_entity_id)
+        existing_titles = {
+            m.title
+            for m in self.controller.get_materials_for_entity(target_entity_type, target_entity_id)
+        }
+        material_types = {t.name for t in self.controller.get_material_types()}
+        for material in materials:
+            if material.material_type and material.material_type not in material_types:
+                self.controller.add_material_type(MaterialType(name=material.material_type))
+                material_types.add(material.material_type)
+            title = self._unique_material_title(material.title, existing_titles)
+            existing_titles.add(title)
+            new_material = self.controller.add_material(
+                MethodicalMaterial(
+                    title=title,
+                    material_type=material.material_type,
+                    description=material.description,
+                )
+            )
+            self.controller.add_material_to_entity(new_material.id, target_entity_type, target_entity_id)
+            source_path = self._resolve_source_material_path(material)
+            if source_path and source_path.exists():
+                try:
+                    self.controller.attach_material_file_with_context(
+                        new_material, str(source_path), target_program_id, target_discipline_id
+                    )
+                except Exception:
+                    pass
+
+    def _resolve_source_material_path(self, material: MethodicalMaterial) -> Path | None:
+        if material.relative_path:
+            return self.sync_source_files_root / material.relative_path
+        if material.file_path:
+            path = Path(material.file_path)
+            if path.is_absolute():
+                return path
+            return self.sync_source_files_root / material.file_path
+        return None
+
+    def _unique_material_title(self, title: str, existing: set[str]) -> str:
+        if title not in existing:
+            return title
+        index = 1
+        while True:
+            suffix = f"_{index:02d}"
+            candidate = f"{title}{suffix}"
+            if candidate not in existing:
+                return candidate
+            index += 1
 
     def _export_user_settings(self) -> None:
         default_path = get_settings_dir() / "user_settings.ini"
@@ -3111,6 +4268,21 @@ class AdminDialog(QDialog):
         elif action == copy_action:
             self._copy_structure_selected()
 
+    def _show_about(self) -> None:
+        text = "\n".join(
+            [
+                self.tr(
+                    "Copyright on the program idea belongs to the Department of Military Leadership "
+                    "of the Military Academy, Odesa."
+                ),
+                self.tr("Developer: Lieutenant Heorhii FYLYPOVYCH."),
+                self.tr(
+                    "Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova."
+                ),
+            ]
+        )
+        QMessageBox.information(self, self.tr("About"), text)
+
     def _restart_application(self) -> None:
         QProcess.startDetached(sys.executable, sys.argv)
         QApplication.quit()
@@ -3123,14 +4295,31 @@ class AdminDialog(QDialog):
         for child in self.findChildren(QMenuBar):
             child.clear()
             app_menu = child.addMenu(self.tr("Application"))
+            action_about = app_menu.addAction(self.tr("About"))
             action_restart = app_menu.addAction(self.tr("Restart application"))
             action_exit = app_menu.addAction(self.tr("Exit application"))
+            action_about.triggered.connect(self._show_about)
             action_restart.triggered.connect(self._restart_application)
             action_exit.triggered.connect(self._close_application)
         self.tabs.setTabText(0, self.tr("Structure"))
         self.tabs.setTabText(1, self.tr("Materials"))
         self.tabs.setTabText(2, self.tr("Teachers"))
-        self.tabs.setTabText(3, self.tr("Settings"))
+        self.tabs.setTabText(3, self.tr("Synchronization"))
+        self.tabs.setTabText(4, self.tr("Settings"))
+        if hasattr(self, "sync_target_label"):
+            self.sync_target_label.setText(self.tr("Target program:"))
+        if hasattr(self, "sync_source_label"):
+            self.sync_source_label.setText(self.tr("Source program:"))
+        if hasattr(self, "sync_mode_label"):
+            self.sync_mode_label.setText(self.tr("Mode:"))
+        if hasattr(self, "sync_mode_import"):
+            self.sync_mode_import.setText(self.tr("Import program fully"))
+        if hasattr(self, "sync_mode_sync"):
+            self.sync_mode_sync.setText(self.tr("Synchronize with existing program"))
+        if hasattr(self, "sync_import_label"):
+            self.sync_import_label.setText(self.tr("Program to import:"))
+        if hasattr(self, "sync_import_apply"):
+            self.sync_import_apply.setText(self.tr("Import program"))
         if hasattr(self, "materials_group"):
             self.materials_group.setTitle(self.tr("Materials"))
         if hasattr(self, "lesson_types_group"):
@@ -3263,6 +4452,17 @@ class AdminDialog(QDialog):
         self.user_settings_export.setText(self.tr("Export user settings"))
         self.user_settings_import.setText(self.tr("Import user settings"))
         self.user_settings_save.setText(self.tr("Save user settings"))
+        if hasattr(self, "sync_start"):
+            self.sync_start.setText(self.tr("Start synchronization"))
+            self.sync_apply.setText(self.tr("Apply synchronization"))
+            self.sync_left_tree.setHeaderLabels([self.tr("Current structure")])
+            self.sync_right_tree.setHeaderLabels([self.tr("Source structure")])
+            self.sync_type_program.setText(self.tr("Program"))
+            self.sync_type_discipline.setText(self.tr("Discipline"))
+            self.sync_type_topic.setText(self.tr("Topic"))
+            self.sync_type_lesson.setText(self.tr("Lesson"))
+            self.sync_type_question.setText(self.tr("Question"))
+            self.sync_type_materials.setText(self.tr("Materials"))
 
 
 class _WrapItemDelegate(QStyledItemDelegate):

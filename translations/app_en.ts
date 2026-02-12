@@ -7,6 +7,44 @@
     <message><source>Search</source><translation>Search</translation></message>
     <message><source>Editor Mode</source><translation>Editor Mode</translation></message>
     <message><source>Application</source><translation>Application</translation></message>
+    <message><source>About</source><translation>About</translation></message>
+    <message><source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source><translation>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</translation></message>
+    <message><source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source><translation>Developer: Lieutenant Heorhii FYLYPOVYCH.</translation></message>
+    <message><source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source><translation>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</translation></message>
+    <message><source>Synchronization</source><translation>Synchronization</translation></message>
+    <message><source>Start synchronization</source><translation>Start synchronization</translation></message>
+    <message><source>Apply synchronization</source><translation>Apply synchronization</translation></message>
+    <message><source>Current structure</source><translation>Current structure</translation></message>
+    <message><source>Source structure</source><translation>Source structure</translation></message>
+    <message><source>Sync source loaded. Select items to import.</source><translation>Sync source loaded. Select items to import.</translation></message>
+    <message><source>Sync source loaded. Select mode.</source><translation>Sync source loaded. Select mode.</translation></message>
+    <message><source>Mode:</source><translation>Mode:</translation></message>
+    <message><source>Import program fully</source><translation>Import program fully</translation></message>
+    <message><source>Synchronize with existing program</source><translation>Synchronize with existing program</translation></message>
+    <message><source>Program to import:</source><translation>Program to import:</translation></message>
+    <message><source>Import program</source><translation>Import program</translation></message>
+    <message><source>Select a program to import.</source><translation>Select a program to import.</translation></message>
+    <message><source>Program imported.</source><translation>Program imported.</translation></message>
+    <message><source>Target program:</source><translation>Target program:</translation></message>
+    <message><source>Source program:</source><translation>Source program:</translation></message>
+    <message><source>Target program:</source><translation>Target program:</translation></message>
+    <message><source>Source program:</source><translation>Source program:</translation></message>
+    <message><source>Sync source loaded. Select mode.</source><translation>Sync source loaded. Select mode.</translation></message>
+    <message><source>Mode:</source><translation>Mode:</translation></message>
+    <message><source>Import program fully</source><translation>Import program fully</translation></message>
+    <message><source>Synchronize with existing program</source><translation>Synchronize with existing program</translation></message>
+    <message><source>Program to import:</source><translation>Program to import:</translation></message>
+    <message><source>Import program</source><translation>Import program</translation></message>
+    <message><source>Select a program to import.</source><translation>Select a program to import.</translation></message>
+    <message><source>Program imported.</source><translation>Program imported.</translation></message>
+    <message><source>Synchronization completed.</source><translation>Synchronization completed.</translation></message>
+    <message><source>Sync folder not found.</source><translation>Sync folder not found.</translation></message>
+    <message><source>Sync database not found.</source><translation>Sync database not found.</translation></message>
+    <message><source>Select database</source><translation>Select database</translation></message>
+    <message><source>Discipline for</source><translation>Discipline for</translation></message>
+    <message><source>Select only one target program.</source><translation>Select only one target program.</translation></message>
+    <message><source>Hide identical elements</source><translation>Hide identical elements</translation></message>
+    <message><source>Materials differ</source><translation>Materials differ</translation></message>
     <message><source>Restart application</source><translation>Restart application</translation></message>
     <message><source>Exit application</source><translation>Exit application</translation></message>
     <message><source>Admin Mode</source><translation>Admin Mode</translation></message>
@@ -50,6 +88,17 @@
     <message><source>attachment</source><translation>attachment</translation></message>
     <message><source>Structure</source><translation>Structure</translation></message>
     <message><source>Settings</source><translation>Settings</translation></message>
+    <message><source>Synchronization</source><translation>Synchronization</translation></message>
+    <message><source>Start synchronization</source><translation>Start synchronization</translation></message>
+    <message><source>Apply synchronization</source><translation>Apply synchronization</translation></message>
+    <message><source>Current structure</source><translation>Current structure</translation></message>
+    <message><source>Source structure</source><translation>Source structure</translation></message>
+    <message><source>Sync source loaded. Select items to import.</source><translation>Sync source loaded. Select items to import.</translation></message>
+    <message><source>Synchronization completed.</source><translation>Synchronization completed.</translation></message>
+    <message><source>Sync folder not found.</source><translation>Sync folder not found.</translation></message>
+    <message><source>Sync database not found.</source><translation>Sync database not found.</translation></message>
+    <message><source>Select database</source><translation>Select database</translation></message>
+    <message><source>Discipline for</source><translation>Discipline for</translation></message>
     <message><source>Lesson types</source><translation>Lesson types</translation></message>
     <message><source>Topic materials</source><translation>Topic materials</translation></message>
     <message><source>Lesson materials</source><translation>Lesson materials</translation></message>
@@ -113,6 +162,11 @@
   </context>
   <context>
     <name>AdminDialog</name>
+    <message><source>Application</source><translation>Application</translation></message>
+    <message><source>About</source><translation>About</translation></message>
+    <message><source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source><translation>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</translation></message>
+    <message><source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source><translation>Developer: Lieutenant Heorhii FYLYPOVYCH.</translation></message>
+    <message><source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source><translation>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</translation></message>
     <message><source>Admin Panel</source><translation>Admin Panel</translation></message>
     <message><source>Teachers</source><translation>Teachers</translation></message>
     <message><source>Programs</source><translation>Programs</translation></message>
@@ -192,7 +246,7 @@
     <message><source>guide</source><translation>guide</translation></message>
     <message><source>presentation</source><translation>presentation</translation></message>
     <message><source>attachment</source><translation>attachment</translation></message>
-      <message><source><- Remove</source><translation><- Remove</translation></message>
+    <message><source>&lt;- Remove</source><translation>&lt;- Remove</translation></message>
     <message><source>Add -></source><translation>Add -></translation></message>
     <message><source>Add discipline</source><translation>Add discipline</translation></message>
     <message><source>Add lesson</source><translation>Add lesson</translation></message>

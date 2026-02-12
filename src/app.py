@@ -7,6 +7,7 @@ from .controllers.main_controller import MainController
 from .ui.main_window import MainWindow
 from .services.demo_data import seed_demo_data
 from .services.i18n import I18nManager
+from .services.app_paths import resolve_app_path, make_relative_to_app
 from .services.file_storage import FileStorageManager
 
 
@@ -18,13 +19,19 @@ def main() -> int:
     bootstrap_settings = QSettings()
     settings_path = bootstrap_settings.value("app/ui_settings_path", "")
     if settings_path:
-        settings = QSettings(settings_path, QSettings.IniFormat)
+        resolved_settings = resolve_app_path(settings_path)
+        if str(resolved_settings) != str(settings_path):
+            bootstrap_settings.setValue("app/ui_settings_path", make_relative_to_app(resolved_settings))
+        settings = QSettings(str(resolved_settings), QSettings.IniFormat)
     else:
         settings = QSettings()
     i18n = I18nManager(settings)
     i18n.load_from_settings()
     db_path = bootstrap_settings.value("app/db_path", "")
-    database = Database(db_path or None)
+    resolved_db = resolve_app_path(db_path) if db_path else None
+    if db_path and resolved_db and str(resolved_db) != str(db_path):
+        bootstrap_settings.setValue("app/db_path", make_relative_to_app(resolved_db))
+    database = Database(str(resolved_db) if resolved_db and str(resolved_db) else None)
     FileStorageManager().migrate_legacy_materials(database)
     seed_demo_data(database)
     controller = MainController(database)
