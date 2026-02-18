@@ -638,7 +638,23 @@ class MainWindow(QMainWindow):
         self.content_tree.scrollToItem(item)
 
     def _on_open_admin(self) -> None:
-        dialog = AdminDialog(self.controller.db, self.i18n, self.settings, self)
+        from ..ui.dialogs import PasswordDialog
+        from ..controllers.admin_controller import AdminController
+
+        admin_controller = AdminController(self.controller.db)
+        while True:
+            dialog = PasswordDialog(
+                self,
+                title=self.tr("Admin Access"),
+                label=self.tr("Enter admin password:"),
+            )
+            if dialog.exec() != QDialog.Accepted:
+                return
+            if admin_controller.verify_password(dialog.get_password()):
+                break
+            QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid admin password."))
+
+        dialog = AdminDialog(self.controller.db, self.i18n, self.settings, self, require_auth=False)
         dialog.exec()
         # Always refresh after admin dialog closes to sync UI state.
         self._load_programs()

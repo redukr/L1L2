@@ -51,6 +51,7 @@ from ..models.entities import (
     Topic,
     Lesson,
     Question,
+    Teacher,
     MethodicalMaterial,
     MaterialType,
     LessonType,
@@ -87,7 +88,14 @@ from ..services.file_storage import FileStorageManager
 class AdminDialog(QDialog):
     """Admin dialog with CRUD and association management."""
 
-    def __init__(self, database: Database, i18n: I18nManager, settings: QSettings, parent=None):
+    def __init__(
+        self,
+        database: Database,
+        i18n: I18nManager,
+        settings: QSettings,
+        parent=None,
+        require_auth: bool = True,
+    ):
         super().__init__(parent)
         self.controller = AdminController(database)
         self.i18n = i18n
@@ -101,7 +109,7 @@ class AdminDialog(QDialog):
                 self.controller = AdminController(Database(str(resolved)))
         self.setWindowTitle(self.tr("Admin Panel"))
         self.resize(1200, 760)
-        if not self._authorize():
+        if require_auth and not self._authorize():
             self.reject()
             return
         self._build_ui()
@@ -2970,6 +2978,7 @@ class AdminDialog(QDialog):
         self.sync_source_main = MainController(self.sync_source_db)
         self.sync_source_files_root = self._resolve_sync_files_root(sync_root)
         self.sync_target_main = MainController(self.controller.db)
+        self._sync_teacher_cache = {t.full_name: t for t in self.controller.get_teachers() if t.full_name}
 
         self.sync_source_programs = []
         for program in self.sync_source_main.get_programs():
@@ -3024,6 +3033,8 @@ class AdminDialog(QDialog):
             self.sync_target_main,
             checkable=True,
             check_children=True,
+            compare_index=compare,
+            hide_identical=self.sync_hide_identical.isChecked(),
             programs=[target_program] if target_program else None,
         )
         self._populate_sync_tree(
@@ -3336,14 +3347,42 @@ class AdminDialog(QDialog):
                                 question_item.setFlags(question_item.flags() | Qt.ItemIsUserCheckable)
                                 question_item.setCheckState(0, Qt.Unchecked)
                             lesson_item.addChild(question_item)
-                        self._append_material_children(controller, "lesson", lesson.id, lesson_item)
+                        self._append_material_children(
+                            controller,
+                            "lesson",
+                            lesson.id,
+                            lesson_item,
+                            target_controller=self.sync_target_main if compare_index else None,
+                            target_entity_id=target_lesson.id if target_lesson else None,
+                        )
                         topic_item.addChild(lesson_item)
-                    self._append_material_children(controller, "topic", topic.id, topic_item)
+                    self._append_material_children(
+                        controller,
+                        "topic",
+                        topic.id,
+                        topic_item,
+                        target_controller=self.sync_target_main if compare_index else None,
+                        target_entity_id=target_topic.id if target_topic else None,
+                    )
                     discipline_item.addChild(topic_item)
-                self._append_material_children(controller, "discipline", discipline.id, discipline_item)
+                self._append_material_children(
+                    controller,
+                    "discipline",
+                    discipline.id,
+                    discipline_item,
+                    target_controller=self.sync_target_main if compare_index else None,
+                    target_entity_id=target_discipline.id if target_discipline else None,
+                )
                 program_item.addChild(discipline_item)
             tree.addTopLevelItem(program_item)
-            self._append_material_children(controller, "program", program.id, program_item)
+            self._append_material_children(
+                controller,
+                "program",
+                program.id,
+                program_item,
+                target_controller=self.sync_target_main if compare_index else None,
+                target_entity_id=target_program.id if target_program else None,
+            )
         tree.expandAll()
 
     def _apply_sync(self) -> None:
@@ -3373,6 +3412,12 @@ class AdminDialog(QDialog):
                 if is_checked(child) or any_child_checked(child):
                     return True
             return False
+
+        def get_item_payload(tree_item: QTreeWidgetItem):
+            data = tree_item.data(0, Qt.UserRole)
+            if not isinstance(data, tuple) or len(data) != 2:
+                return None, None
+            return data
 
         program_map = {}
         discipline_map = {}
@@ -3411,7 +3456,9 @@ class AdminDialog(QDialog):
                 )
             for i in range(item.childCount()):
                 child_item = item.child(i)
-                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                child_type, child_obj = get_item_payload(child_item)
+                if not child_type:
+                    continue
                 if child_type == "discipline":
                     sync_discipline(child_item, child_obj, target, force_materials=materials_only and selected)
 
@@ -3438,7 +3485,9 @@ class AdminDialog(QDialog):
                 )
             for i in range(item.childCount()):
                 child_item = item.child(i)
-                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                child_type, child_obj = get_item_payload(child_item)
+                if not child_type:
+                    continue
                 if child_type == "topic":
                     sync_topic(
                         child_item,
@@ -3477,7 +3526,9 @@ class AdminDialog(QDialog):
                 )
             for i in range(item.childCount()):
                 child_item = item.child(i)
-                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                child_type, child_obj = get_item_payload(child_item)
+                if not child_type:
+                    continue
                 if child_type == "lesson":
                     sync_lesson(
                         child_item,
@@ -3518,7 +3569,9 @@ class AdminDialog(QDialog):
                 )
             for i in range(item.childCount()):
                 child_item = item.child(i)
-                child_type, child_obj = child_item.data(0, Qt.UserRole)
+                child_type, child_obj = get_item_payload(child_item)
+                if not child_type:
+                    continue
                 if child_type == "question":
                     sync_question(child_item, child_obj, target_lesson, target_program, target_discipline)
 
@@ -3534,11 +3587,15 @@ class AdminDialog(QDialog):
 
         for i in range(self.sync_right_tree.topLevelItemCount()):
             item = self.sync_right_tree.topLevelItem(i)
-            entity_type, entity = item.data(0, Qt.UserRole)
+            entity_type, entity = get_item_payload(item)
+            if not entity_type:
+                continue
             if entity_type == "program":
                 sync_program(item, entity)
 
         self._refresh_structure_tree()
+        self._populate_sync_program_selectors()
+        self._on_sync_program_mapping_changed()
         self.sync_status.setText(self.tr("Synchronization completed."))
 
     def _get_selected_sync_target_program(self):
@@ -3685,7 +3742,8 @@ class AdminDialog(QDialog):
         sig = []
         for material in materials:
             crc = self._material_crc(material, files_root)
-            sig.append((material.title, material.material_type, crc))
+            authors = tuple(sorted(self._material_author_names(controller, material)))
+            sig.append((material.title, material.material_type, crc, authors))
         return sorted(sig)
 
     def _material_crc(self, material: MethodicalMaterial, files_root: Path) -> int:
@@ -3752,8 +3810,19 @@ class AdminDialog(QDialog):
         if target_id is None:
             return [m.title for m in source_materials if m.title]
         target_materials = self.controller.get_materials_for_entity(entity_type, target_id)
-        target_titles = {m.title for m in target_materials}
-        return [m.title for m in source_materials if m.title not in target_titles]
+        target_map = {
+            (m.title, m.material_type): self._material_author_names(self.controller, m)
+            for m in target_materials
+        }
+        missing = []
+        for material in source_materials:
+            key = (material.title, material.material_type)
+            source_authors = self._material_author_names(self.sync_source_admin, material)
+            if key not in target_map:
+                missing.append(material.title)
+            elif source_authors != target_map.get(key, set()):
+                missing.append(material.title)
+        return missing
 
     def _mark_materials_diff(self, item: QTreeWidgetItem, _missing: list[str]) -> None:
         item.setBackground(0, QBrush(QColor(255, 242, 204)))
@@ -3765,12 +3834,21 @@ class AdminDialog(QDialog):
         entity_type: str,
         entity_id: int,
         parent_item: QTreeWidgetItem,
+        target_controller=None,
+        target_entity_id: int | None = None,
     ) -> None:  # noqa: ANN001
         if not hasattr(controller, "get_materials_for_entity"):
             return
         materials = controller.get_materials_for_entity(entity_type, entity_id)
         if not materials:
             return
+        target_map = {}
+        if target_controller and target_entity_id is not None:
+            target_materials = target_controller.get_materials_for_entity(entity_type, target_entity_id)
+            target_map = {
+                (m.title, m.material_type): self._material_author_names(target_controller, m)
+                for m in target_materials
+            }
         header = QTreeWidgetItem([self.tr("Materials")])
         header.setForeground(0, QBrush(QColor(0, 128, 0)))
         header.setBackground(0, QBrush(QColor(226, 239, 218)))
@@ -3778,15 +3856,33 @@ class AdminDialog(QDialog):
         for material in materials:
             title = material.title or ""
             label = f"• {title}"
-            teachers = ", ".join(t.full_name for t in material.teachers) if material.teachers else ""
+            author_names = self._material_author_names(controller, material)
+            teachers = ", ".join(sorted(author_names)) if author_names else ""
             if teachers:
                 label += f" | {self.tr('Teachers')}: {teachers}"
             item = QTreeWidgetItem([label])
             item.setForeground(0, QBrush(QColor(0, 128, 0)))
             item.setBackground(0, QBrush(QColor(240, 248, 235)))
             item.setFlags(item.flags() & ~Qt.ItemIsUserCheckable)
+            if target_map:
+                key = (material.title, material.material_type)
+                source_authors = self._material_author_names(controller, material)
+                if key in target_map and source_authors != target_map.get(key, set()):
+                    item.setBackground(0, QBrush(QColor(255, 242, 204)))
+                    item.setForeground(0, QBrush(QColor(0, 0, 0)))
             header.addChild(item)
         parent_item.addChild(header)
+
+    def _material_author_names(self, controller, material: MethodicalMaterial) -> set[str]:  # noqa: ANN001
+        if material.teachers:
+            return {t.full_name for t in material.teachers if t.full_name}
+        if hasattr(controller, "material_repo"):
+            try:
+                teachers = controller.material_repo.get_material_teachers(material.id)
+                return {t.full_name for t in teachers if t.full_name}
+            except Exception:
+                return set()
+        return set()
 
     def _find_or_create_discipline(self, discipline: Discipline, program: EducationalProgram, create: bool) -> Discipline:
         existing = {d.name: d for d in self.controller.get_program_disciplines(program.id)}
@@ -3912,6 +4008,7 @@ class AdminDialog(QDialog):
                 )
             )
             self.controller.add_material_to_entity(new_material.id, target_entity_type, target_entity_id)
+            self._sync_material_authors(material, new_material)
             source_path = self._resolve_source_material_path(material)
             if source_path and source_path.exists():
                 try:
@@ -3920,6 +4017,38 @@ class AdminDialog(QDialog):
                     )
                 except Exception:
                     pass
+
+    def _sync_material_authors(self, source_material: MethodicalMaterial, target_material: MethodicalMaterial) -> None:
+        source_teachers = source_material.teachers
+        if not source_teachers:
+            try:
+                source_teachers = self.sync_source_admin.material_repo.get_material_teachers(source_material.id)
+            except Exception:
+                source_teachers = []
+        if not source_teachers:
+            return
+        if not hasattr(self, "_sync_teacher_cache"):
+            self._sync_teacher_cache = {t.full_name: t for t in self.controller.get_teachers() if t.full_name}
+        for teacher in source_teachers:
+            if not teacher.full_name:
+                continue
+            target_teacher = self._sync_teacher_cache.get(teacher.full_name)
+            if target_teacher is None:
+                target_teacher = self.controller.add_teacher(
+                    Teacher(
+                        full_name=teacher.full_name,
+                        military_rank=teacher.military_rank,
+                        position=teacher.position,
+                        department=teacher.department,
+                        email=teacher.email,
+                        phone=teacher.phone,
+                    )
+                )
+                self._sync_teacher_cache[teacher.full_name] = target_teacher
+            try:
+                self.controller.add_teacher_to_material(target_teacher.id, target_material.id)
+            except Exception:
+                pass
 
     def _resolve_source_material_path(self, material: MethodicalMaterial) -> Path | None:
         if material.relative_path:
