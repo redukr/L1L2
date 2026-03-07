@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QAbstractItemView,
     QHeaderView,
+    QRadioButton,
 )
 from ..models.entities import (
     Teacher,
@@ -58,6 +59,101 @@ class PasswordDialog(QDialog):
 
     def get_password(self) -> str:
         return self.password_input.text().strip()
+
+
+class TeacherLoginDialog(QDialog):
+    """Dialog for selecting teacher identity before login."""
+
+    def __init__(self, teachers: list[Teacher], selected_teacher_id: Optional[int] = None, parent=None):
+        super().__init__(parent)
+        self._teachers = list(teachers)
+        self.setWindowTitle(self.tr("Select teacher"))
+        layout = QFormLayout(self)
+        self.teacher_combo = QComboBox()
+        for teacher in self._teachers:
+            label = teacher.full_name or self.tr("Unknown teacher")
+            if teacher.military_rank:
+                label = f"{teacher.military_rank} {label}"
+            self.teacher_combo.addItem(label, teacher.id)
+        if selected_teacher_id is not None:
+            idx = self.teacher_combo.findData(selected_teacher_id)
+            if idx >= 0:
+                self.teacher_combo.setCurrentIndex(idx)
+        layout.addRow(self.tr("Login as"), self.teacher_combo)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_selected_teacher(self) -> Optional[Teacher]:
+        teacher_id = self.teacher_combo.currentData()
+        for teacher in self._teachers:
+            if teacher.id == teacher_id:
+                return teacher
+        return None
+
+
+class SyncConflictDialog(QDialog):
+    """Resolve one synchronization conflict manually."""
+
+    def __init__(
+        self,
+        table_name: str,
+        record_uuid: str,
+        local_text: str,
+        remote_text: str,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Synchronization conflict"))
+        self._choice = "local"
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(self.tr("Table: {0}").format(table_name)))
+        layout.addWidget(QLabel(self.tr("Record UUID: {0}").format(record_uuid)))
+
+        panes = QHBoxLayout()
+        local_box = QVBoxLayout()
+        local_box.addWidget(QLabel(self.tr("Local value")))
+        self.local_view = QPlainTextEdit()
+        self.local_view.setReadOnly(True)
+        self.local_view.setPlainText(local_text)
+        local_box.addWidget(self.local_view)
+        panes.addLayout(local_box)
+
+        remote_box = QVBoxLayout()
+        remote_box.addWidget(QLabel(self.tr("Internet value")))
+        self.remote_view = QPlainTextEdit()
+        self.remote_view.setReadOnly(True)
+        self.remote_view.setPlainText(remote_text)
+        remote_box.addWidget(self.remote_view)
+        panes.addLayout(remote_box)
+        layout.addLayout(panes)
+
+        self.use_local = QRadioButton(self.tr("Use Local (Recommended)"))
+        self.use_remote = QRadioButton(self.tr("Use Internet"))
+        self.skip_conflict = QRadioButton(self.tr("Skip this conflict"))
+        self.use_local.setChecked(True)
+        layout.addWidget(self.use_local)
+        layout.addWidget(self.use_remote)
+        layout.addWidget(self.skip_conflict)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Next"))
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _on_accept(self) -> None:
+        if self.use_remote.isChecked():
+            self._choice = "remote"
+        elif self.skip_conflict.isChecked():
+            self._choice = "skip"
+        else:
+            self._choice = "local"
+        self.accept()
+
+    def get_choice(self) -> str:
+        return self._choice
 
 
 class TeacherDialog(QDialog):

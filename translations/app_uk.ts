@@ -1,475 +1,2081 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="uk">
   <context>
     <name>MainWindow</name>
-    <message><source>Educational Program Manager</source><translation>Менеджер освітніх програм</translation></message>
-    <message><source>Search:</source><translation>Пошук:</translation></message>
-    <message><source>Search</source><translation>Пошук</translation></message>
-    <message><source>Editor Mode</source><translation>Режим редактора</translation></message>
-    <message><source>Application</source><translation>Програма</translation></message>
-    <message><source>About</source><translation>Про програму</translation></message>
-    <message><source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source><translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation></message>
-    <message><source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source><translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation></message>
-    <message><source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source><translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі Одинцовій.</translation></message>
-    <message><source>Synchronization</source><translation>Синхронізація</translation></message>
-    <message><source>Start synchronization</source><translation>Почати синхронізацію</translation></message>
-    <message><source>Apply synchronization</source><translation>Застосувати синхронізацію</translation></message>
-    <message><source>Current structure</source><translation>Поточна структура</translation></message>
-    <message><source>Source structure</source><translation>Структура джерела</translation></message>
-    <message><source>Sync source loaded. Select items to import.</source><translation>Джерело синхронізації завантажено. Оберіть елементи для імпорту.</translation></message>
-    <message><source>Sync source loaded. Select mode.</source><translation>Джерело синхронізації завантажено. Оберіть режим.</translation></message>
-    <message><source>Mode:</source><translation>Режим:</translation></message>
-    <message><source>Import program fully</source><translation>Імпортувати програму повністю</translation></message>
-    <message><source>Synchronize with existing program</source><translation>Синхронізувати з існуючою програмою</translation></message>
-    <message><source>Program to import:</source><translation>Програма для імпорту:</translation></message>
-    <message><source>Import program</source><translation>Імпортувати програму</translation></message>
-    <message><source>Select a program to import.</source><translation>Оберіть програму для імпорту.</translation></message>
-    <message><source>Program imported.</source><translation>Програму імпортовано.</translation></message>
-    <message><source>Target program:</source><translation>Цільова програма:</translation></message>
-    <message><source>Source program:</source><translation>Програма-джерело:</translation></message>
-    <message><source>Target program:</source><translation>Цільова програма:</translation></message>
-    <message><source>Source program:</source><translation>Програма-джерело:</translation></message>
-    <message><source>Sync source loaded. Select mode.</source><translation>Джерело синхронізації завантажено. Оберіть режим.</translation></message>
-    <message><source>Mode:</source><translation>Режим:</translation></message>
-    <message><source>Import program fully</source><translation>Імпортувати програму повністю</translation></message>
-    <message><source>Synchronize with existing program</source><translation>Синхронізувати з існуючою програмою</translation></message>
-    <message><source>Program to import:</source><translation>Програма для імпорту:</translation></message>
-    <message><source>Import program</source><translation>Імпортувати програму</translation></message>
-    <message><source>Select a program to import.</source><translation>Оберіть програму для імпорту.</translation></message>
-    <message><source>Program imported.</source><translation>Програму імпортовано.</translation></message>
-    <message><source>Synchronization completed.</source><translation>Синхронізацію завершено.</translation></message>
-    <message><source>Sync folder not found.</source><translation>Папку sync не знайдено.</translation></message>
-    <message><source>Sync database not found.</source><translation>Базу даних у sync не знайдено.</translation></message>
-    <message><source>Select database</source><translation>Оберіть базу даних</translation></message>
-    <message><source>Discipline for</source><translation>Дисципліна для</translation></message>
-    <message><source>Select only one target program.</source><translation>Оберіть лише одну цільову програму.</translation></message>
-    <message><source>Hide identical elements</source><translation>Приховати ідентичні елементи</translation></message>
-    <message><source>Materials differ</source><translation>Матеріали відрізняються</translation></message>
-    <message><source>Restart application</source><translation>Перезавантажити програму</translation></message>
-    <message><source>Exit application</source><translation>Закрити програму</translation></message>
-    <message><source>Admin Mode</source><translation>Режим адміністратора</translation></message>
-    <message><source>Ukrainian</source><translation>Українська</translation></message>
-    <message><source>English</source><translation>Англійська</translation></message>
-    <message><source>Programs</source><translation>Програми</translation></message>
-    <message><source>Program Structure</source><translation>Структура програми</translation></message>
-    <message><source>Report</source><translation>Звіт</translation></message>
-    <message><source>Search Results</source><translation>Результати пошуку</translation></message>
-    <message><source>Details</source><translation>Деталі</translation></message>
-    <message><source>Methodical Materials</source><translation>Методичні матеріали</translation></message>
-    <message><source>Open Selected File</source><translation>Відкрити вибраний файл</translation></message>
-    <message><source>Show in folder</source><translation>Показати в папці</translation></message>
-    <message><source>Copy file as...</source><translation>Копіювати файл як...</translation></message>
-    <message><source>All files (*)</source><translation>Усі файли (*)</translation></message>
-    <message><source>Title</source><translation>Назва</translation></message>
-    <message><source>Type</source><translation>Тип</translation></message>
-    <message><source>Description</source><translation>Опис</translation></message>
-    <message><source>Discipline</source><translation>Дисципліна</translation></message>
-    <message><source>Topic</source><translation>Тема</translation></message>
-    <message><source>Lesson</source><translation>Заняття</translation></message>
-    <message><source>Question</source><translation>Питання</translation></message>
-    <message><source>Program</source><translation>Програма</translation></message>
-    <message><source>Teacher</source><translation>Викладач</translation></message>
-    <message><source>Material</source><translation>Матеріал</translation></message>
-    <message><source>Level</source><translation>Рівень</translation></message>
-    <message><source>Year</source><translation>Рік</translation></message>
-    <message><source>N/A</source><translation>Н/Д</translation></message>
-    <message><source>Duration</source><translation>Тривалість</translation></message>
-    <message><source>hours</source><translation>год</translation></message>
-    <message><source>Order</source><translation>Порядок</translation></message>
-    <message><source>Not provided</source><translation>Не вказано</translation></message>
-    <message><source>File</source><translation>Файл</translation></message>
-    <message><source>Teachers</source><translation>Викладачі</translation></message>
-    <message><source>Email</source><translation>Ел. пошта</translation></message>
-    <message><source>Phone</source><translation>Телефон</translation></message>
-    <message><source>No file</source><translation>Немає файлу</translation></message>
-    <message><source>Not assigned</source><translation>Не призначено</translation></message>
-    <message><source>No File</source><translation>Файлу немає</translation></message>
-    <message><source>This material has no attached file.</source><translation>Цей матеріал не має прикріпленого файлу.</translation></message>
-    <message><source>File is missing in storage.</source><translation>Файл відсутній у сховищі.</translation></message>
-    <message><source>plan</source><translation>план</translation></message>
-    <message><source>guide</source><translation>методичний посібник</translation></message>
-    <message><source>presentation</source><translation>презентація</translation></message>
-    <message><source>attachment</source><translation>додаток</translation></message>
-    <message><source>Total hours</source><translation>Всього годин</translation></message>
-    <message><source>Classroom hours</source><translation>Аудиторні години</translation></message>
-    <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
-    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
-    <message><source>Military rank</source><translation>Військове звання</translation></message>
-      <message><source>Access denied</source><translation>Доступ заборонено</translation></message>
-    <message><source>Editor Access</source><translation>Editor Access</translation></message>
-    <message><source>Enter editor password:</source><translation>Enter editor password:</translation></message>
-    <message><source>Invalid editor password.</source><translation>Невірний пароль редактора.</translation></message>
-    <message><source>Structure</source><translation>Структура</translation></message>
+    <message>
+      <source>Educational Program Manager</source>
+      <translation>Менеджер освітніх програм</translation>
+    </message>
+    <message>
+      <source>Search:</source>
+      <translation>Пошук:</translation>
+    </message>
+    <message>
+      <source>Search</source>
+      <translation>Пошук</translation>
+    </message>
+    <message>
+      <source>Editor Mode</source>
+      <translation>Режим редактора</translation>
+    </message>
+    <message>
+      <source>Application</source>
+      <translation>Програма</translation>
+    </message>
+    <message>
+      <source>About</source>
+      <translation>Про програму</translation>
+    </message>
+    <message>
+      <source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source>
+      <translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation>
+    </message>
+    <message>
+      <source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source>
+      <translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation>
+    </message>
+    <message>
+      <source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source>
+      <translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі Одинцовій.</translation>
+    </message>
+    <message>
+      <source>Synchronization</source>
+      <translation>Синхронізація</translation>
+    </message>
+    <message>
+      <source>Start synchronization</source>
+      <translation>Почати синхронізацію</translation>
+    </message>
+    <message>
+      <source>Apply synchronization</source>
+      <translation>Застосувати синхронізацію</translation>
+    </message>
+    <message>
+      <source>Current structure</source>
+      <translation>Поточна структура</translation>
+    </message>
+    <message>
+      <source>Source structure</source>
+      <translation>Структура джерела</translation>
+    </message>
+    <message>
+      <source>Sync source loaded. Select items to import.</source>
+      <translation>Джерело синхронізації завантажено. Оберіть елементи для імпорту.</translation>
+    </message>
+    <message>
+      <source>Sync source loaded. Select mode.</source>
+      <translation>Джерело синхронізації завантажено. Оберіть режим.</translation>
+    </message>
+    <message>
+      <source>Mode:</source>
+      <translation>Режим:</translation>
+    </message>
+    <message>
+      <source>Import program fully</source>
+      <translation>Імпортувати програму повністю</translation>
+    </message>
+    <message>
+      <source>Synchronize with existing program</source>
+      <translation>Синхронізувати з існуючою програмою</translation>
+    </message>
+    <message>
+      <source>Program to import:</source>
+      <translation>Програма для імпорту:</translation>
+    </message>
+    <message>
+      <source>Import program</source>
+      <translation>Імпортувати програму</translation>
+    </message>
+    <message>
+      <source>Select a program to import.</source>
+      <translation>Оберіть програму для імпорту.</translation>
+    </message>
+    <message>
+      <source>Program imported.</source>
+      <translation>Програму імпортовано.</translation>
+    </message>
+    <message>
+      <source>Target program:</source>
+      <translation>Цільова програма:</translation>
+    </message>
+    <message>
+      <source>Source program:</source>
+      <translation>Програма-джерело:</translation>
+    </message>
+    <message>
+      <source>Target program:</source>
+      <translation>Цільова програма:</translation>
+    </message>
+    <message>
+      <source>Source program:</source>
+      <translation>Програма-джерело:</translation>
+    </message>
+    <message>
+      <source>Sync source loaded. Select mode.</source>
+      <translation>Джерело синхронізації завантажено. Оберіть режим.</translation>
+    </message>
+    <message>
+      <source>Mode:</source>
+      <translation>Режим:</translation>
+    </message>
+    <message>
+      <source>Import program fully</source>
+      <translation>Імпортувати програму повністю</translation>
+    </message>
+    <message>
+      <source>Synchronize with existing program</source>
+      <translation>Синхронізувати з існуючою програмою</translation>
+    </message>
+    <message>
+      <source>Program to import:</source>
+      <translation>Програма для імпорту:</translation>
+    </message>
+    <message>
+      <source>Import program</source>
+      <translation>Імпортувати програму</translation>
+    </message>
+    <message>
+      <source>Select a program to import.</source>
+      <translation>Оберіть програму для імпорту.</translation>
+    </message>
+    <message>
+      <source>Program imported.</source>
+      <translation>Програму імпортовано.</translation>
+    </message>
+    <message>
+      <source>Synchronization completed.</source>
+      <translation>Синхронізацію завершено.</translation>
+    </message>
+    <message>
+      <source>Sync folder not found.</source>
+      <translation>Папку sync не знайдено.</translation>
+    </message>
+    <message>
+      <source>Sync database not found.</source>
+      <translation>Базу даних у sync не знайдено.</translation>
+    </message>
+    <message>
+      <source>Select database</source>
+      <translation>Оберіть базу даних</translation>
+    </message>
+    <message>
+      <source>Discipline for</source>
+      <translation>Дисципліна для</translation>
+    </message>
+    <message>
+      <source>Select only one target program.</source>
+      <translation>Оберіть лише одну цільову програму.</translation>
+    </message>
+    <message>
+      <source>Hide identical elements</source>
+      <translation>Приховати ідентичні елементи</translation>
+    </message>
+    <message>
+      <source>Materials differ</source>
+      <translation>Матеріали відрізняються</translation>
+    </message>
+    <message>
+      <source>Restart application</source>
+      <translation>Перезавантажити програму</translation>
+    </message>
+    <message>
+      <source>Exit application</source>
+      <translation>Закрити програму</translation>
+    </message>
+    <message>
+      <source>Admin Mode</source>
+      <translation>Режим адміністратора</translation>
+    </message>
+    <message>
+      <source>Ukrainian</source>
+      <translation>Українська</translation>
+    </message>
+    <message>
+      <source>English</source>
+      <translation>Англійська</translation>
+    </message>
+    <message>
+      <source>Programs</source>
+      <translation>Програми</translation>
+    </message>
+    <message>
+      <source>Program Structure</source>
+      <translation>Структура програми</translation>
+    </message>
+    <message>
+      <source>Report</source>
+      <translation>Звіт</translation>
+    </message>
+    <message>
+      <source>Search Results</source>
+      <translation>Результати пошуку</translation>
+    </message>
+    <message>
+      <source>Details</source>
+      <translation>Деталі</translation>
+    </message>
+    <message>
+      <source>Methodical Materials</source>
+      <translation>Методичні матеріали</translation>
+    </message>
+    <message>
+      <source>Open Selected File</source>
+      <translation>Відкрити вибраний файл</translation>
+    </message>
+    <message>
+      <source>Show in folder</source>
+      <translation>Показати в папці</translation>
+    </message>
+    <message>
+      <source>Copy file as...</source>
+      <translation>Копіювати файл як...</translation>
+    </message>
+    <message>
+      <source>All files (*)</source>
+      <translation>Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Title</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Type</source>
+      <translation>Тип</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Опис</translation>
+    </message>
+    <message>
+      <source>Discipline</source>
+      <translation>Дисципліна</translation>
+    </message>
+    <message>
+      <source>Topic</source>
+      <translation>Тема</translation>
+    </message>
+    <message>
+      <source>Lesson</source>
+      <translation>Заняття</translation>
+    </message>
+    <message>
+      <source>Question</source>
+      <translation>Питання</translation>
+    </message>
+    <message>
+      <source>Program</source>
+      <translation>Програма</translation>
+    </message>
+    <message>
+      <source>Teacher</source>
+      <translation>Викладач</translation>
+    </message>
+    <message>
+      <source>Material</source>
+      <translation>Матеріал</translation>
+    </message>
+    <message>
+      <source>Level</source>
+      <translation>Рівень</translation>
+    </message>
+    <message>
+      <source>Year</source>
+      <translation>Рік</translation>
+    </message>
+    <message>
+      <source>N/A</source>
+      <translation>Н/Д</translation>
+    </message>
+    <message>
+      <source>Duration</source>
+      <translation>Тривалість</translation>
+    </message>
+    <message>
+      <source>hours</source>
+      <translation>год</translation>
+    </message>
+    <message>
+      <source>Order</source>
+      <translation>Порядок</translation>
+    </message>
+    <message>
+      <source>Not provided</source>
+      <translation>Не вказано</translation>
+    </message>
+    <message>
+      <source>File</source>
+      <translation>Файл</translation>
+    </message>
+    <message>
+      <source>Teachers</source>
+      <translation>Викладачі</translation>
+    </message>
+    <message>
+      <source>Email</source>
+      <translation>Ел. пошта</translation>
+    </message>
+    <message>
+      <source>Phone</source>
+      <translation>Телефон</translation>
+    </message>
+    <message>
+      <source>No file</source>
+      <translation>Немає файлу</translation>
+    </message>
+    <message>
+      <source>Not assigned</source>
+      <translation>Не призначено</translation>
+    </message>
+    <message>
+      <source>No File</source>
+      <translation>Файлу немає</translation>
+    </message>
+    <message>
+      <source>This material has no attached file.</source>
+      <translation>Цей матеріал не має прикріпленого файлу.</translation>
+    </message>
+    <message>
+      <source>File is missing in storage.</source>
+      <translation>Файл відсутній у сховищі.</translation>
+    </message>
+    <message>
+      <source>plan</source>
+      <translation>план</translation>
+    </message>
+    <message>
+      <source>guide</source>
+      <translation>методичний посібник</translation>
+    </message>
+    <message>
+      <source>presentation</source>
+      <translation>презентація</translation>
+    </message>
+    <message>
+      <source>attachment</source>
+      <translation>додаток</translation>
+    </message>
+    <message>
+      <source>Total hours</source>
+      <translation>Всього годин</translation>
+    </message>
+    <message>
+      <source>Classroom hours</source>
+      <translation>Аудиторні години</translation>
+    </message>
+    <message>
+      <source>Self-study hours</source>
+      <translation>Самостійні години</translation>
+    </message>
+    <message>
+      <source>Lesson type</source>
+      <translation>Тип заняття</translation>
+    </message>
+    <message>
+      <source>Military rank</source>
+      <translation>Військове звання</translation>
+    </message>
+    <message>
+      <source>Access denied</source>
+      <translation>Доступ заборонено</translation>
+    </message>
+    <message>
+      <source>Editor Access</source>
+      <translation>Editor Access</translation>
+    </message>
+    <message>
+      <source>Enter editor password:</source>
+      <translation>Enter editor password:</translation>
+    </message>
+    <message>
+      <source>Invalid editor password.</source>
+      <translation>Невірний пароль редактора.</translation>
+    </message>
+    <message>
+      <source>Structure</source>
+      <translation>Структура</translation>
+    </message>
+    <message>
+      <source>Add discipline</source>
+      <translation>Add discipline</translation>
+    </message>
+    <message>
+      <source>Add lesson</source>
+      <translation>Add lesson</translation>
+    </message>
+    <message>
+      <source>Add program</source>
+      <translation>Add program</translation>
+    </message>
+    <message>
+      <source>Add question</source>
+      <translation>Add question</translation>
+    </message>
+    <message>
+      <source>Add topic</source>
+      <translation>Add topic</translation>
+    </message>
+    <message>
+      <source>Attach existing file</source>
+      <translation>Attach existing file</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Cancel</translation>
+    </message>
+    <message>
+      <source>Change...</source>
+      <translation>Change...</translation>
+    </message>
+    <message>
+      <source>Database (*.db);;All files (*)</source>
+      <translation>Database (*.db);;All files (*)</translation>
+    </message>
+    <message>
+      <source>Database exported.</source>
+      <translation>Database exported.</translation>
+    </message>
+    <message>
+      <source>Database file</source>
+      <translation>Database file</translation>
+    </message>
+    <message>
+      <source>Database files (*.db);;All files (*)</source>
+      <translation>Database files (*.db);;All files (*)</translation>
+    </message>
+    <message>
+      <source>Database imported. Restart the app.</source>
+      <translation>Database imported. Restart the app.</translation>
+    </message>
+    <message>
+      <source>Database repaired. Restart the app to apply changes.</source>
+      <translation>Database repaired. Restart the app to apply changes.</translation>
+    </message>
+    <message>
+      <source>Database selection saved. Restart the app to apply changes.</source>
+      <translation>Database selection saved. Restart the app to apply changes.</translation>
+    </message>
+    <message>
+      <source>Delete selected item?</source>
+      <translation>Delete selected item?</translation>
+    </message>
+    <message>
+      <source>Delete selected material type?</source>
+      <translation>Delete selected material type?</translation>
+    </message>
+    <message>
+      <source>Export database</source>
+      <translation>Export database</translation>
+    </message>
+    <message>
+      <source>Export user settings</source>
+      <translation>Export user settings</translation>
+    </message>
+    <message>
+      <source>Import database</source>
+      <translation>Import database</translation>
+    </message>
+    <message>
+      <source>Import user settings</source>
+      <translation>Import user settings</translation>
+    </message>
+    <message>
+      <source>Lesson materials</source>
+      <translation>Lesson materials</translation>
+    </message>
+    <message>
+      <source>Lesson types</source>
+      <translation>Lesson types</translation>
+    </message>
+    <message>
+      <source>Material type</source>
+      <translation>Material type</translation>
+    </message>
+    <message>
+      <source>Materials location</source>
+      <translation>Materials location</translation>
+    </message>
+    <message>
+      <source>OK</source>
+      <translation>OK</translation>
+    </message>
+    <message>
+      <source>Open file</source>
+      <translation>Open file</translation>
+    </message>
+    <message>
+      <source>Repair database</source>
+      <translation>Repair database</translation>
+    </message>
+    <message>
+      <source>Replace the current database with the selected file?</source>
+      <translation>Replace the current database with the selected file?</translation>
+    </message>
+    <message>
+      <source>Replace the current user settings with the selected file?</source>
+      <translation>Replace the current user settings with the selected file?</translation>
+    </message>
+    <message>
+      <source>Restart required</source>
+      <translation>Restart required</translation>
+    </message>
+    <message>
+      <source>Save user settings</source>
+      <translation>Save user settings</translation>
+    </message>
+    <message>
+      <source>Select UI settings file</source>
+      <translation>Select UI settings file</translation>
+    </message>
+    <message>
+      <source>Select a discipline first.</source>
+      <translation>Select a discipline first.</translation>
+    </message>
+    <message>
+      <source>Select a program first.</source>
+      <translation>Select a program first.</translation>
+    </message>
+    <message>
+      <source>Select an item</source>
+      <translation>Select an item</translation>
+    </message>
+    <message>
+      <source>Select database file</source>
+      <translation>Select database file</translation>
+    </message>
+    <message>
+      <source>Select material location</source>
+      <translation>Select material location</translation>
+    </message>
+    <message>
+      <source>Select materials folder</source>
+      <translation>Select materials folder</translation>
+    </message>
+    <message>
+      <source>Select translations file</source>
+      <translation>Select translations file</translation>
+    </message>
+    <message>
+      <source>Settings</source>
+      <translation>Settings</translation>
+    </message>
+    <message>
+      <source>Settings (*.ini);;All files (*)</source>
+      <translation>Settings (*.ini);;All files (*)</translation>
+    </message>
+    <message>
+      <source>Settings file selection saved. Restart the app to apply changes.</source>
+      <translation>Settings file selection saved. Restart the app to apply changes.</translation>
+    </message>
+    <message>
+      <source>Settings files (*.ini);;All files (*)</source>
+      <translation>Settings files (*.ini);;All files (*)</translation>
+    </message>
+    <message>
+      <source>Topic materials</source>
+      <translation>Topic materials</translation>
+    </message>
+    <message>
+      <source>Translation files (*.ts *.qm);;All files (*)</source>
+      <translation>Translation files (*.ts *.qm);;All files (*)</translation>
+    </message>
+    <message>
+      <source>Translations file</source>
+      <translation>Translations file</translation>
+    </message>
+    <message>
+      <source>Translations file selection saved. Restart the app to apply changes.</source>
+      <translation>Translations file selection saved. Restart the app to apply changes.</translation>
+    </message>
+    <message>
+      <source>UI settings file</source>
+      <translation>UI settings file</translation>
+    </message>
+    <message>
+      <source>User settings exported.</source>
+      <translation>User settings exported.</translation>
+    </message>
+    <message>
+      <source>User settings imported. Restart the app.</source>
+      <translation>User settings imported. Restart the app.</translation>
+    </message>
+    <message>
+      <source>User settings saved.</source>
+      <translation>User settings saved.</translation>
+    </message>
   </context>
   <context>
     <name>AdminDialog</name>
-    <message><source>Application</source><translation>Програма</translation></message>
-    <message><source>About</source><translation>Про програму</translation></message>
-    <message><source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source><translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation></message>
-    <message><source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source><translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation></message>
-    <message><source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source><translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі Одинцовій.</translation></message>
-    <message><source>Restart application</source><translation>Перезавантажити програму</translation></message>
-    <message><source>Exit application</source><translation>Закрити програму</translation></message>
-    <message><source>Admin Panel</source><translation>Панель адміністратора</translation></message>
-    <message><source>Teachers</source><translation>Викладачі</translation></message>
-    <message><source>Programs</source><translation>Програми</translation></message>
-    <message><source>Disciplines</source><translation>Дисципліни</translation></message>
-    <message><source>Topics</source><translation>Теми</translation></message>
-    <message><source>Lessons</source><translation>Заняття</translation></message>
-    <message><source>Questions</source><translation>Питання</translation></message>
-    <message><source>Materials</source><translation>Матеріали</translation></message>
-    <message><source>Synonyms</source><translation>Синоніми</translation></message>
-    <message><source>Check database</source><translation>Перевірка БД</translation></message>
-    <message><source>Cleanup unused data</source><translation>Видалити зайву інформацію</translation></message>
-    <message><source>Refresh</source><translation>Оновити</translation></message>
-    <message><source>Assigned disciplines</source><translation>Закріплені дисципліни</translation></message>
-    <message><source>Duplicate</source><translation>Дублювати</translation></message>
-    <message><source>Copy</source><translation>Копіювати</translation></message>
-    <message><source>Year</source><translation>Рік</translation></message>
-    <message><source>Settings</source><translation>Налаштування</translation></message>
-    <message><source>Synchronization</source><translation>Синхронізація</translation></message>
-    <message><source>Start synchronization</source><translation>Почати синхронізацію</translation></message>
-    <message><source>Apply synchronization</source><translation>Застосувати синхронізацію</translation></message>
-    <message><source>Current structure</source><translation>Поточна структура</translation></message>
-    <message><source>Source structure</source><translation>Структура джерела</translation></message>
-    <message><source>Sync source loaded. Select items to import.</source><translation>Джерело синхронізації завантажено. Оберіть елементи для імпорту.</translation></message>
-    <message><source>Synchronization completed.</source><translation>Синхронізацію завершено.</translation></message>
-    <message><source>Sync folder not found.</source><translation>Папку sync не знайдено.</translation></message>
-    <message><source>Sync database not found.</source><translation>Базу даних у sync не знайдено.</translation></message>
-    <message><source>Select database</source><translation>Оберіть базу даних</translation></message>
-    <message><source>Discipline for</source><translation>Дисципліна для</translation></message>
-    <message><source>Full name</source><translation>Повне ім&apos;я</translation></message>
-    <message><source>Position</source><translation>Посада</translation></message>
-    <message><source>Department</source><translation>Кафедра</translation></message>
-    <message><source>Email</source><translation>Ел. пошта</translation></message>
-    <message><source>Phone</source><translation>Телефон</translation></message>
-    <message><source>Add</source><translation>Додати</translation></message>
-    <message><source>Edit</source><translation>Редагувати</translation></message>
-    <message><source>Delete</source><translation>Видалити</translation></message>
-    <message><source>Name</source><translation>Назва</translation></message>
-    <message><source>Level</source><translation>Рівень</translation></message>
-    <message><source>Duration</source><translation>Тривалість</translation></message>
-    <message><source>Program disciplines</source><translation>Дисципліни програми</translation></message>
-    <message><source>Add -&gt;</source><translation>Додати -&gt;</translation></message>
-    <message><source>&lt;- Remove</source><translation>&lt;- Прибрати</translation></message>
-    <message><source>Order</source><translation>Порядок</translation></message>
-    <message><source>Discipline topics</source><translation>Теми дисципліни</translation></message>
-    <message><source>Title</source><translation>Назва</translation></message>
-    <message><source>Topic lessons</source><translation>Заняття теми</translation></message>
-    <message><source>Topic materials</source><translation>Матеріали теми</translation></message>
-    <message><source>Lesson questions</source><translation>Питання заняття</translation></message>
-    <message><source>Lesson materials</source><translation>Матеріали заняття</translation></message>
-    <message><source>Question</source><translation>Питання</translation></message>
-    <message><source>Type</source><translation>Тип</translation></message>
-    <message><source>File</source><translation>Файл</translation></message>
-    <message><source>Authors</source><translation>Автори</translation></message>
-    <message><source>Attach File</source><translation>Прикріпити файл</translation></message>
-    <message><source>Attach existing file</source><translation>Прикріпити наявний файл</translation></message>
-    <message><source>Open file</source><translation>Відкрити файл</translation></message>
-    <message><source>Show in folder</source><translation>Показати в папці</translation></message>
-    <message><source>Copy file as...</source><translation>Копіювати файл як...</translation></message>
-    <message><source>Materials location</source><translation>Розташування матеріалів</translation></message>
-    <message><source>Change...</source><translation>Змінити...</translation></message>
-    <message><source>Export database</source><translation>Експорт бази даних</translation></message>
-    <message><source>Import database</source><translation>Імпорт бази даних</translation></message>
-    <message><source>Export database</source><translation>Експорт бази даних</translation></message>
-    <message><source>Select material location</source><translation>Вибір місця збереження</translation></message>
-    <message><source>OK</source><translation>OK</translation></message>
-    <message><source>Cancel</source><translation>Скасувати</translation></message>
-    <message><source>Select materials folder</source><translation>Вибрати папку матеріалів</translation></message>
-    <message><source>Database (*.db);;All files (*)</source><translation>База даних (*.db);;Усі файли (*)</translation></message>
-    <message><source>Database exported.</source><translation>Базу даних експортовано.</translation></message>
-    <message><source>Repair database</source><translation>Відновити базу даних</translation></message>
-    <message><source>Database repaired. Restart the app to apply changes.</source><translation>Базу даних відновлено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
-    <message><source>Replace the current database with the selected file?</source><translation>Замінити поточну базу даних вибраним файлом?</translation></message>
-    <message><source>Database imported. Restart the app.</source><translation>Базу даних імпортовано. Перезапустіть застосунок.</translation></message>
-    <message><source>Material teachers</source><translation>Викладачі матеріалу</translation></message>
-    <message><source>Available</source><translation>Доступні</translation></message>
-    <message><source>Assigned</source><translation>Призначені</translation></message>
-    <message><source>Associations</source><translation>Зв&apos;язки</translation></message>
-    <message><source>Link -&gt;</source><translation>Зв&apos;язати -&gt;</translation></message>
-    <message><source>&lt;- Unlink</source><translation>&lt;- Відв&apos;язати</translation></message>
-    <message><source>Linked</source><translation>Пов&apos;язані</translation></message>
-    <message><source>Access denied</source><translation>Доступ заборонено</translation></message>
-    <message><source>Invalid admin password.</source><translation>Неправильний пароль адміністратора.</translation></message>
-    <message><source>No unused data found.</source><translation>Зайвої інформації не знайдено.</translation></message>
-    <message><source>Unused data will be deleted:</source><translation>Буде видалено зайву інформацію:</translation></message>
-    <message><source>Cleanup completed.</source><translation>Очищення завершено.</translation></message>
-    <message><source>No File</source><translation>Файлу немає</translation></message>
-    <message><source>This material has no attached file.</source><translation>Цей матеріал не має прикріпленого файлу.</translation></message>
-    <message><source>File is missing in storage.</source><translation>Файл відсутній у сховищі.</translation></message>
-    <message><source>Validation</source><translation>Перевірка</translation></message>
-    <message><source>Full name is required.</source><translation>Потрібне повне ім&apos;я.</translation></message>
-    <message><source>Confirm</source><translation>Підтвердження</translation></message>
-    <message><source>Delete selected teacher?</source><translation>Видалити вибраного викладача?</translation></message>
-    <message><source>Program name is required.</source><translation>Потрібна назва програми.</translation></message>
-    <message><source>Delete selected program?</source><translation>Видалити вибрану програму?</translation></message>
-    <message><source>Discipline name is required.</source><translation>Потрібна назва дисципліни.</translation></message>
-    <message><source>Delete selected discipline?</source><translation>Видалити вибрану дисципліну?</translation></message>
-    <message><source>Topic title is required.</source><translation>Потрібна назва теми.</translation></message>
-    <message><source>Delete selected topic?</source><translation>Видалити вибрану тему?</translation></message>
-    <message><source>Lesson title is required.</source><translation>Потрібна назва заняття.</translation></message>
-    <message><source>Delete selected lesson?</source><translation>Видалити вибране заняття?</translation></message>
-    <message><source>Question text is required.</source><translation>Потрібний текст питання.</translation></message>
-    <message><source>Delete selected question?</source><translation>Видалити вибране питання?</translation></message>
-    <message><source>Material title is required.</source><translation>Потрібна назва матеріалу.</translation></message>
-    <message><source>Select a program, discipline or lesson first.</source><translation>Спочатку виберіть програму, дисципліну або заняття.</translation></message>
-    <message><source>Delete selected material?</source><translation>Видалити вибраний матеріал?</translation></message>
-    <message><source>Documents (*.pdf *.pptx *.docx)</source><translation>Документи (*.pdf *.pptx *.docx)</translation></message>
-    <message><source>All files (*)</source><translation>Усі файли (*)</translation></message>
-    <message><source>Program</source><translation>Програма</translation></message>
-    <message><source>Discipline</source><translation>Дисципліна</translation></message>
-    <message><source>Topic</source><translation>Тема</translation></message>
-    <message><source>Lesson</source><translation>Заняття</translation></message>
-    <message><source>Material</source><translation>Матеріал</translation></message>
-    <message><source>plan</source><translation>план</translation></message>
-    <message><source>guide</source><translation>методичний посібник</translation></message>
-    <message><source>presentation</source><translation>презентація</translation></message>
-    <message><source>attachment</source><translation>додаток</translation></message>
-    <message><source>Lesson types</source><translation>Типи занять</translation></message>
-    <message><source>Military rank</source><translation>Військове звання</translation></message>
-    <message><source>Total hours</source><translation>Всього годин</translation></message>
-    <message><source>Import</source><translation>Імпорт</translation></message>
-    <message><source>Import curriculum structure</source><translation>Імпорт структури навчальної програми</translation></message>
-    <message><source>Import teachers from DOCX</source><translation>Імпорт викладачів з DOCX</translation></message>
-    <message><source>Import error</source><translation>Помилка імпорту</translation></message>
-    <message><source>Import complete</source><translation>Імпорт завершено</translation></message>
-    <message><source>Added topics: {0}&#10;Added lessons: {1}&#10;Added questions: {2}</source><translation>Додано тем: {0}&#10;Додано занять: {1}&#10;Додано питань: {2}</translation></message>
-    <message><source>No input text provided.</source><translation>Не введено текст для імпорту.</translation></message>
-    <message><source>Import teachers</source><translation>Імпорт викладачів</translation></message>
-    <message><source>Word documents (*.docx);;All files (*)</source><translation>Документи Word (*.docx);;Усі файли (*)</translation></message>
-    <message><source>Added teachers: {0}&#10;Skipped: {1}</source><translation>Додано викладачів: {0}&#10;Пропущено: {1}</translation></message>
-    <message><source>Structure</source><translation>Структура</translation></message>
-    <message><source>Add program</source><translation>Додати програму</translation></message>
-    <message><source>Add discipline</source><translation>Додати дисципліну</translation></message>
-    <message><source>Add topic</source><translation>Додати тему</translation></message>
-    <message><source>Add lesson</source><translation>Додати заняття</translation></message>
-    <message><source>Add question</source><translation>Додати питання</translation></message>
-    <message><source>Select an item</source><translation>Оберіть елемент</translation></message>
-    <message><source>Select a program first.</source><translation>Спочатку виберіть програму.</translation></message>
-    <message><source>Select a discipline first.</source><translation>Спочатку виберіть дисципліну.</translation></message>
-    <message><source>Delete selected item?</source><translation>Видалити вибраний елемент?</translation></message>
-    <message><source>Export user settings</source><translation>Експорт налаштувань користувача</translation></message>
-    <message><source>Database file</source><translation>Файл бази даних</translation></message>
-    <message><source>UI settings file</source><translation>Файл налаштувань інтерфейсу</translation></message>
-    <message><source>Select database file</source><translation>Обрати файл бази даних</translation></message>
-    <message><source>Select UI settings file</source><translation>Обрати файл налаштувань інтерфейсу</translation></message>
-    <message><source>Database files (*.db);;All files (*)</source><translation>Файли бази даних (*.db);;Усі файли (*)</translation></message>
-    <message><source>Settings files (*.ini);;All files (*)</source><translation>Файли налаштувань (*.ini);;Усі файли (*)</translation></message>
-    <message><source>Restart required</source><translation>Потрібен перезапуск</translation></message>
-    <message><source>Database selection saved. Restart the app to apply changes.</source><translation>Вибір бази даних збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
-    <message><source>Settings file selection saved. Restart the app to apply changes.</source><translation>Вибір файлу налаштувань збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
-    <message><source>Translations file</source><translation>Файл перекладів</translation></message>
-    <message><source>Select translations file</source><translation>Обрати файл перекладів</translation></message>
-    <message><source>Translation files (*.ts *.qm);;All files (*)</source><translation>Файли перекладів (*.ts *.qm);;Усі файли (*)</translation></message>
-    <message><source>Translations file selection saved. Restart the app to apply changes.</source><translation>Вибір файлу перекладів збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation></message>
-    <message><source>Import user settings</source><translation>Імпорт налаштувань користувача</translation></message>
-    <message><source>Settings (*.ini);;All files (*)</source><translation>Налаштування (*.ini);;Усі файли (*)</translation></message>
-    <message><source>User settings exported.</source><translation>Налаштування користувача експортовано.</translation></message>
-    <message><source>Replace the current user settings with the selected file?</source><translation>Замінити поточні налаштування користувача вибраним файлом?</translation></message>
-    <message><source>User settings imported. Restart the app.</source><translation>Налаштування користувача імпортовано. Перезапустіть застосунок.</translation></message>
-    <message><source>Save user settings</source><translation>Зберегти налаштування</translation></message>
-    <message><source>User settings saved.</source><translation>Налаштування збережено.</translation></message>
-    <message><source>Material type</source><translation>Тип матеріалу</translation></message>
-    <message><source>Delete selected material type?</source><translation>Видалити вибраний тип матеріалу?</translation></message>
-    <message><source>Lesson materials</source><translation>Матеріали заняття</translation></message>
-      <message><source>&lt;- Remove</source><translation>&lt;- Видалити</translation></message>
-    <message><source>Add -></source><translation>Додати -></translation></message>
-    <message><source>Added teachers: {0}\nSkipped: {1}</source><translation>Додано викладачів: {0}\nПропущено: {1}</translation></message>
-    <message><source>Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}</source><translation>Додано тем: {0}\nДодано занять: {1}\nДодано питань: {2}</translation></message>
-    <message><source>Admin Access</source><translation>Доступ адміністратора</translation></message>
+    <message>
+      <source>Application</source>
+      <translation>Програма</translation>
+    </message>
+    <message>
+      <source>About</source>
+      <translation>Про програму</translation>
+    </message>
+    <message>
+      <source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source>
+      <translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation>
+    </message>
+    <message>
+      <source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source>
+      <translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation>
+    </message>
+    <message>
+      <source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source>
+      <translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі Одинцовій.</translation>
+    </message>
+    <message>
+      <source>Restart application</source>
+      <translation>Перезавантажити програму</translation>
+    </message>
+    <message>
+      <source>Exit application</source>
+      <translation>Закрити програму</translation>
+    </message>
+    <message>
+      <source>Admin Panel</source>
+      <translation>Панель адміністратора</translation>
+    </message>
+    <message>
+      <source>Teachers</source>
+      <translation>Викладачі</translation>
+    </message>
+    <message>
+      <source>Programs</source>
+      <translation>Програми</translation>
+    </message>
+    <message>
+      <source>Disciplines</source>
+      <translation>Дисципліни</translation>
+    </message>
+    <message>
+      <source>Topics</source>
+      <translation>Теми</translation>
+    </message>
+    <message>
+      <source>Lessons</source>
+      <translation>Заняття</translation>
+    </message>
+    <message>
+      <source>Questions</source>
+      <translation>Питання</translation>
+    </message>
+    <message>
+      <source>Materials</source>
+      <translation>Матеріали</translation>
+    </message>
+    <message>
+      <source>Synonyms</source>
+      <translation>Синоніми</translation>
+    </message>
+    <message>
+      <source>Check database</source>
+      <translation>Перевірка БД</translation>
+    </message>
+    <message>
+      <source>Cleanup unused data</source>
+      <translation>Видалити зайву інформацію</translation>
+    </message>
+    <message>
+      <source>Refresh</source>
+      <translation>Оновити</translation>
+    </message>
+    <message>
+      <source>Assigned disciplines</source>
+      <translation>Закріплені дисципліни</translation>
+    </message>
+    <message>
+      <source>Duplicate</source>
+      <translation>Дублювати</translation>
+    </message>
+    <message>
+      <source>Copy</source>
+      <translation>Копіювати</translation>
+    </message>
+    <message>
+      <source>Year</source>
+      <translation>Рік</translation>
+    </message>
+    <message>
+      <source>Settings</source>
+      <translation>Налаштування</translation>
+    </message>
+    <message>
+      <source>Synchronization</source>
+      <translation>Синхронізація</translation>
+    </message>
+    <message>
+      <source>Start synchronization</source>
+      <translation>Почати синхронізацію</translation>
+    </message>
+    <message>
+      <source>Apply synchronization</source>
+      <translation>Застосувати синхронізацію</translation>
+    </message>
+    <message>
+      <source>Current structure</source>
+      <translation>Поточна структура</translation>
+    </message>
+    <message>
+      <source>Source structure</source>
+      <translation>Структура джерела</translation>
+    </message>
+    <message>
+      <source>Sync source loaded. Select items to import.</source>
+      <translation>Джерело синхронізації завантажено. Оберіть елементи для імпорту.</translation>
+    </message>
+    <message>
+      <source>Synchronization completed.</source>
+      <translation>Синхронізацію завершено.</translation>
+    </message>
+    <message>
+      <source>Sync folder not found.</source>
+      <translation>Папку sync не знайдено.</translation>
+    </message>
+    <message>
+      <source>Sync database not found.</source>
+      <translation>Базу даних у sync не знайдено.</translation>
+    </message>
+    <message>
+      <source>Select database</source>
+      <translation>Оберіть базу даних</translation>
+    </message>
+    <message>
+      <source>Discipline for</source>
+      <translation>Дисципліна для</translation>
+    </message>
+    <message>
+      <source>Full name</source>
+      <translation>Повне ім'я</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>Посада</translation>
+    </message>
+    <message>
+      <source>Department</source>
+      <translation>Кафедра</translation>
+    </message>
+    <message>
+      <source>Email</source>
+      <translation>Ел. пошта</translation>
+    </message>
+    <message>
+      <source>Phone</source>
+      <translation>Телефон</translation>
+    </message>
+    <message>
+      <source>Add</source>
+      <translation>Додати</translation>
+    </message>
+    <message>
+      <source>Edit</source>
+      <translation>Редагувати</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>Видалити</translation>
+    </message>
+    <message>
+      <source>Name</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Level</source>
+      <translation>Рівень</translation>
+    </message>
+    <message>
+      <source>Duration</source>
+      <translation>Тривалість</translation>
+    </message>
+    <message>
+      <source>Program disciplines</source>
+      <translation>Дисципліни програми</translation>
+    </message>
+    <message>
+      <source>Add -&gt;</source>
+      <translation>Додати -&gt;</translation>
+    </message>
+    <message>
+      <source>&lt;- Remove</source>
+      <translation>&lt;- Прибрати</translation>
+    </message>
+    <message>
+      <source>Order</source>
+      <translation>Порядок</translation>
+    </message>
+    <message>
+      <source>Discipline topics</source>
+      <translation>Теми дисципліни</translation>
+    </message>
+    <message>
+      <source>Title</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Topic lessons</source>
+      <translation>Заняття теми</translation>
+    </message>
+    <message>
+      <source>Topic materials</source>
+      <translation>Матеріали теми</translation>
+    </message>
+    <message>
+      <source>Lesson questions</source>
+      <translation>Питання заняття</translation>
+    </message>
+    <message>
+      <source>Lesson materials</source>
+      <translation>Матеріали заняття</translation>
+    </message>
+    <message>
+      <source>Question</source>
+      <translation>Питання</translation>
+    </message>
+    <message>
+      <source>Type</source>
+      <translation>Тип</translation>
+    </message>
+    <message>
+      <source>File</source>
+      <translation>Файл</translation>
+    </message>
+    <message>
+      <source>Authors</source>
+      <translation>Автори</translation>
+    </message>
+    <message>
+      <source>Attach File</source>
+      <translation>Прикріпити файл</translation>
+    </message>
+    <message>
+      <source>Attach existing file</source>
+      <translation>Прикріпити наявний файл</translation>
+    </message>
+    <message>
+      <source>Open file</source>
+      <translation>Відкрити файл</translation>
+    </message>
+    <message>
+      <source>Show in folder</source>
+      <translation>Показати в папці</translation>
+    </message>
+    <message>
+      <source>Copy file as...</source>
+      <translation>Копіювати файл як...</translation>
+    </message>
+    <message>
+      <source>Materials location</source>
+      <translation>Розташування матеріалів</translation>
+    </message>
+    <message>
+      <source>Change...</source>
+      <translation>Змінити...</translation>
+    </message>
+    <message>
+      <source>Export database</source>
+      <translation>Експорт бази даних</translation>
+    </message>
+    <message>
+      <source>Import database</source>
+      <translation>Імпорт бази даних</translation>
+    </message>
+    <message>
+      <source>Export database</source>
+      <translation>Експорт бази даних</translation>
+    </message>
+    <message>
+      <source>Select material location</source>
+      <translation>Вибір місця збереження</translation>
+    </message>
+    <message>
+      <source>OK</source>
+      <translation>OK</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Скасувати</translation>
+    </message>
+    <message>
+      <source>Select materials folder</source>
+      <translation>Вибрати папку матеріалів</translation>
+    </message>
+    <message>
+      <source>Database (*.db);;All files (*)</source>
+      <translation>База даних (*.db);;Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Database exported.</source>
+      <translation>Базу даних експортовано.</translation>
+    </message>
+    <message>
+      <source>Repair database</source>
+      <translation>Відновити базу даних</translation>
+    </message>
+    <message>
+      <source>Database repaired. Restart the app to apply changes.</source>
+      <translation>Базу даних відновлено. Перезапустіть застосунок, щоб застосувати зміни.</translation>
+    </message>
+    <message>
+      <source>Replace the current database with the selected file?</source>
+      <translation>Замінити поточну базу даних вибраним файлом?</translation>
+    </message>
+    <message>
+      <source>Database imported. Restart the app.</source>
+      <translation>Базу даних імпортовано. Перезапустіть застосунок.</translation>
+    </message>
+    <message>
+      <source>Material teachers</source>
+      <translation>Викладачі матеріалу</translation>
+    </message>
+    <message>
+      <source>Available</source>
+      <translation>Доступні</translation>
+    </message>
+    <message>
+      <source>Assigned</source>
+      <translation>Призначені</translation>
+    </message>
+    <message>
+      <source>Associations</source>
+      <translation>Зв'язки</translation>
+    </message>
+    <message>
+      <source>Link -&gt;</source>
+      <translation>Зв'язати -&gt;</translation>
+    </message>
+    <message>
+      <source>&lt;- Unlink</source>
+      <translation>&lt;- Відв'язати</translation>
+    </message>
+    <message>
+      <source>Linked</source>
+      <translation>Пов'язані</translation>
+    </message>
+    <message>
+      <source>Access denied</source>
+      <translation>Доступ заборонено</translation>
+    </message>
+    <message>
+      <source>Invalid admin password.</source>
+      <translation>Неправильний пароль адміністратора.</translation>
+    </message>
+    <message>
+      <source>No unused data found.</source>
+      <translation>Зайвої інформації не знайдено.</translation>
+    </message>
+    <message>
+      <source>Unused data will be deleted:</source>
+      <translation>Буде видалено зайву інформацію:</translation>
+    </message>
+    <message>
+      <source>Cleanup completed.</source>
+      <translation>Очищення завершено.</translation>
+    </message>
+    <message>
+      <source>No File</source>
+      <translation>Файлу немає</translation>
+    </message>
+    <message>
+      <source>This material has no attached file.</source>
+      <translation>Цей матеріал не має прикріпленого файлу.</translation>
+    </message>
+    <message>
+      <source>File is missing in storage.</source>
+      <translation>Файл відсутній у сховищі.</translation>
+    </message>
+    <message>
+      <source>Validation</source>
+      <translation>Перевірка</translation>
+    </message>
+    <message>
+      <source>Full name is required.</source>
+      <translation>Потрібне повне ім'я.</translation>
+    </message>
+    <message>
+      <source>Confirm</source>
+      <translation>Підтвердження</translation>
+    </message>
+    <message>
+      <source>Delete selected teacher?</source>
+      <translation>Видалити вибраного викладача?</translation>
+    </message>
+    <message>
+      <source>Program name is required.</source>
+      <translation>Потрібна назва програми.</translation>
+    </message>
+    <message>
+      <source>Delete selected program?</source>
+      <translation>Видалити вибрану програму?</translation>
+    </message>
+    <message>
+      <source>Discipline name is required.</source>
+      <translation>Потрібна назва дисципліни.</translation>
+    </message>
+    <message>
+      <source>Delete selected discipline?</source>
+      <translation>Видалити вибрану дисципліну?</translation>
+    </message>
+    <message>
+      <source>Topic title is required.</source>
+      <translation>Потрібна назва теми.</translation>
+    </message>
+    <message>
+      <source>Delete selected topic?</source>
+      <translation>Видалити вибрану тему?</translation>
+    </message>
+    <message>
+      <source>Lesson title is required.</source>
+      <translation>Потрібна назва заняття.</translation>
+    </message>
+    <message>
+      <source>Delete selected lesson?</source>
+      <translation>Видалити вибране заняття?</translation>
+    </message>
+    <message>
+      <source>Question text is required.</source>
+      <translation>Потрібний текст питання.</translation>
+    </message>
+    <message>
+      <source>Delete selected question?</source>
+      <translation>Видалити вибране питання?</translation>
+    </message>
+    <message>
+      <source>Material title is required.</source>
+      <translation>Потрібна назва матеріалу.</translation>
+    </message>
+    <message>
+      <source>Select a program, discipline or lesson first.</source>
+      <translation>Спочатку виберіть програму, дисципліну або заняття.</translation>
+    </message>
+    <message>
+      <source>Delete selected material?</source>
+      <translation>Видалити вибраний матеріал?</translation>
+    </message>
+    <message>
+      <source>Documents (*.pdf *.pptx *.docx)</source>
+      <translation>Документи (*.pdf *.pptx *.docx)</translation>
+    </message>
+    <message>
+      <source>All files (*)</source>
+      <translation>Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Program</source>
+      <translation>Програма</translation>
+    </message>
+    <message>
+      <source>Discipline</source>
+      <translation>Дисципліна</translation>
+    </message>
+    <message>
+      <source>Topic</source>
+      <translation>Тема</translation>
+    </message>
+    <message>
+      <source>Lesson</source>
+      <translation>Заняття</translation>
+    </message>
+    <message>
+      <source>Material</source>
+      <translation>Матеріал</translation>
+    </message>
+    <message>
+      <source>plan</source>
+      <translation>план</translation>
+    </message>
+    <message>
+      <source>guide</source>
+      <translation>методичний посібник</translation>
+    </message>
+    <message>
+      <source>presentation</source>
+      <translation>презентація</translation>
+    </message>
+    <message>
+      <source>attachment</source>
+      <translation>додаток</translation>
+    </message>
+    <message>
+      <source>Lesson types</source>
+      <translation>Типи занять</translation>
+    </message>
+    <message>
+      <source>Military rank</source>
+      <translation>Військове звання</translation>
+    </message>
+    <message>
+      <source>Total hours</source>
+      <translation>Всього годин</translation>
+    </message>
+    <message>
+      <source>Import</source>
+      <translation>Імпорт</translation>
+    </message>
+    <message>
+      <source>Import curriculum structure</source>
+      <translation>Імпорт структури навчальної програми</translation>
+    </message>
+    <message>
+      <source>Import teachers from DOCX</source>
+      <translation>Імпорт викладачів з DOCX</translation>
+    </message>
+    <message>
+      <source>Import error</source>
+      <translation>Помилка імпорту</translation>
+    </message>
+    <message>
+      <source>Import complete</source>
+      <translation>Імпорт завершено</translation>
+    </message>
+    <message>
+      <source>Added topics: {0}
+Added lessons: {1}
+Added questions: {2}</source>
+      <translation>Додано тем: {0}
+Додано занять: {1}
+Додано питань: {2}</translation>
+    </message>
+    <message>
+      <source>No input text provided.</source>
+      <translation>Не введено текст для імпорту.</translation>
+    </message>
+    <message>
+      <source>Import teachers</source>
+      <translation>Імпорт викладачів</translation>
+    </message>
+    <message>
+      <source>Word documents (*.docx);;All files (*)</source>
+      <translation>Документи Word (*.docx);;Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Added teachers: {0}
+Skipped: {1}</source>
+      <translation>Додано викладачів: {0}
+Пропущено: {1}</translation>
+    </message>
+    <message>
+      <source>Structure</source>
+      <translation>Структура</translation>
+    </message>
+    <message>
+      <source>Add program</source>
+      <translation>Додати програму</translation>
+    </message>
+    <message>
+      <source>Add discipline</source>
+      <translation>Додати дисципліну</translation>
+    </message>
+    <message>
+      <source>Add topic</source>
+      <translation>Додати тему</translation>
+    </message>
+    <message>
+      <source>Add lesson</source>
+      <translation>Додати заняття</translation>
+    </message>
+    <message>
+      <source>Add question</source>
+      <translation>Додати питання</translation>
+    </message>
+    <message>
+      <source>Select an item</source>
+      <translation>Оберіть елемент</translation>
+    </message>
+    <message>
+      <source>Select a program first.</source>
+      <translation>Спочатку виберіть програму.</translation>
+    </message>
+    <message>
+      <source>Select a discipline first.</source>
+      <translation>Спочатку виберіть дисципліну.</translation>
+    </message>
+    <message>
+      <source>Delete selected item?</source>
+      <translation>Видалити вибраний елемент?</translation>
+    </message>
+    <message>
+      <source>Export user settings</source>
+      <translation>Експорт налаштувань користувача</translation>
+    </message>
+    <message>
+      <source>Database file</source>
+      <translation>Файл бази даних</translation>
+    </message>
+    <message>
+      <source>UI settings file</source>
+      <translation>Файл налаштувань інтерфейсу</translation>
+    </message>
+    <message>
+      <source>Select database file</source>
+      <translation>Обрати файл бази даних</translation>
+    </message>
+    <message>
+      <source>Select UI settings file</source>
+      <translation>Обрати файл налаштувань інтерфейсу</translation>
+    </message>
+    <message>
+      <source>Database files (*.db);;All files (*)</source>
+      <translation>Файли бази даних (*.db);;Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Settings files (*.ini);;All files (*)</source>
+      <translation>Файли налаштувань (*.ini);;Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Restart required</source>
+      <translation>Потрібен перезапуск</translation>
+    </message>
+    <message>
+      <source>Database selection saved. Restart the app to apply changes.</source>
+      <translation>Вибір бази даних збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation>
+    </message>
+    <message>
+      <source>Settings file selection saved. Restart the app to apply changes.</source>
+      <translation>Вибір файлу налаштувань збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation>
+    </message>
+    <message>
+      <source>Translations file</source>
+      <translation>Файл перекладів</translation>
+    </message>
+    <message>
+      <source>Select translations file</source>
+      <translation>Обрати файл перекладів</translation>
+    </message>
+    <message>
+      <source>Translation files (*.ts *.qm);;All files (*)</source>
+      <translation>Файли перекладів (*.ts *.qm);;Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Translations file selection saved. Restart the app to apply changes.</source>
+      <translation>Вибір файлу перекладів збережено. Перезапустіть застосунок, щоб застосувати зміни.</translation>
+    </message>
+    <message>
+      <source>Import user settings</source>
+      <translation>Імпорт налаштувань користувача</translation>
+    </message>
+    <message>
+      <source>Settings (*.ini);;All files (*)</source>
+      <translation>Налаштування (*.ini);;Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>User settings exported.</source>
+      <translation>Налаштування користувача експортовано.</translation>
+    </message>
+    <message>
+      <source>Replace the current user settings with the selected file?</source>
+      <translation>Замінити поточні налаштування користувача вибраним файлом?</translation>
+    </message>
+    <message>
+      <source>User settings imported. Restart the app.</source>
+      <translation>Налаштування користувача імпортовано. Перезапустіть застосунок.</translation>
+    </message>
+    <message>
+      <source>Save user settings</source>
+      <translation>Зберегти налаштування</translation>
+    </message>
+    <message>
+      <source>User settings saved.</source>
+      <translation>Налаштування збережено.</translation>
+    </message>
+    <message>
+      <source>Material type</source>
+      <translation>Тип матеріалу</translation>
+    </message>
+    <message>
+      <source>Delete selected material type?</source>
+      <translation>Видалити вибраний тип матеріалу?</translation>
+    </message>
+    <message>
+      <source>Lesson materials</source>
+      <translation>Матеріали заняття</translation>
+    </message>
+    <message>
+      <source>&lt;- Remove</source>
+      <translation>&lt;- Видалити</translation>
+    </message>
+    <message>
+      <source>Add -&gt;</source>
+      <translation>Додати -&gt;</translation>
+    </message>
+    <message>
+      <source>Added teachers: {0}\nSkipped: {1}</source>
+      <translation>Додано викладачів: {0}\nПропущено: {1}</translation>
+    </message>
+    <message>
+      <source>Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}</source>
+      <translation>Додано тем: {0}\nДодано занять: {1}\nДодано питань: {2}</translation>
+    </message>
+    <message>
+      <source>Admin Access</source>
+      <translation>Доступ адміністратора</translation>
+    </message>
     \1Програма\3
-    <message><source>Delete selected lesson type?</source><translation>Видалити вибраний тип заняття?</translation></message>
-    <message><source>Discipline is not linked to any program.</source><translation>Дисципліна не прив'язана до жодної програми.</translation></message>
-    <message><source>Enter admin password:</source><translation>Введіть пароль адміністратора:</translation></message>
+    <message>
+      <source>Delete selected lesson type?</source>
+      <translation>Видалити вибраний тип заняття?</translation>
+    </message>
+    <message>
+      <source>Discipline is not linked to any program.</source>
+      <translation>Дисципліна не прив'язана до жодної програми.</translation>
+    </message>
+    <message>
+      <source>Enter admin password:</source>
+      <translation>Введіть пароль адміністратора:</translation>
+    </message>
     \1Закрити програму\3
-    <message><source>Name is required.</source><translation>Потрібна назва.</translation></message>
+    <message>
+      <source>Name is required.</source>
+      <translation>Потрібна назва.</translation>
+    </message>
     \1Перезавантажити програму\3
-    <message><source>Select a discipline from the same program.</source><translation>Оберіть дисципліну з цієї ж програми.</translation></message>
-    <message><source>Select a lesson first.</source><translation>Select a lesson first.</translation></message>
-    <message><source>Select a topic first.</source><translation>Select a topic first.</translation></message>
-    <message><source>Teacher</source><translation>Teacher</translation></message>
-    <message><source>Topic is not linked to any discipline.</source><translation>Тема не прив'язана до жодної дисципліни.</translation></message>
+    <message>
+      <source>Select a discipline from the same program.</source>
+      <translation>Оберіть дисципліну з цієї ж програми.</translation>
+    </message>
+    <message>
+      <source>Select a lesson first.</source>
+      <translation>Select a lesson first.</translation>
+    </message>
+    <message>
+      <source>Select a topic first.</source>
+      <translation>Select a topic first.</translation>
+    </message>
+    <message>
+      <source>Teacher</source>
+      <translation>Teacher</translation>
+    </message>
+    <message>
+      <source>Topic is not linked to any discipline.</source>
+      <translation>Тема не прив'язана до жодної дисципліни.</translation>
+    </message>
   </context>
   <context>
     <name>PasswordDialog</name>
-    <message><source>Admin Access</source><translation>Доступ адміністратора</translation></message>
-    <message><source>Enter admin password:</source><translation>Введіть пароль адміністратора:</translation></message>
-    <message><source>Editor Access</source><translation>Доступ редактора</translation></message>
-    <message><source>Enter editor password:</source><translation>Введіть пароль редактора:</translation></message>
+    <message>
+      <source>Admin Access</source>
+      <translation>Доступ адміністратора</translation>
+    </message>
+    <message>
+      <source>Enter admin password:</source>
+      <translation>Введіть пароль адміністратора:</translation>
+    </message>
+    <message>
+      <source>Editor Access</source>
+      <translation>Доступ редактора</translation>
+    </message>
+    <message>
+      <source>Enter editor password:</source>
+      <translation>Введіть пароль редактора:</translation>
+    </message>
   </context>
   <context>
     <name>TeacherDialog</name>
-    <message><source>Teacher</source><translation>Викладач</translation></message>
-    <message><source>Full name</source><translation>Повне ім&apos;я</translation></message>
-    <message><source>Military rank</source><translation>Військове звання</translation></message>
-    <message><source>Position</source><translation>Посада</translation></message>
-    <message><source>Department</source><translation>Кафедра</translation></message>
-    <message><source>Email</source><translation>Ел. пошта</translation></message>
-    <message><source>Phone</source><translation>Телефон</translation></message>
+    <message>
+      <source>Teacher</source>
+      <translation>Викладач</translation>
+    </message>
+    <message>
+      <source>Full name</source>
+      <translation>Повне ім'я</translation>
+    </message>
+    <message>
+      <source>Military rank</source>
+      <translation>Військове звання</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>Посада</translation>
+    </message>
+    <message>
+      <source>Department</source>
+      <translation>Кафедра</translation>
+    </message>
+    <message>
+      <source>Email</source>
+      <translation>Ел. пошта</translation>
+    </message>
+    <message>
+      <source>Phone</source>
+      <translation>Телефон</translation>
+    </message>
   </context>
   <context>
     <name>ProgramDialog</name>
-    <message><source>Educational Program</source><translation>Освітня програма</translation></message>
-    <message><source>Name</source><translation>Назва</translation></message>
-    <message><source>Description</source><translation>Опис</translation></message>
-    <message><source>Level</source><translation>Рівень</translation></message>
-    <message><source>Year</source><translation>Рік</translation></message>
-    <message><source>Duration (hours)</source><translation>Тривалість (год)</translation></message>
+    <message>
+      <source>Educational Program</source>
+      <translation>Освітня програма</translation>
+    </message>
+    <message>
+      <source>Name</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Опис</translation>
+    </message>
+    <message>
+      <source>Level</source>
+      <translation>Рівень</translation>
+    </message>
+    <message>
+      <source>Year</source>
+      <translation>Рік</translation>
+    </message>
+    <message>
+      <source>Duration (hours)</source>
+      <translation>Тривалість (год)</translation>
+    </message>
   </context>
   <context>
     <name>DisciplineDialog</name>
-    <message><source>Discipline</source><translation>Дисципліна</translation></message>
-    <message><source>Name</source><translation>Назва</translation></message>
-    <message><source>Description</source><translation>Опис</translation></message>
-    <message><source>Order index</source><translation>Порядковий індекс</translation></message>
-      <message><source>Program</source><translation>Program</translation></message>
-    <message><source>Topic</source><translation>Topic</translation></message>
-    <message><source>Type</source><translation>Type</translation></message>
+    <message>
+      <source>Discipline</source>
+      <translation>Дисципліна</translation>
+    </message>
+    <message>
+      <source>Name</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Опис</translation>
+    </message>
+    <message>
+      <source>Order index</source>
+      <translation>Порядковий індекс</translation>
+    </message>
+    <message>
+      <source>Program</source>
+      <translation>Program</translation>
+    </message>
+    <message>
+      <source>Topic</source>
+      <translation>Topic</translation>
+    </message>
+    <message>
+      <source>Type</source>
+      <translation>Type</translation>
+    </message>
   </context>
   <context>
     <name>TopicDialog</name>
-    <message><source>Topic</source><translation>Тема</translation></message>
-    <message><source>Title</source><translation>Назва</translation></message>
-    <message><source>Description</source><translation>Опис</translation></message>
-    <message><source>Order index</source><translation>Порядковий індекс</translation></message>
-      <message><source>Discipline</source><translation>Discipline</translation></message>
-    <message><source>Program</source><translation>Program</translation></message>
-    <message><source>Type</source><translation>Type</translation></message>
+    <message>
+      <source>Topic</source>
+      <translation>Тема</translation>
+    </message>
+    <message>
+      <source>Title</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Опис</translation>
+    </message>
+    <message>
+      <source>Order index</source>
+      <translation>Порядковий індекс</translation>
+    </message>
+    <message>
+      <source>Discipline</source>
+      <translation>Discipline</translation>
+    </message>
+    <message>
+      <source>Program</source>
+      <translation>Program</translation>
+    </message>
+    <message>
+      <source>Type</source>
+      <translation>Type</translation>
+    </message>
   </context>
   <context>
     <name>LessonDialog</name>
-    <message><source>Lesson</source><translation>Заняття</translation></message>
-    <message><source>Title</source><translation>Назва</translation></message>
-    <message><source>Description</source><translation>Опис</translation></message>
-    <message><source>Duration (hours)</source><translation>Тривалість (год)</translation></message>
-    <message><source>Total hours</source><translation>Всього годин</translation></message>
-    <message><source>Classroom hours</source><translation>Аудиторні години</translation></message>
-    <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
-    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
-    <message><source>Questions</source><translation>Питання</translation></message>
-    <message><source>Add question</source><translation>Додати питання</translation></message>
-    <message><source>Edit</source><translation>Редагувати</translation></message>
-    <message><source>Remove</source><translation>Прибрати</translation></message>
-    <message><source>Order index</source><translation>Порядковий індекс</translation></message>
-      <message><source>Question text is required.</source><translation>Question text is required.</translation></message>
-    <message><source>Validation</source><translation>Validation</translation></message>
+    <message>
+      <source>Lesson</source>
+      <translation>Заняття</translation>
+    </message>
+    <message>
+      <source>Title</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Опис</translation>
+    </message>
+    <message>
+      <source>Duration (hours)</source>
+      <translation>Тривалість (год)</translation>
+    </message>
+    <message>
+      <source>Total hours</source>
+      <translation>Всього годин</translation>
+    </message>
+    <message>
+      <source>Classroom hours</source>
+      <translation>Аудиторні години</translation>
+    </message>
+    <message>
+      <source>Self-study hours</source>
+      <translation>Самостійні години</translation>
+    </message>
+    <message>
+      <source>Lesson type</source>
+      <translation>Тип заняття</translation>
+    </message>
+    <message>
+      <source>Questions</source>
+      <translation>Питання</translation>
+    </message>
+    <message>
+      <source>Add question</source>
+      <translation>Додати питання</translation>
+    </message>
+    <message>
+      <source>Edit</source>
+      <translation>Редагувати</translation>
+    </message>
+    <message>
+      <source>Remove</source>
+      <translation>Прибрати</translation>
+    </message>
+    <message>
+      <source>Order index</source>
+      <translation>Порядковий індекс</translation>
+    </message>
+    <message>
+      <source>Question text is required.</source>
+      <translation>Question text is required.</translation>
+    </message>
+    <message>
+      <source>Validation</source>
+      <translation>Validation</translation>
+    </message>
   </context>
   <context>
     <name>QuestionDialog</name>
-    <message><source>Question</source><translation>Питання</translation></message>
-    <message><source>Order index</source><translation>Порядковий індекс</translation></message>
+    <message>
+      <source>Question</source>
+      <translation>Питання</translation>
+    </message>
+    <message>
+      <source>Order index</source>
+      <translation>Порядковий індекс</translation>
+    </message>
   </context>
   <context>
     <name>MaterialDialog</name>
-    <message><source>Methodical Material</source><translation>Методичний матеріал</translation></message>
-    <message><source>Title</source><translation>Назва</translation></message>
-    <message><source>Type</source><translation>Тип</translation></message>
-    <message><source>Description</source><translation>Опис</translation></message>
-    <message><source>Sort authors</source><translation>Сортування авторів</translation></message>
-    <message><source>Default</source><translation>За замовчуванням</translation></message>
-    <message><source>Full name</source><translation>ПІБ</translation></message>
-    <message><source>Military rank</source><translation>Військове звання</translation></message>
-    <message><source>Position</source><translation>Посада</translation></message>
-    <message><source>Department</source><translation>Підрозділ</translation></message>
-    <message><source>Email</source><translation>Email</translation></message>
-    <message><source>Phone</source><translation>Телефон</translation></message>
-    <message><source>A-Z</source><translation>A-Z</translation></message>
-    <message><source>Z-A</source><translation>Z-A</translation></message>
-    <message><source>Authors</source><translation>Автори</translation></message>
-    <message><source>Attached file</source><translation>Прикріплений файл</translation></message>
-    <message><source>plan</source><translation>план</translation></message>
-    <message><source>guide</source><translation>методичний посібник</translation></message>
-    <message><source>presentation</source><translation>презентація</translation></message>
-    <message><source>attachment</source><translation>додаток</translation></message>
-      <message><source>All files (*)</source><translation>All files (*)</translation></message>
-    <message><source>Attach File</source><translation>Attach File</translation></message>
-    <message><source>Attach existing file</source><translation>Attach existing file</translation></message>
+    <message>
+      <source>Methodical Material</source>
+      <translation>Методичний матеріал</translation>
+    </message>
+    <message>
+      <source>Title</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Type</source>
+      <translation>Тип</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Опис</translation>
+    </message>
+    <message>
+      <source>Sort authors</source>
+      <translation>Сортування авторів</translation>
+    </message>
+    <message>
+      <source>Default</source>
+      <translation>За замовчуванням</translation>
+    </message>
+    <message>
+      <source>Full name</source>
+      <translation>ПІБ</translation>
+    </message>
+    <message>
+      <source>Military rank</source>
+      <translation>Військове звання</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>Посада</translation>
+    </message>
+    <message>
+      <source>Department</source>
+      <translation>Підрозділ</translation>
+    </message>
+    <message>
+      <source>Email</source>
+      <translation>Email</translation>
+    </message>
+    <message>
+      <source>Phone</source>
+      <translation>Телефон</translation>
+    </message>
+    <message>
+      <source>A-Z</source>
+      <translation>A-Z</translation>
+    </message>
+    <message>
+      <source>Z-A</source>
+      <translation>Z-A</translation>
+    </message>
+    <message>
+      <source>Authors</source>
+      <translation>Автори</translation>
+    </message>
+    <message>
+      <source>Attached file</source>
+      <translation>Прикріплений файл</translation>
+    </message>
+    <message>
+      <source>plan</source>
+      <translation>план</translation>
+    </message>
+    <message>
+      <source>guide</source>
+      <translation>методичний посібник</translation>
+    </message>
+    <message>
+      <source>presentation</source>
+      <translation>презентація</translation>
+    </message>
+    <message>
+      <source>attachment</source>
+      <translation>додаток</translation>
+    </message>
+    <message>
+      <source>All files (*)</source>
+      <translation>All files (*)</translation>
+    </message>
+    <message>
+      <source>Attach File</source>
+      <translation>Attach File</translation>
+    </message>
+    <message>
+      <source>Attach existing file</source>
+      <translation>Attach existing file</translation>
+    </message>
   </context>
   <context>
     <name>LessonTypeDialog</name>
-    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
-    <message><source>Name</source><translation>Назва</translation></message>
-    <message><source>Synonyms (comma-separated)</source><translation>Синоніми (через кому)</translation></message>
+    <message>
+      <source>Lesson type</source>
+      <translation>Тип заняття</translation>
+    </message>
+    <message>
+      <source>Name</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Synonyms (comma-separated)</source>
+      <translation>Синоніми (через кому)</translation>
+    </message>
   </context>
   <context>
     <name>EditorWizardDialog</name>
-    <message><source>Application</source><translation>Програма</translation></message>
-    <message><source>Restart application</source><translation>Перезавантажити програму</translation></message>
-    <message><source>Exit application</source><translation>Закрити програму</translation></message>
-    <message><source>Editor Wizard</source><translation>Майстер редактора</translation></message>
-    <message><source>Step 1: Select context</source><translation>Крок 1: Виберіть контекст</translation></message>
-    <message><source>Step 2: Add lessons</source><translation>Крок 2: Додайте заняття</translation></message>
-    <message><source>Step 3: Add questions</source><translation>Крок 3: Додайте питання</translation></message>
-    <message><source>Step 4: Add materials</source><translation>Крок 4: Додайте матеріали</translation></message>
-    <message><source>Step 5: Summary</source><translation>Крок 5: Підсумок</translation></message>
-    <message><source>Back</source><translation>Назад</translation></message>
-    <message><source>Next</source><translation>Далі</translation></message>
-    <message><source>Finish</source><translation>Готово</translation></message>
-    <message><source>Cancel</source><translation>Скасувати</translation></message>
-    <message><source>Program</source><translation>Програма</translation></message>
-    <message><source>Discipline</source><translation>Дисципліна</translation></message>
-    <message><source>Topic</source><translation>Тема</translation></message>
-    <message><source>Lesson</source><translation>Заняття</translation></message>
-    <message><source>Questions</source><translation>Питання</translation></message>
-    <message><source>Materials</source><translation>Матеріали</translation></message>
-    <message><source>Add program</source><translation>Додати програму</translation></message>
-    <message><source>Add discipline</source><translation>Додати дисципліну</translation></message>
-    <message><source>Add topic</source><translation>Додати тему</translation></message>
-    <message><source>Add lesson</source><translation>Додати заняття</translation></message>
-    <message><source>Add question</source><translation>Додати питання</translation></message>
-    <message><source>Add material</source><translation>Додати матеріал</translation></message>
-    <message><source>Title</source><translation>Назва</translation></message>
-    <message><source>Description</source><translation>Опис</translation></message>
-    <message><source>Total hours</source><translation>Всього годин</translation></message>
-    <message><source>Classroom hours</source><translation>Аудиторні години</translation></message>
-    <message><source>Self-study hours</source><translation>Самостійні години</translation></message>
-    <message><source>Lesson type</source><translation>Тип заняття</translation></message>
-    <message><source>Order index</source><translation>Порядковий індекс</translation></message>
-    <message><source>Target</source><translation>Призначення</translation></message>
-    <message><source>Select a topic first.</source><translation>Спочатку виберіть тему.</translation></message>
-    <message><source>Select a program first.</source><translation>Спочатку виберіть програму.</translation></message>
-    <message><source>Select a discipline first.</source><translation>Спочатку виберіть дисципліну.</translation></message>
-    <message><source>Select a lesson first.</source><translation>Спочатку виберіть заняття.</translation></message>
-    <message><source>Lesson title is required.</source><translation>Потрібна назва заняття.</translation></message>
-    <message><source>Question text is required.</source><translation>Потрібний текст питання.</translation></message>
-    <message><source>Material title is required.</source><translation>Потрібна назва матеріалу.</translation></message>
-    <message><source>Select a target first.</source><translation>Спочатку виберіть призначення.</translation></message>
+    <message>
+      <source>Application</source>
+      <translation>Програма</translation>
+    </message>
+    <message>
+      <source>Restart application</source>
+      <translation>Перезавантажити програму</translation>
+    </message>
+    <message>
+      <source>Exit application</source>
+      <translation>Закрити програму</translation>
+    </message>
+    <message>
+      <source>Editor Wizard</source>
+      <translation>Майстер редактора</translation>
+    </message>
+    <message>
+      <source>Step 1: Select context</source>
+      <translation>Крок 1: Виберіть контекст</translation>
+    </message>
+    <message>
+      <source>Step 2: Add lessons</source>
+      <translation>Крок 2: Додайте заняття</translation>
+    </message>
+    <message>
+      <source>Step 3: Add questions</source>
+      <translation>Крок 3: Додайте питання</translation>
+    </message>
+    <message>
+      <source>Step 4: Add materials</source>
+      <translation>Крок 4: Додайте матеріали</translation>
+    </message>
+    <message>
+      <source>Step 5: Summary</source>
+      <translation>Крок 5: Підсумок</translation>
+    </message>
+    <message>
+      <source>Back</source>
+      <translation>Назад</translation>
+    </message>
+    <message>
+      <source>Next</source>
+      <translation>Далі</translation>
+    </message>
+    <message>
+      <source>Finish</source>
+      <translation>Готово</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Скасувати</translation>
+    </message>
+    <message>
+      <source>Program</source>
+      <translation>Програма</translation>
+    </message>
+    <message>
+      <source>Discipline</source>
+      <translation>Дисципліна</translation>
+    </message>
+    <message>
+      <source>Topic</source>
+      <translation>Тема</translation>
+    </message>
+    <message>
+      <source>Lesson</source>
+      <translation>Заняття</translation>
+    </message>
+    <message>
+      <source>Questions</source>
+      <translation>Питання</translation>
+    </message>
+    <message>
+      <source>Materials</source>
+      <translation>Матеріали</translation>
+    </message>
+    <message>
+      <source>Add program</source>
+      <translation>Додати програму</translation>
+    </message>
+    <message>
+      <source>Add discipline</source>
+      <translation>Додати дисципліну</translation>
+    </message>
+    <message>
+      <source>Add topic</source>
+      <translation>Додати тему</translation>
+    </message>
+    <message>
+      <source>Add lesson</source>
+      <translation>Додати заняття</translation>
+    </message>
+    <message>
+      <source>Add question</source>
+      <translation>Додати питання</translation>
+    </message>
+    <message>
+      <source>Add material</source>
+      <translation>Додати матеріал</translation>
+    </message>
+    <message>
+      <source>Title</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Опис</translation>
+    </message>
+    <message>
+      <source>Total hours</source>
+      <translation>Всього годин</translation>
+    </message>
+    <message>
+      <source>Classroom hours</source>
+      <translation>Аудиторні години</translation>
+    </message>
+    <message>
+      <source>Self-study hours</source>
+      <translation>Самостійні години</translation>
+    </message>
+    <message>
+      <source>Lesson type</source>
+      <translation>Тип заняття</translation>
+    </message>
+    <message>
+      <source>Order index</source>
+      <translation>Порядковий індекс</translation>
+    </message>
+    <message>
+      <source>Target</source>
+      <translation>Призначення</translation>
+    </message>
+    <message>
+      <source>Select a topic first.</source>
+      <translation>Спочатку виберіть тему.</translation>
+    </message>
+    <message>
+      <source>Select a program first.</source>
+      <translation>Спочатку виберіть програму.</translation>
+    </message>
+    <message>
+      <source>Select a discipline first.</source>
+      <translation>Спочатку виберіть дисципліну.</translation>
+    </message>
+    <message>
+      <source>Select a lesson first.</source>
+      <translation>Спочатку виберіть заняття.</translation>
+    </message>
+    <message>
+      <source>Lesson title is required.</source>
+      <translation>Потрібна назва заняття.</translation>
+    </message>
+    <message>
+      <source>Question text is required.</source>
+      <translation>Потрібний текст питання.</translation>
+    </message>
+    <message>
+      <source>Material title is required.</source>
+      <translation>Потрібна назва матеріалу.</translation>
+    </message>
+    <message>
+      <source>Select a target first.</source>
+      <translation>Спочатку виберіть призначення.</translation>
+    </message>
       \1Програма\3
-    <message><source>Discipline name is required.</source><translation>Discipline name is required.</translation></message>
+    <message>
+      <source>Discipline name is required.</source>
+      <translation>Discipline name is required.</translation>
+    </message>
     \1Закрити програму\3
-    <message><source>Import error</source><translation>Import error</translation></message>
-    <message><source>N/A</source><translation>N/A</translation></message>
-    <message><source>Program name is required.</source><translation>Program name is required.</translation></message>
-    <message><source>Question</source><translation>Question</translation></message>
+    <message>
+      <source>Import error</source>
+      <translation>Import error</translation>
+    </message>
+    <message>
+      <source>N/A</source>
+      <translation>N/A</translation>
+    </message>
+    <message>
+      <source>Program name is required.</source>
+      <translation>Program name is required.</translation>
+    </message>
+    <message>
+      <source>Question</source>
+      <translation>Question</translation>
+    </message>
     \1Перезавантажити програму\3
-    <message><source>Topic title is required.</source><translation>Topic title is required.</translation></message>
-    <message><source>Validation</source><translation>Validation</translation></message>
+    <message>
+      <source>Topic title is required.</source>
+      <translation>Topic title is required.</translation>
+    </message>
+    <message>
+      <source>Validation</source>
+      <translation>Validation</translation>
+    </message>
   </context>
   <context>
     <name>ImportPreviewDialog</name>
-    <message><source>Import preview</source><translation>Перегляд імпорту</translation></message>
-    <message><source>Title</source><translation>Назва</translation></message>
-    <message><source>Details</source><translation>Деталі</translation></message>
-    <message><source>Topic</source><translation>Тема</translation></message>
-    <message><source>Question</source><translation>Питання</translation></message>
+    <message>
+      <source>Import preview</source>
+      <translation>Перегляд імпорту</translation>
+    </message>
+    <message>
+      <source>Title</source>
+      <translation>Назва</translation>
+    </message>
+    <message>
+      <source>Details</source>
+      <translation>Деталі</translation>
+    </message>
+    <message>
+      <source>Topic</source>
+      <translation>Тема</translation>
+    </message>
+    <message>
+      <source>Question</source>
+      <translation>Питання</translation>
+    </message>
   </context>
   <context>
     <name>ImportCurriculumDialog</name>
-    <message><source>Import curriculum structure</source><translation>Імпорт структури навчальної програми</translation></message>
-    <message><source>Program</source><translation>Програма</translation></message>
-    <message><source>Discipline</source><translation>Дисципліна</translation></message>
-    <message><source>New discipline</source><translation>Нова дисципліна</translation></message>
-    <message><source>Paste table text here...</source><translation>Вставте текст таблиці сюди...</translation></message>
-    <message><source>Load file</source><translation>Завантажити файл</translation></message>
-    <message><source>Load files (batch)</source><translation>Завантажити файли (пакетом)</translation></message>
-    <message><source>Preview</source><translation>Перегляд</translation></message>
-    <message><source>Open table file</source><translation>Відкрити файл таблиці</translation></message>
-    <message><source>Open table files</source><translation>Відкрити файли таблиць</translation></message>
-    <message><source>Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)</source><translation>Документи (*.txt *.tsv *.csv *.docx *.doc);;Усі файли (*)</translation></message>
-    <message><source>Create new...</source><translation>Створити нову...</translation></message>
-    <message><source>Preview is available for single-file import only.</source><translation>Перегляд доступний лише для імпорту одного файлу.</translation></message>
-    <message><source>Import error</source><translation>Помилка імпорту</translation></message>
-      <message><source>New discipline name</source><translation>Нова назва дисципліни</translation></message>
+    <message>
+      <source>Import curriculum structure</source>
+      <translation>Імпорт структури навчальної програми</translation>
+    </message>
+    <message>
+      <source>Program</source>
+      <translation>Програма</translation>
+    </message>
+    <message>
+      <source>Discipline</source>
+      <translation>Дисципліна</translation>
+    </message>
+    <message>
+      <source>New discipline</source>
+      <translation>Нова дисципліна</translation>
+    </message>
+    <message>
+      <source>Paste table text here...</source>
+      <translation>Вставте текст таблиці сюди...</translation>
+    </message>
+    <message>
+      <source>Load file</source>
+      <translation>Завантажити файл</translation>
+    </message>
+    <message>
+      <source>Load files (batch)</source>
+      <translation>Завантажити файли (пакетом)</translation>
+    </message>
+    <message>
+      <source>Preview</source>
+      <translation>Перегляд</translation>
+    </message>
+    <message>
+      <source>Open table file</source>
+      <translation>Відкрити файл таблиці</translation>
+    </message>
+    <message>
+      <source>Open table files</source>
+      <translation>Відкрити файли таблиць</translation>
+    </message>
+    <message>
+      <source>Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)</source>
+      <translation>Документи (*.txt *.tsv *.csv *.docx *.doc);;Усі файли (*)</translation>
+    </message>
+    <message>
+      <source>Create new...</source>
+      <translation>Створити нову...</translation>
+    </message>
+    <message>
+      <source>Preview is available for single-file import only.</source>
+      <translation>Перегляд доступний лише для імпорту одного файлу.</translation>
+    </message>
+    <message>
+      <source>Import error</source>
+      <translation>Помилка імпорту</translation>
+    </message>
+    <message>
+      <source>New discipline name</source>
+      <translation>Нова назва дисципліни</translation>
+    </message>
+  </context>
+  <context>
+    <name>MainWindow</name>
+    <message>
+      <source>User: not selected</source>
+      <translation>Користувач: не обрано</translation>
+    </message>
+    <message>
+      <source>User: {0}</source>
+      <translation>Користувач: {0}</translation>
+    </message>
+    <message>
+      <source>No teachers found. Add at least one teacher in admin mode.</source>
+      <translation>Викладачів не знайдено. Додайте хоча б одного викладача в режимі адміністратора.</translation>
+    </message>
+    <message>
+      <source>Teacher selection is required.</source>
+      <translation>Потрібно обрати викладача.</translation>
+    </message>
+  </context>
+  <context>
+    <name>AdminDialog</name>
+    <message>
+      <source>Log</source>
+      <translation>Журнал</translation>
+    </message>
+    <message>
+      <source>Time</source>
+      <translation>Час</translation>
+    </message>
+    <message>
+      <source>User</source>
+      <translation>Користувач</translation>
+    </message>
+    <message>
+      <source>Mode</source>
+      <translation>Режим</translation>
+    </message>
+    <message>
+      <source>Action</source>
+      <translation>Дія</translation>
+    </message>
+    <message>
+      <source>Details</source>
+      <translation>Деталі</translation>
+    </message>
+    <message>
+      <source>Clear log</source>
+      <translation>Очистити лог</translation>
+    </message>
+    <message>
+      <source>Clear all log records?</source>
+      <translation>Очистити всі записи журналу?</translation>
+    </message>
+    <message>
+      <source>Synchronize local changes to Internet DB (merge, no full overwrite)?</source>
+      <translation>Синхронізувати локальні зміни з Internet БД (злиття без повного перезапису)?</translation>
+    </message>
+    <message>
+      <source>Synchronize Internet DB changes to local database (merge, no full overwrite)?</source>
+      <translation>Синхронізувати зміни Internet БД з локальною базою (злиття без повного перезапису)?</translation>
+    </message>
+    <message>
+      <source>Synchronization canceled by user.</source>
+      <translation>Синхронізацію скасовано користувачем.</translation>
+    </message>
+  </context>
+  <context>
+    <name>TeacherLoginDialog</name>
+    <message>
+      <source>Select teacher</source>
+      <translation>Оберіть викладача</translation>
+    </message>
+    <message>
+      <source>Unknown teacher</source>
+      <translation>Невідомий викладач</translation>
+    </message>
+    <message>
+      <source>Login as</source>
+      <translation>Увійти як</translation>
+    </message>
+  </context>
+  <context>
+    <name>SyncConflictDialog</name>
+    <message>
+      <source>Synchronization conflict</source>
+      <translation>Конфлікт синхронізації</translation>
+    </message>
+    <message>
+      <source>Table: {0}</source>
+      <translation>Таблиця: {0}</translation>
+    </message>
+    <message>
+      <source>Record UUID: {0}</source>
+      <translation>UUID запису: {0}</translation>
+    </message>
+    <message>
+      <source>Local value</source>
+      <translation>Локальне значення</translation>
+    </message>
+    <message>
+      <source>Internet value</source>
+      <translation>Значення з Internet</translation>
+    </message>
+    <message>
+      <source>Use Local (Recommended)</source>
+      <translation>Використати локальне (Рекомендовано)</translation>
+    </message>
+    <message>
+      <source>Use Internet</source>
+      <translation>Використати Internet</translation>
+    </message>
+    <message>
+      <source>Skip this conflict</source>
+      <translation>Пропустити цей конфлікт</translation>
+    </message>
+    <message>
+      <source>Next</source>
+      <translation>Далі</translation>
+    </message>
   </context>
 </TS>

@@ -24,15 +24,19 @@ from PySide6.QtWidgets import (
 from ..controllers.admin_controller import AdminController
 from ..models.entities import Lesson, Question
 from ..ui.dialogs import ProgramDialog, DisciplineDialog, TopicDialog, MaterialDialog
+from ..services.activity_log import ActivityLogService
 
 
 class EditorWizardDialog(QDialog):
     """Step-by-step wizard for editor mode."""
 
-    def __init__(self, database, i18n=None, parent=None):
+    def __init__(self, database, i18n=None, parent=None, actor_name: str = "unknown", actor_mode: str = "editor"):
         super().__init__(parent)
         self.controller = AdminController(database)
         self.i18n = i18n
+        self.actor_name = actor_name or "unknown"
+        self.actor_mode = actor_mode or "editor"
+        self.activity_log = ActivityLogService()
         self.lesson_context_label = QLabel("")
         self.lesson_context_label.setWordWrap(True)
         self._selected_program_id = None
@@ -52,6 +56,12 @@ class EditorWizardDialog(QDialog):
         self.showMaximized()
         if self.i18n:
             self.i18n.language_changed.connect(self._retranslate_ui)
+
+    def _log_action(self, action: str, details: str = "") -> None:
+        mode = self.actor_mode or "editor"
+        if not mode.startswith("user."):
+            mode = f"user.{mode}"
+        self.activity_log.log(self.actor_name, mode, action, details)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -425,6 +435,7 @@ class EditorWizardDialog(QDialog):
             QMessageBox.warning(self, self.tr("Validation"), self.tr("Program name is required."))
             return
         self.controller.add_program(program)
+        self._log_action("add_program", program.name)
         self._created_counts["programs"] += 1
         self._refresh_programs()
         idx = self.program_combo.findData(program.id)
@@ -445,6 +456,7 @@ class EditorWizardDialog(QDialog):
             return
         self.controller.add_discipline(discipline)
         self.controller.add_discipline_to_program(program_id, discipline.id, discipline.order_index)
+        self._log_action("add_discipline", discipline.name)
         self._created_counts["disciplines"] += 1
         self._refresh_disciplines()
         idx = self.discipline_combo.findData(discipline.id)
@@ -465,6 +477,7 @@ class EditorWizardDialog(QDialog):
             return
         self.controller.add_topic(topic)
         self.controller.add_topic_to_discipline(discipline_id, topic.id, topic.order_index)
+        self._log_action("add_topic", topic.title)
         self._created_counts["topics"] += 1
         self._refresh_topics()
         idx = self.topic_combo.findData(topic.id)
@@ -491,6 +504,7 @@ class EditorWizardDialog(QDialog):
         )
         lesson = self.controller.add_lesson(lesson)
         self.controller.add_lesson_to_topic(topic_id, lesson.id, lesson.order_index)
+        self._log_action("add_lesson", lesson.title)
         self._created_counts["lessons"] += 1
         self.lesson_title.clear()
         self.lesson_description.clear()
@@ -520,6 +534,7 @@ class EditorWizardDialog(QDialog):
         if order_index <= 0:
             order_index = self.controller.get_next_lesson_question_order(lesson_id)
         self.controller.add_question_to_lesson(lesson_id, question.id, order_index)
+        self._log_action("add_question", content[:120])
         self._created_counts["questions"] += 1
         self.question_content.clear()
         self.question_order.setValue(0)
@@ -558,6 +573,7 @@ class EditorWizardDialog(QDialog):
                 self.controller.attach_existing_material_file(material, existing_path)
         except Exception as exc:
             QMessageBox.warning(self, self.tr("Import error"), str(exc))
+        self._log_action("add_material", material.title)
         self._created_counts["materials"] += 1
         self._refresh_materials_list()
 

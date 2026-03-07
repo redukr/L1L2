@@ -40,6 +40,7 @@ from ..ui.editor_wizard import EditorWizardDialog
 from ..services.auth_service import AuthService
 from ..services.i18n import I18nManager
 from ..services.file_storage import FileStorageManager
+from ..ui.dialogs import TeacherLoginDialog
 
 
 class MainWindow(QMainWindow):
@@ -57,6 +58,7 @@ class MainWindow(QMainWindow):
         self._tree_syncing_columns = False
         self.last_program_id = None
         self.last_discipline_id = None
+        self.active_teacher = None
         self.setWindowTitle(self.tr("Educational Program Manager"))
         self.resize(1200, 720)
         self._build_ui()
@@ -89,11 +91,13 @@ class MainWindow(QMainWindow):
         self.font_combo.addItems(["10", "11", "12", "13", "14", "15", "16", "18"])
         self.editor_button = QPushButton(self.tr("Editor Mode"))
         self.admin_button = QPushButton(self.tr("Admin Mode"))
+        self.active_teacher_label = QLabel(self.tr("User: not selected"))
         top_bar.addWidget(self.search_input)
         top_bar.addWidget(self.search_button)
         top_bar.addWidget(self.language_combo)
         top_bar.addWidget(self.font_combo)
         top_bar.addStretch(1)
+        top_bar.addWidget(self.active_teacher_label)
         top_bar.addWidget(self.editor_button)
         top_bar.addWidget(self.admin_button)
         layout.addLayout(top_bar)
@@ -209,6 +213,48 @@ class MainWindow(QMainWindow):
         self.copy_material_button.clicked.connect(self._on_copy_material)
         self.language_combo.currentIndexChanged.connect(self._on_language_combo_changed)
         self.font_combo.currentTextChanged.connect(self._on_font_size_changed)
+
+    def ensure_teacher_login(self) -> bool:
+        teachers = list(self.controller.teacher_repo.get_all())
+        if not teachers:
+            QMessageBox.warning(
+                self,
+                self.tr("Validation"),
+                self.tr("No teachers found. Add at least one teacher in admin mode."),
+            )
+            return False
+
+        teachers.sort(key=lambda t: ((t.full_name or "").strip().casefold(), t.id or 0))
+        preferred_teacher_id = self.settings.value("session/teacher_id")
+        preferred_teacher_id = int(preferred_teacher_id) if preferred_teacher_id else None
+        dialog = TeacherLoginDialog(teachers, selected_teacher_id=preferred_teacher_id, parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return False
+        teacher = dialog.get_selected_teacher()
+        if not teacher:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Teacher selection is required."))
+            return False
+        self.active_teacher = teacher
+        self.settings.setValue("session/teacher_id", teacher.id)
+        self._update_active_teacher_label()
+        return True
+
+    def _update_active_teacher_label(self) -> None:
+        if not self.active_teacher:
+            self.active_teacher_label.setText(self.tr("User: not selected"))
+            return
+        name = self.active_teacher.full_name or self.tr("Unknown teacher")
+        if self.active_teacher.military_rank:
+            name = f"{self.active_teacher.military_rank} {name}"
+        self.active_teacher_label.setText(self.tr("User: {0}").format(name))
+
+    def _active_user_name(self) -> str:
+        if not self.active_teacher:
+            return "unknown"
+        name = self.active_teacher.full_name or "unknown"
+        if self.active_teacher.military_rank:
+            name = f"{self.active_teacher.military_rank} {name}"
+        return name
 
     def _apply_word_wrap(self) -> None:
         self.program_list.setWordWrap(True)
@@ -654,7 +700,15 @@ class MainWindow(QMainWindow):
                 break
             QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid admin password."))
 
-        dialog = AdminDialog(self.controller.db, self.i18n, self.settings, self, require_auth=False)
+        dialog = AdminDialog(
+            self.controller.db,
+            self.i18n,
+            self.settings,
+            self,
+            require_auth=False,
+            actor_name=self._active_user_name(),
+            actor_mode="admin",
+        )
         dialog.exec()
         # Always refresh after admin dialog closes to sync UI state.
         self._load_programs()
@@ -679,7 +733,13 @@ class MainWindow(QMainWindow):
             if self.auth_service.verify_editor_password(dialog.get_password()):
                 break
             QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid editor password."))
-        wizard = EditorWizardDialog(self.controller.db, self.i18n, self)
+        wizard = EditorWizardDialog(
+            self.controller.db,
+            self.i18n,
+            self,
+            actor_name=self._active_user_name(),
+            actor_mode="editor",
+        )
         wizard.exec()
         self._load_programs()
         if self.last_program_id and self.last_program_id in self.program_items:
@@ -986,6 +1046,7 @@ class MainWindow(QMainWindow):
         self.search_button.setText(self.tr("Search"))
         self.editor_button.setText(self.tr("Editor Mode"))
         self.admin_button.setText(self.tr("Admin Mode"))
+        self._update_active_teacher_label()
         self.menuBar().clear()
         app_menu = self.menuBar().addMenu(self.tr("Application"))
         self.action_about = app_menu.addAction(self.tr("About"))

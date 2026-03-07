@@ -36,6 +36,8 @@ def main() -> int:
     seed_demo_data(database)
     controller = MainController(database)
     window = MainWindow(controller, i18n, settings)
+    if not window.ensure_teacher_login():
+        return 0
     window.show()
     return app.exec()
 
