@@ -251,7 +251,7 @@ class MaterialRepository:
                     VALUES (?, ?, ?)
                 """, (material_id, entity_type, entity_id))
                 return True
-            except Exception:
+            except sqlite3.IntegrityError:
                 return False
 
     def remove_material_from_entity(self, material_id: int, entity_type: str, entity_id: int) -> bool:
@@ -294,7 +294,7 @@ class MaterialRepository:
                     VALUES (?, ?, ?)
                 """, (teacher_id, material_id, role))
                 return True
-            except Exception:
+            except sqlite3.IntegrityError:
                 return False
 
     def remove_teacher_from_material(self, teacher_id: int, material_id: int) -> bool:

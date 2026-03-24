@@ -7,6 +7,7 @@ from datetime import datetime
 import re
 import shutil
 import subprocess
+import locale
 from typing import Dict, List, Optional, Tuple
 
 from ..models.database import Database
@@ -80,10 +81,6 @@ def parse_curriculum_text(text: str) -> List[CurriculumTopic]:
     current_topic: Optional[CurriculumTopic] = None
     lesson_auto_index = 1
 
-    lesson_type_idx = 1
-    hours_idx_candidates = [3, 4]
-    questions_idx = 5
-
     for row in rows[header_idx + 1:]:
         if _is_summary_row(row):
             continue
@@ -118,11 +115,8 @@ def parse_curriculum_text(text: str) -> List[CurriculumTopic]:
         )
 
         lesson_type_name = None
-        lesson_type_cell = _cell(row, lesson_type_idx)
-        questions_cell = _cell(row, questions_idx)
-
-        # Self-study or questions are always in column 6.
-        self_study_title, self_study_questions = _parse_self_study_cell(questions_cell)
+        lesson_type_cell = _cell(row, col_map["lesson_type"])
+        questions_cell = _cell(row, col_map["questions"])
 
         if self_study_title or self_study_questions or "заняття" not in lesson_title.lower():
             lesson_type_name = "Самостійна робота"
@@ -136,11 +130,7 @@ def parse_curriculum_text(text: str) -> List[CurriculumTopic]:
             if not lesson_type_name:
                 lesson_type_name = _detect_lesson_type(lesson_title)
 
-        total_hours = None
-        for idx in hours_idx_candidates:
-            total_hours = _parse_number(_cell(row, idx))
-            if total_hours is not None:
-                break
+        total_hours = _parse_number(_cell(row, col_map["total_hours"]))
         classroom_hours = _parse_number(_cell(row, col_map["classroom_hours"]))
         self_study_hours = _parse_number(_cell(row, col_map["self_study_hours"]))
 
@@ -221,8 +211,7 @@ def extract_text_from_file(path: str) -> str:
     """Extract text from .txt/.csv/.tsv/.docx/.doc files for parsing."""
     ext = Path(path).suffix.lower()
     if ext in {".txt", ".csv", ".tsv"}:
-        with open(path, "r", encoding="utf-8") as file:
-            return file.read()
+        return _read_text_file(path)
     if ext == ".docx":
         return _extract_from_docx(path)
     if ext == ".doc":
@@ -452,6 +441,29 @@ def _detect_delimiter(lines: List[str]) -> str:
     return "  "
 
 
+def _read_text_file(path: str) -> str:
+    encodings = ["utf-8-sig", "utf-8"]
+    preferred = locale.getpreferredencoding(False)
+    if preferred and preferred.lower() not in {enc.lower() for enc in encodings}:
+        encodings.append(preferred)
+    for encoding in ("cp1251", "cp866"):
+        if encoding.lower() not in {enc.lower() for enc in encodings}:
+            encodings.append(encoding)
+
+    last_error: UnicodeDecodeError | None = None
+    for encoding in encodings:
+        try:
+            with open(path, "r", encoding=encoding) as file:
+                return file.read()
+        except UnicodeDecodeError as exc:
+            last_error = exc
+    if last_error is not None:
+        raise ValueError(
+            "Unable to decode text file. Supported encodings: UTF-8, UTF-8 with BOM, system default, CP1251, CP866."
+        ) from last_error
+    raise ValueError("Unable to read text file.")
+
+
 def _extract_from_docx(path: str) -> str:
     try:
         from docx import Document
@@ -517,10 +529,10 @@ def _map_columns(headers: List[str]) -> Dict[str, Optional[int]]:
     for idx, header in enumerate(headers):
         if "назва теми" in header:
             col_map["topic"] = idx
-        elif "заняття" in header:
-            col_map["lesson"] = idx
         elif "тип" in header and "занят" in header:
             col_map["lesson_type"] = idx
+        elif "заняття" in header:
+            col_map["lesson"] = idx
         elif "всього" in header or "усього" in header or "заг" in header:
             col_map["total_hours"] = idx
         elif "аудитор" in header or "лекц" in header or "практ" in header:

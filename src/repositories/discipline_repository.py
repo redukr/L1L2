@@ -1,6 +1,7 @@
 """Discipline repository for database operations."""
 from typing import List, Optional
 from datetime import datetime
+import sqlite3
 from ..models.entities import Discipline, Topic
 from ..models.database import Database
 
@@ -92,7 +93,7 @@ class DisciplineRepository:
                     VALUES (?, ?, ?)
                 """, (discipline_id, topic_id, order_index))
                 return True
-            except Exception:
+            except sqlite3.IntegrityError:
                 return False
 
     def remove_topic_from_discipline(self, discipline_id: int, topic_id: int) -> bool:

@@ -1,6 +1,7 @@
 """Lesson repository for database operations."""
 from typing import List, Optional
 from datetime import datetime
+import sqlite3
 from ..models.entities import Lesson, Question
 from ..models.database import Database
 
@@ -183,7 +184,7 @@ class LessonRepository:
                     VALUES (?, ?, ?)
                 """, (lesson_id, question_id, order_index))
                 return True
-            except Exception:
+            except sqlite3.IntegrityError:
                 return False
 
     def update_question_order(self, lesson_id: int, question_id: int, order_index: int) -> bool:

@@ -1,6 +1,7 @@
 """Educational program repository for database operations."""
 from typing import List, Optional
 from datetime import datetime
+import sqlite3
 from ..models.entities import EducationalProgram, Topic, Discipline
 from ..models.database import Database
 
@@ -168,7 +169,7 @@ class ProgramRepository:
                     VALUES (?, ?, ?)
                 """, (program_id, topic_id, order_index))
                 return True
-            except Exception:
+            except sqlite3.IntegrityError:
                 return False
 
     def add_discipline_to_program(self, program_id: int, discipline_id: int, order_index: int = 0) -> bool:
@@ -191,7 +192,7 @@ class ProgramRepository:
                     VALUES (?, ?, ?)
                 """, (program_id, discipline_id, order_index))
                 return True
-            except Exception:
+            except sqlite3.IntegrityError:
                 return False
 
     def remove_topic_from_program(self, program_id: int, topic_id: int) -> bool:

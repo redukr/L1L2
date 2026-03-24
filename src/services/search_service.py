@@ -1,6 +1,7 @@
 """Search service for full-text search across all entities."""
 from typing import List, Dict, Any
 import sqlite3
+import re
 from ..models.entities import SearchResult
 from ..models.database import Database
 from ..repositories.teacher_repository import TeacherRepository
@@ -32,10 +33,18 @@ class SearchService:
         self.material_repo = MaterialRepository(database)
 
     def _fts_query(self, keyword: str) -> str:
-        tokens = [t for t in keyword.strip().split() if t]
-        if not tokens:
-            return keyword
-        return " ".join(f"{token}*" for token in tokens)
+        raw_tokens = re.findall(r'"[^"]+"|[\w]+', keyword.strip(), flags=re.UNICODE)
+        terms = []
+        for raw_token in raw_tokens:
+            if raw_token.startswith('"') and raw_token.endswith('"'):
+                phrase = raw_token[1:-1].strip()
+                if phrase:
+                    terms.append(f'"{phrase.replace(chr(34), chr(34) * 2)}"*')
+                continue
+            token = raw_token.strip("_")
+            if token:
+                terms.append(f"{token}*")
+        return " ".join(terms)
 
     def search_all(self, keyword: str) -> List[SearchResult]:
         """
@@ -82,6 +91,8 @@ class SearchService:
         """Search in teachers using FTS."""
         results: List[SearchResult] = []
         fts_query = self._fts_query(keyword)
+        if not fts_query:
+            return self._fallback_teachers(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -116,6 +127,8 @@ class SearchService:
         """Search in educational programs using FTS."""
         results = []
         fts_query = self._fts_query(keyword)
+        if not fts_query:
+            return self._fallback_programs(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -150,6 +163,8 @@ class SearchService:
         """Search in disciplines using FTS."""
         results = []
         fts_query = self._fts_query(keyword)
+        if not fts_query:
+            return self._fallback_disciplines(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -182,6 +197,8 @@ class SearchService:
         """Search in topics using FTS."""
         results = []
         fts_query = self._fts_query(keyword)
+        if not fts_query:
+            return self._fallback_topics(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -214,6 +231,8 @@ class SearchService:
         """Search in lessons using FTS."""
         results = []
         fts_query = self._fts_query(keyword)
+        if not fts_query:
+            return self._fallback_lessons(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -253,6 +272,8 @@ class SearchService:
         """Search in questions using FTS."""
         results = []
         fts_query = self._fts_query(keyword)
+        if not fts_query:
+            return self._fallback_questions(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -285,6 +306,8 @@ class SearchService:
         """Search in methodical materials using FTS."""
         results = []
         fts_query = self._fts_query(keyword)
+        if not fts_query:
+            return self._fallback_materials(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             try:

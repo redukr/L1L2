@@ -378,6 +378,7 @@ class Database:
             # Create triggers to keep FTS tables in sync
             self._create_fts_triggers(cursor)
             self._ensure_schema_version(cursor)
+            self._rebuild_all_fts(cursor)
             self._ensure_default_lesson_types(cursor)
 
     def _ensure_schema_version(self, cursor) -> None:
@@ -716,6 +717,19 @@ class Database:
                 SELECT id, title, description, file_name
                 FROM methodical_materials
             """)
+
+    def _rebuild_all_fts(self, cursor) -> None:
+        """Backfill FTS tables for existing content after create/migration."""
+        for table_name in (
+            "teachers_fts",
+            "programs_fts",
+            "topics_fts",
+            "disciplines_fts",
+            "lessons_fts",
+            "questions_fts",
+            "materials_fts",
+        ):
+            cursor.execute(f"INSERT INTO {table_name}({table_name}) VALUES ('rebuild')")
     def _create_fts_triggers(self, cursor):
         """Create triggers to maintain FTS tables."""
         # Teachers triggers
