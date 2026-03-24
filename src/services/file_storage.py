@@ -6,7 +6,6 @@ from pathlib import Path
 import shutil
 from typing import Optional, Tuple
 
-from .app_paths import get_app_base_dir, get_files_dir
 from .storage_settings import get_materials_root, set_materials_root
 
 
@@ -243,12 +242,20 @@ class FileStorageManager:
 
     def _resolve_path(self, relative_path: str) -> Path:
         relative = self._normalize_relative_path(relative_path)
-        return self._files_root / relative
+        absolute = (self._files_root / relative).resolve()
+        files_root = self._files_root.resolve()
+        try:
+            absolute.relative_to(files_root)
+        except ValueError as exc:
+            raise ValueError("Resolved file path must stay inside the storage folder.") from exc
+        return absolute
 
     def _normalize_relative_path(self, relative_path: str) -> Path:
         cleaned = relative_path.replace("\\", "/").lstrip("/")
         if cleaned.startswith("files/"):
             cleaned = cleaned[len("files/"):]
+        if not cleaned:
+            raise ValueError("Relative file path is required.")
         return Path(cleaned)
 
     def _ensure_under_max_path(self, path: Path) -> None:

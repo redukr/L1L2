@@ -378,7 +378,6 @@ class Database:
             # Create triggers to keep FTS tables in sync
             self._create_fts_triggers(cursor)
             self._ensure_schema_version(cursor)
-            self._rebuild_all_fts(cursor)
             self._ensure_default_lesson_types(cursor)
 
     def _ensure_schema_version(self, cursor) -> None:
@@ -434,6 +433,10 @@ class Database:
             self._migrate_to_lesson_type_synonyms(cursor)
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (10)")
             current_version = 10
+        if current_version < 11:
+            self._rebuild_all_fts(cursor)
+            cursor.execute("INSERT INTO schema_migrations (version) VALUES (11)")
+            current_version = 11
 
     def _migrate_to_disciplines(self, cursor) -> None:
         """Migrate existing program->topic links into disciplines."""

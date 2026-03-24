@@ -1,11 +1,16 @@
 import tempfile
 import unittest
 from pathlib import Path
+import sqlite3
 
 from src.models.database import Database
 from src.repositories.discipline_repository import DisciplineRepository
+from src.repositories.teacher_repository import TeacherRepository
+from src.repositories.topic_repository import TopicRepository
+from src.services.file_storage import FileStorageManager
 from src.services.import_service import extract_text_from_file, parse_curriculum_text
 from src.services.search_service import SearchService
+from src.ui.main_window import MainWindow
 
 
 class RegressionTests(unittest.TestCase):
@@ -57,6 +62,54 @@ class RegressionTests(unittest.TestCase):
             results = SearchService(reopened).search_all("Alpha")
             self.assertTrue(any(result.entity_type == "program" and result.title == "Alpha Program" for result in results))
 
+    def test_database_rebuilds_fts_only_once_via_migration(self):
+        class CountingDatabase(Database):
+            rebuild_calls = 0
+
+            def _rebuild_all_fts(self, cursor) -> None:
+                type(self).rebuild_calls += 1
+                super()._rebuild_all_fts(cursor)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "education.db"
+            Database(str(db_path))
+
+            CountingDatabase.rebuild_calls = 0
+            CountingDatabase(str(db_path))
+            self.assertEqual(CountingDatabase.rebuild_calls, 0)
+
+    def test_search_service_does_not_swallow_database_errors(self):
+        database = Database(":memory:")
+        service = SearchService(database)
+
+        original_get_connection = database.get_connection
+
+        def broken_connection():
+            raise sqlite3.OperationalError("fts unavailable")
+
+        database.get_connection = broken_connection
+        try:
+            with self.assertRaises(sqlite3.OperationalError):
+                service.search_all("alpha")
+        finally:
+            database.get_connection = original_get_connection
+
+    def test_file_storage_blocks_path_escape_from_relative_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            files_root = Path(tmp_dir) / "files"
+            files_root.mkdir()
+            storage = FileStorageManager(files_root)
+
+            with self.assertRaises(ValueError):
+                storage._resolve_path("../settings/admin_credentials.json")
+
+    def test_main_window_material_action_reports_invalid_path(self):
+        ok, error = MainWindow._execute_material_file_action(
+            lambda: (_ for _ in ()).throw(ValueError("bad path"))
+        )
+        self.assertIsNone(ok)
+        self.assertEqual(error, "bad path")
+
     def test_repository_only_swallows_integrity_errors(self):
         database = Database(":memory:")
         repo = DisciplineRepository(database)
@@ -70,6 +123,38 @@ class RegressionTests(unittest.TestCase):
         try:
             with self.assertRaises(RuntimeError):
                 repo.add_topic_to_discipline(1, 1, 1)
+        finally:
+            database.get_connection = original_get_connection
+
+    def test_teacher_repository_only_swallows_integrity_errors(self):
+        database = Database(":memory:")
+        repo = TeacherRepository(database)
+
+        original_get_connection = database.get_connection
+
+        def broken_connection():
+            raise RuntimeError("boom")
+
+        database.get_connection = broken_connection
+        try:
+            with self.assertRaises(RuntimeError):
+                repo.add_discipline(1, 1)
+        finally:
+            database.get_connection = original_get_connection
+
+    def test_topic_repository_only_swallows_integrity_errors(self):
+        database = Database(":memory:")
+        repo = TopicRepository(database)
+
+        original_get_connection = database.get_connection
+
+        def broken_connection():
+            raise RuntimeError("boom")
+
+        database.get_connection = broken_connection
+        try:
+            with self.assertRaises(RuntimeError):
+                repo.add_lesson_to_topic(1, 1, 1)
         finally:
             database.get_connection = original_get_connection
 

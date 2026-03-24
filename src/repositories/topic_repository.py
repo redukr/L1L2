@@ -1,6 +1,7 @@
 """Topic repository for database operations."""
 from typing import List, Optional
 from datetime import datetime
+import sqlite3
 from ..models.entities import Topic, Lesson
 from ..models.database import Database
 
@@ -160,7 +161,7 @@ class TopicRepository:
                     VALUES (?, ?, ?)
                 """, (topic_id, lesson_id, order_index))
                 return True
-            except Exception:
+            except sqlite3.IntegrityError:
                 return False
 
     def remove_lesson_from_topic(self, topic_id: int, lesson_id: int) -> bool:

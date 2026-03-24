@@ -2,7 +2,7 @@
 import os
 import re
 import sys
-from typing import Dict, Tuple
+from typing import Callable, Dict, Tuple
 from PySide6.QtCore import Qt, QSettings, QSize, QRect
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -217,12 +217,15 @@ class MainWindow(QMainWindow):
     def ensure_teacher_login(self) -> bool:
         teachers = list(self.controller.teacher_repo.get_all())
         if not teachers:
-            QMessageBox.warning(
+            self.active_teacher = None
+            self.settings.remove("session/teacher_id")
+            self._update_active_teacher_label()
+            QMessageBox.information(
                 self,
-                self.tr("Validation"),
-                self.tr("No teachers found. Add at least one teacher in admin mode."),
+                self.tr("Teacher Login"),
+                self.tr("No teachers found. Continue in guest mode and add a teacher in admin mode."),
             )
-            return False
+            return True
 
         teachers.sort(key=lambda t: ((t.full_name or "").strip().casefold(), t.id or 0))
         preferred_teacher_id = self.settings.value("session/teacher_id")
@@ -593,8 +596,16 @@ class MainWindow(QMainWindow):
 
     def _on_search(self) -> None:
         keyword = self.search_input.text().strip()
-        results = self.controller.search(keyword)
         self.search_results.setRowCount(0)
+        try:
+            results = self.controller.search(keyword)
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                self.tr("Search Error"),
+                self.tr("Search is temporarily unavailable: {0}").format(str(exc)),
+            )
+            return
         for result in results:
             row = self.search_results.rowCount()
             self.search_results.insertRow(row)
@@ -633,8 +644,13 @@ class MainWindow(QMainWindow):
             if not material or not material.relative_path:
                 QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
                 return
-            if not self.file_storage.open_file(material.relative_path):
-                QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+            self._run_material_file_action(
+                lambda: self.file_storage.open_file(material.relative_path),
+                invalid_title=self.tr("Invalid File"),
+                invalid_message=self.tr("Stored file path is invalid."),
+                missing_title=self.tr("No File"),
+                missing_message=self.tr("File is missing in storage."),
+            )
             return
 
         navigation = self.controller.resolve_search_navigation(result)
@@ -758,8 +774,13 @@ class MainWindow(QMainWindow):
             if not material.relative_path:
                 QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
                 continue
-            if not self.file_storage.open_file(material.relative_path):
-                QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+            self._run_material_file_action(
+                lambda relative_path=material.relative_path: self.file_storage.open_file(relative_path),
+                invalid_title=self.tr("Invalid File"),
+                invalid_message=self.tr("Stored file path is invalid."),
+                missing_title=self.tr("No File"),
+                missing_message=self.tr("File is missing in storage."),
+            )
 
     def _on_open_material_item(self, item: QListWidgetItem) -> None:
         material = item.data(Qt.UserRole)
@@ -768,8 +789,13 @@ class MainWindow(QMainWindow):
         if not material.relative_path:
             QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
             return
-        if not self.file_storage.open_file(material.relative_path):
-            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+        self._run_material_file_action(
+            lambda: self.file_storage.open_file(material.relative_path),
+            invalid_title=self.tr("Invalid File"),
+            invalid_message=self.tr("Stored file path is invalid."),
+            missing_title=self.tr("No File"),
+            missing_message=self.tr("File is missing in storage."),
+        )
 
     def _on_show_material(self) -> None:
         items = self.materials_list.selectedItems()
@@ -780,8 +806,13 @@ class MainWindow(QMainWindow):
             if not material.relative_path:
                 QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
                 continue
-            if not self.file_storage.show_in_folder(material.relative_path):
-                QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+            self._run_material_file_action(
+                lambda relative_path=material.relative_path: self.file_storage.show_in_folder(relative_path),
+                invalid_title=self.tr("Invalid File"),
+                invalid_message=self.tr("Stored file path is invalid."),
+                missing_title=self.tr("No File"),
+                missing_message=self.tr("File is missing in storage."),
+            )
 
     def _on_copy_material(self) -> None:
         items = self.materials_list.selectedItems()
@@ -802,8 +833,13 @@ class MainWindow(QMainWindow):
             )
             if not path:
                 return
-            if not self.file_storage.copy_file_as(material.relative_path, path):
-                QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+            self._run_material_file_action(
+                lambda: self.file_storage.copy_file_as(material.relative_path, path),
+                invalid_title=self.tr("Invalid File"),
+                invalid_message=self.tr("Stored file path is invalid."),
+                missing_title=self.tr("No File"),
+                missing_message=self.tr("File is missing in storage."),
+            )
             return
 
         dest_dir = QFileDialog.getExistingDirectory(self, self.tr("Copy file as..."), "")
@@ -820,8 +856,40 @@ class MainWindow(QMainWindow):
             filename = self._sanitize_filename(filename)
             filename = self._ensure_unique_filename(dest_dir, filename, used_names)
             target = os.path.join(dest_dir, filename)
-            if not self.file_storage.copy_file_as(material.relative_path, target):
-                QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
+            self._run_material_file_action(
+                lambda relative_path=material.relative_path, target_path=target: self.file_storage.copy_file_as(
+                    relative_path, target_path
+                ),
+                invalid_title=self.tr("Invalid File"),
+                invalid_message=self.tr("Stored file path is invalid."),
+                missing_title=self.tr("No File"),
+                missing_message=self.tr("File is missing in storage."),
+            )
+
+    @staticmethod
+    def _execute_material_file_action(action: Callable[[], bool]) -> tuple[bool | None, str | None]:
+        try:
+            return action(), None
+        except ValueError as exc:
+            return None, str(exc)
+
+    def _run_material_file_action(
+        self,
+        action: Callable[[], bool],
+        *,
+        invalid_title: str,
+        invalid_message: str,
+        missing_title: str,
+        missing_message: str,
+    ) -> bool:
+        ok, error = self._execute_material_file_action(action)
+        if error is not None:
+            QMessageBox.warning(self, invalid_title, invalid_message)
+            return False
+        if not ok:
+            QMessageBox.warning(self, missing_title, missing_message)
+            return False
+        return True
 
     def _refresh_report(self, program_id: int) -> None:
         self.report_table.clear()

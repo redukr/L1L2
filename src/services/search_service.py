@@ -1,6 +1,5 @@
 """Search service for full-text search across all entities."""
 from typing import List, Dict, Any
-import sqlite3
 import re
 from ..models.entities import SearchResult
 from ..models.database import Database
@@ -95,31 +94,28 @@ class SearchService:
             return self._fallback_teachers(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    SELECT t.id, t.full_name, t.military_rank, t.position, t.department,
-                           t.email, t.phone, bm25(teachers_fts) as score
-                    FROM teachers t
-                    JOIN teachers_fts ON t.id = teachers_fts.rowid
-                    WHERE teachers_fts MATCH ?
-                    ORDER BY score
-                """, (fts_query,))
+            cursor.execute("""
+                SELECT t.id, t.full_name, t.military_rank, t.position, t.department,
+                       t.email, t.phone, bm25(teachers_fts) as score
+                FROM teachers t
+                JOIN teachers_fts ON t.id = teachers_fts.rowid
+                WHERE teachers_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
 
-                for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(
-                        row, ['full_name', 'military_rank', 'position', 'department', 'email', 'phone']
-                    )
-                    description = f"{row['position'] or ''} - {row['department'] or ''}"
-                    results.append(SearchResult(
-                        entity_type='teacher',
-                        entity_id=row['id'],
-                        title=row['full_name'],
-                        description=description.strip(' -'),
-                        matched_text=matched_text,
-                        relevance_score=-(row['score'] or 0)
-                    ))
-            except sqlite3.Error:
-                results = []
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(
+                    row, ['full_name', 'military_rank', 'position', 'department', 'email', 'phone']
+                )
+                description = f"{row['position'] or ''} - {row['department'] or ''}"
+                results.append(SearchResult(
+                    entity_type='teacher',
+                    entity_id=row['id'],
+                    title=row['full_name'],
+                    description=description.strip(' -'),
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
 
         return results or self._fallback_teachers(keyword)
 
@@ -131,31 +127,28 @@ class SearchService:
             return self._fallback_programs(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    SELECT p.id, p.name, p.description, p.level, 
-                           p.duration_hours, bm25(programs_fts) as score
-                    FROM educational_programs p
-                    JOIN programs_fts ON p.id = programs_fts.rowid
-                    WHERE programs_fts MATCH ?
-                    ORDER BY score
-                """, (fts_query,))
+            cursor.execute("""
+                SELECT p.id, p.name, p.description, p.level,
+                       p.duration_hours, bm25(programs_fts) as score
+                FROM educational_programs p
+                JOIN programs_fts ON p.id = programs_fts.rowid
+                WHERE programs_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
 
-                for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(
-                        row, ['name', 'description', 'level']
-                    )
-                    description = f"{row['level'] or ''} - {row['description'] or ''}"
-                    results.append(SearchResult(
-                        entity_type='program',
-                        entity_id=row['id'],
-                        title=row['name'],
-                        description=description.strip(' -'),
-                        matched_text=matched_text,
-                        relevance_score=-(row['score'] or 0)
-                    ))
-            except sqlite3.Error:
-                results = []
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(
+                    row, ['name', 'description', 'level']
+                )
+                description = f"{row['level'] or ''} - {row['description'] or ''}"
+                results.append(SearchResult(
+                    entity_type='program',
+                    entity_id=row['id'],
+                    title=row['name'],
+                    description=description.strip(' -'),
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
 
         return results or self._fallback_programs(keyword)
 
@@ -167,29 +160,26 @@ class SearchService:
             return self._fallback_disciplines(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    SELECT d.id, d.name, d.description, bm25(disciplines_fts) as score
-                    FROM disciplines d
-                    JOIN disciplines_fts ON d.id = disciplines_fts.rowid
-                    WHERE disciplines_fts MATCH ?
-                    ORDER BY score
-                """, (fts_query,))
+            cursor.execute("""
+                SELECT d.id, d.name, d.description, bm25(disciplines_fts) as score
+                FROM disciplines d
+                JOIN disciplines_fts ON d.id = disciplines_fts.rowid
+                WHERE disciplines_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
 
-                for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(
-                        row, ['name', 'description']
-                    )
-                    results.append(SearchResult(
-                        entity_type='discipline',
-                        entity_id=row['id'],
-                        title=row['name'],
-                        description=row['description'] or '',
-                        matched_text=matched_text,
-                        relevance_score=-(row['score'] or 0)
-                    ))
-            except sqlite3.Error:
-                results = []
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(
+                    row, ['name', 'description']
+                )
+                results.append(SearchResult(
+                    entity_type='discipline',
+                    entity_id=row['id'],
+                    title=row['name'],
+                    description=row['description'] or '',
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
 
         return results or self._fallback_disciplines(keyword)
 
@@ -201,29 +191,26 @@ class SearchService:
             return self._fallback_topics(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    SELECT t.id, t.title, t.description, bm25(topics_fts) as score
-                    FROM topics t
-                    JOIN topics_fts ON t.id = topics_fts.rowid
-                    WHERE topics_fts MATCH ?
-                    ORDER BY score
-                """, (fts_query,))
+            cursor.execute("""
+                SELECT t.id, t.title, t.description, bm25(topics_fts) as score
+                FROM topics t
+                JOIN topics_fts ON t.id = topics_fts.rowid
+                WHERE topics_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
 
-                for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(
-                        row, ['title', 'description']
-                    )
-                    results.append(SearchResult(
-                        entity_type='topic',
-                        entity_id=row['id'],
-                        title=row['title'],
-                        description=row['description'] or '',
-                        matched_text=matched_text,
-                        relevance_score=-(row['score'] or 0)
-                    ))
-            except sqlite3.Error:
-                results = []
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(
+                    row, ['title', 'description']
+                )
+                results.append(SearchResult(
+                    entity_type='topic',
+                    entity_id=row['id'],
+                    title=row['title'],
+                    description=row['description'] or '',
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
 
         return results or self._fallback_topics(keyword)
 
@@ -235,36 +222,33 @@ class SearchService:
             return self._fallback_lessons(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    SELECT l.id, l.title, l.description, l.duration_hours,
-                           lt.name as lesson_type_name,
-                           bm25(lessons_fts) as score
-                    FROM lessons l
-                    LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
-                    JOIN lessons_fts ON l.id = lessons_fts.rowid
-                    WHERE lessons_fts MATCH ?
-                    ORDER BY score
-                """, (fts_query,))
+            cursor.execute("""
+                SELECT l.id, l.title, l.description, l.duration_hours,
+                       lt.name as lesson_type_name,
+                       bm25(lessons_fts) as score
+                FROM lessons l
+                LEFT JOIN lesson_types lt ON l.lesson_type_id = lt.id
+                JOIN lessons_fts ON l.id = lessons_fts.rowid
+                WHERE lessons_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
 
-                for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(
-                        row, ['title', 'description', 'lesson_type_name']
-                    )
-                    lesson_type = row['lesson_type_name'] or ''
-                    description = f"{row['description'] or ''} ({row['duration_hours']}h)"
-                    if lesson_type:
-                        description = f"{lesson_type} | {description}"
-                    results.append(SearchResult(
-                        entity_type='lesson',
-                        entity_id=row['id'],
-                        title=row['title'],
-                        description=description,
-                        matched_text=matched_text,
-                        relevance_score=-(row['score'] or 0)
-                    ))
-            except sqlite3.Error:
-                results = []
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(
+                    row, ['title', 'description', 'lesson_type_name']
+                )
+                lesson_type = row['lesson_type_name'] or ''
+                description = f"{row['description'] or ''} ({row['duration_hours']}h)"
+                if lesson_type:
+                    description = f"{lesson_type} | {description}"
+                results.append(SearchResult(
+                    entity_type='lesson',
+                    entity_id=row['id'],
+                    title=row['title'],
+                    description=description,
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
 
         return results or self._fallback_lessons(keyword)
 
@@ -276,29 +260,26 @@ class SearchService:
             return self._fallback_questions(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    SELECT q.id, q.content, q.answer, 
-                           bm25(questions_fts) as score
-                    FROM questions q
-                    JOIN questions_fts ON q.id = questions_fts.rowid
-                    WHERE questions_fts MATCH ?
-                    ORDER BY score
-                """, (fts_query,))
+            cursor.execute("""
+                SELECT q.id, q.content, q.answer,
+                       bm25(questions_fts) as score
+                FROM questions q
+                JOIN questions_fts ON q.id = questions_fts.rowid
+                WHERE questions_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
 
-                for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(row, ['content'])
-                    description = ""
-                    results.append(SearchResult(
-                        entity_type='question',
-                        entity_id=row['id'],
-                        title=row['content'][:100] + '...' if len(row['content']) > 100 else row['content'],
-                        description=description,
-                        matched_text=matched_text,
-                        relevance_score=-(row['score'] or 0)
-                    ))
-            except sqlite3.Error:
-                results = []
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(row, ['content'])
+                description = ""
+                results.append(SearchResult(
+                    entity_type='question',
+                    entity_id=row['id'],
+                    title=row['content'][:100] + '...' if len(row['content']) > 100 else row['content'],
+                    description=description,
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
 
         return results or self._fallback_questions(keyword)
 
@@ -310,33 +291,30 @@ class SearchService:
             return self._fallback_materials(keyword)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    SELECT m.id, m.title, m.description, m.material_type, 
-                           m.file_name, bm25(materials_fts) as score
-                    FROM methodical_materials m
-                    JOIN materials_fts ON m.id = materials_fts.rowid
-                    WHERE materials_fts MATCH ?
-                    ORDER BY score
-                """, (fts_query,))
+            cursor.execute("""
+                SELECT m.id, m.title, m.description, m.material_type,
+                       m.file_name, bm25(materials_fts) as score
+                FROM methodical_materials m
+                JOIN materials_fts ON m.id = materials_fts.rowid
+                WHERE materials_fts MATCH ?
+                ORDER BY score
+            """, (fts_query,))
 
-                for row in cursor.fetchall():
-                    matched_text = self._get_matched_text(
-                        row, ['title', 'description', 'file_name']
-                    )
-                    description = f"{row['material_type']} - {row['description'] or ''}"
-                    if row['file_name']:
-                        description += f" | File: {row['file_name']}"
-                    results.append(SearchResult(
-                        entity_type='material',
-                        entity_id=row['id'],
-                        title=row['title'],
-                        description=description.strip(' -'),
-                        matched_text=matched_text,
-                        relevance_score=-(row['score'] or 0)
-                    ))
-            except sqlite3.Error:
-                results = []
+            for row in cursor.fetchall():
+                matched_text = self._get_matched_text(
+                    row, ['title', 'description', 'file_name']
+                )
+                description = f"{row['material_type']} - {row['description'] or ''}"
+                if row['file_name']:
+                    description += f" | File: {row['file_name']}"
+                results.append(SearchResult(
+                    entity_type='material',
+                    entity_id=row['id'],
+                    title=row['title'],
+                    description=description.strip(' -'),
+                    matched_text=matched_text,
+                    relevance_score=-(row['score'] or 0)
+                ))
 
         return results or self._fallback_materials(keyword)
 
