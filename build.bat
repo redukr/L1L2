@@ -24,6 +24,7 @@ if errorlevel 1 (
 
 REM onedir build with synced app/exe version
 ".venv\Scripts\pyinstaller.exe" ^
+  -y ^
   --onedir ^
   --noconsole ^
   --name "L1L2" ^
@@ -38,10 +39,10 @@ if not exist "dist\\L1L2\\files" mkdir "dist\\L1L2\\files"
 if not exist "dist\\L1L2\\translations" mkdir "dist\\L1L2\\translations"
 if not exist "dist\\L1L2\\settings" mkdir "dist\\L1L2\\settings"
 
-xcopy "database\\*" "dist\\L1L2\\database\\" /E /I /Y >nul
-xcopy "files\\*" "dist\\L1L2\\files\\" /E /I /Y >nul
-xcopy "translations\\*" "dist\\L1L2\\translations\\" /E /I /Y >nul
-xcopy "settings\\*" "dist\\L1L2\\settings\\" /E /I /Y >nul
+if exist "database\\*" xcopy "database\\*" "dist\\L1L2\\database\\" /E /I /Y >nul
+if exist "files\\*" xcopy "files\\*" "dist\\L1L2\\files\\" /E /I /Y >nul
+if exist "translations\\*" xcopy "translations\\*" "dist\\L1L2\\translations\\" /E /I /Y >nul
+if exist "settings\\*" xcopy "settings\\*" "dist\\L1L2\\settings\\" /E /I /Y >nul
 
 echo.
 echo Build complete. EXE is in dist\L1L2\L1L2.exe
