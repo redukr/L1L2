@@ -16,13 +16,19 @@ if not exist "%ICON_PATH%" (
 )
 
 ".venv\Scripts\python.exe" -m pip install --upgrade pip pyinstaller
+".venv\Scripts\python.exe" sync_version.py
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
 
-REM onedir = папка з .exe та ресурсами
+REM onedir build with synced app/exe version
 ".venv\Scripts\pyinstaller.exe" ^
   --onedir ^
   --noconsole ^
   --name "L1L2" ^
   --icon "%ICON_PATH%" ^
+  --version-file "version_info.txt" ^
   --paths src ^
   run_app.py
 

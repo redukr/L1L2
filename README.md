@@ -40,6 +40,12 @@ Use the provided build script (Windows):
 build.bat
 ```
 
+Build scripts automatically sync the app version from the latest Git commit message.
+Use this format in the last commit message before building:
+```text
+v=0.0.0.26
+```
+
 Manual build from the repository root:
 ```bash
 pyinstaller --onefile --noconsole --name "L1L2" --paths src run_app.py
