@@ -30,9 +30,12 @@ On first run, the app creates:
 Demo data is inserted automatically when the database is empty.
 
 ## Admin Mode
-Default admin password: `admin123`
+On first access, the app asks you to create a local admin password.
 
-To reset the password, delete `settings/admin_credentials.json` and restart the app.
+If you need to reset it, delete `settings/admin_credentials.json` and create a new one on next access.
+
+Curriculum import supports a preview step before writing changes to the database.
+Batch curriculum import also shows a confirmation summary based on filenames before data is written.
 
 ## Build Portable EXE (PyInstaller)
 Use the provided build script (Windows):
@@ -57,6 +60,7 @@ The EXE will be in `dist/`. The app will create a `data/` folder next to the EXE
 On startup, the app checks the schema version and migrates existing data.
 - Existing Program -> Topic links are migrated into Program -> Discipline -> Topic.
 - A discipline is created per program using the program name (e.g., "Discipline for <Program Name>").
+- Before schema migrations run on an existing database, the app creates a backup in `settings/schema_backups/`.
 
 ## Translations (UA/EN)
 Translation sources are in `translations/` as `.ts` files. The app loads `.qm` if present and falls back to `.ts`.
@@ -74,3 +78,5 @@ pyinstaller --onefile --windowed --name "EducationalProgramManager" ^
 
 ## Data Storage
 All data is stored locally in a single SQLite file at `database/education.db`. Attached files are stored under `files/` (default root) and referenced by the database.
+- Cleanup operations create a backup bundle in `settings/cleanup_backups/` before deleting orphaned data.
+- Attaching an existing file is blocked when that physical file already belongs to another material record.

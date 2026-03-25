@@ -152,6 +152,32 @@ class MaterialRepository:
                 return material
             return None
 
+    def count_by_relative_path(self, relative_path: str, exclude_material_id: int | None = None) -> int:
+        if not relative_path:
+            return 0
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            if exclude_material_id is None:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM methodical_materials
+                    WHERE relative_path = ?
+                    """,
+                    (relative_path,),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM methodical_materials
+                    WHERE relative_path = ? AND id <> ?
+                    """,
+                    (relative_path, exclude_material_id),
+                )
+            row = cursor.fetchone()
+            return row["cnt"] if row else 0
+
     def get_all(self) -> List[MethodicalMaterial]:
         """
         Get all methodical materials.

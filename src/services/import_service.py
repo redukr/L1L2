@@ -40,6 +40,26 @@ class CurriculumTopic:
     lessons: List[CurriculumLesson] = field(default_factory=list)
 
 
+@dataclass
+class CurriculumPreviewSummary:
+    """Computed preview summary for curriculum import."""
+
+    topics_count: int
+    lessons_count: int
+    questions_count: int
+
+
+@dataclass
+class BatchImportPlanItem:
+    """Resolved batch import target with parsed curriculum preview."""
+
+    path: str
+    program_name: str
+    discipline_name: str
+    topics: List[CurriculumTopic]
+    summary: CurriculumPreviewSummary
+
+
 LESSON_TYPE_KEYWORDS = [
     ("контрольне заняття", "Контрольне заняття"),
     ("групове заняття", "Групове заняття"),
@@ -154,7 +174,52 @@ def parse_curriculum_text(text: str) -> List[CurriculumTopic]:
         )
         current_topic.lessons.append(lesson)
 
+    _validate_curriculum_topics(topics)
     return topics
+
+
+def summarize_curriculum_topics(topics: List[CurriculumTopic]) -> CurriculumPreviewSummary:
+    """Build a compact summary for preview and confirmation steps."""
+    lessons_count = sum(len(topic.lessons) for topic in topics)
+    questions_count = sum(len(lesson.questions) for topic in topics for lesson in topic.lessons)
+    return CurriculumPreviewSummary(
+        topics_count=len(topics),
+        lessons_count=lessons_count,
+        questions_count=questions_count,
+    )
+
+
+def preview_curriculum_text(text: str) -> Tuple[List[CurriculumTopic], CurriculumPreviewSummary]:
+    """Parse curriculum text and return both structure and preview summary."""
+    topics = parse_curriculum_text(text)
+    return topics, summarize_curriculum_topics(topics)
+
+
+def build_batch_import_plan(paths: List[str]) -> List[BatchImportPlanItem]:
+    """Parse files and derive batch import targets from filenames before writing to DB."""
+    if not paths:
+        raise ValueError("No files selected for batch import.")
+    plan: List[BatchImportPlanItem] = []
+    for path in paths:
+        content = extract_text_from_file(path)
+        topics = parse_curriculum_text(content)
+        program_name, discipline_name = program_discipline_from_filename(path)
+        if not discipline_name:
+            discipline_name = program_name
+        program_name = (program_name or "").strip()
+        discipline_name = (discipline_name or "").strip()
+        if not program_name or not discipline_name:
+            raise ValueError(f"Could not derive program/discipline names from filename: {Path(path).name}")
+        plan.append(
+            BatchImportPlanItem(
+                path=path,
+                program_name=program_name,
+                discipline_name=discipline_name,
+                topics=topics,
+                summary=summarize_curriculum_topics(topics),
+            )
+        )
+    return plan
 
 
 def _parse_freeform_curriculum(text: str) -> List[CurriculumTopic]:
@@ -204,6 +269,7 @@ def _parse_freeform_curriculum(text: str) -> List[CurriculumTopic]:
         if current_lesson:
             current_lesson.questions.extend(_parse_questions_block(line))
 
+    _validate_curriculum_topics(topics)
     return topics
 
 
@@ -271,6 +337,7 @@ def import_teachers_from_docx(database: Database, path: str) -> Tuple[int, int]:
     teachers = parse_teachers_from_docx(path)
     if not teachers:
         raise ValueError("No teachers found in .docx table.")
+    _validate_teacher_rows(teachers)
 
     with database.get_connection() as conn:
         cursor = conn.cursor()
@@ -326,6 +393,7 @@ def import_curriculum_structure(
     """
     if not topics:
         raise ValueError("No topics to import.")
+    _validate_curriculum_topics(topics)
 
     with database.get_connection() as conn:
         cursor = conn.cursor()
@@ -343,6 +411,7 @@ def import_curriculum_structure_by_names(
         raise ValueError("Program name is required.")
     if not discipline_name:
         raise ValueError("Discipline name is required.")
+    _validate_curriculum_topics(topics)
     with database.get_connection() as conn:
         cursor = conn.cursor()
         program_id = _ensure_program(cursor, program_name)
@@ -601,6 +670,54 @@ def _parse_number(text: str) -> Optional[float]:
         return float(value)
     except ValueError:
         return None
+
+
+def _validate_curriculum_topics(topics: List[CurriculumTopic]) -> None:
+    if not topics:
+        raise ValueError("No topics found for import.")
+    seen_topics: set[str] = set()
+    for topic in topics:
+        topic_title = _normalize_text(topic.title)
+        if not topic_title:
+            raise ValueError("Topic title cannot be empty.")
+        topic_key = _key(topic_title)
+        if topic_key in seen_topics:
+            raise ValueError(f"Duplicate topic title in import: {topic_title}")
+        seen_topics.add(topic_key)
+        if not topic.lessons:
+            raise ValueError(f"Topic has no lessons: {topic_title}")
+        seen_lessons: set[str] = set()
+        for lesson in topic.lessons:
+            lesson_title = _normalize_text(lesson.title)
+            if not lesson_title:
+                raise ValueError(f"Lesson title cannot be empty in topic: {topic_title}")
+            lesson_key = _key(lesson_title)
+            if lesson_key in seen_lessons:
+                raise ValueError(f"Duplicate lesson title in topic '{topic_title}': {lesson_title}")
+            seen_lessons.add(lesson_key)
+            for question in lesson.questions:
+                if not _normalize_text(question.text):
+                    raise ValueError(f"Question text cannot be empty in lesson: {lesson_title}")
+
+
+def _validate_teacher_rows(teachers: List[Teacher]) -> None:
+    seen_names: set[str] = set()
+    seen_emails: set[str] = set()
+    for teacher in teachers:
+        full_name = _normalize_text(teacher.full_name)
+        if not full_name:
+            raise ValueError("Teacher full name cannot be empty.")
+        name_key = full_name.casefold()
+        if name_key in seen_names:
+            raise ValueError(f"Duplicate teacher name in import: {full_name}")
+        seen_names.add(name_key)
+        if teacher.email:
+            email = teacher.email.strip().casefold()
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+                raise ValueError(f"Invalid teacher email: {teacher.email}")
+            if email in seen_emails:
+                raise ValueError(f"Duplicate teacher email in import: {teacher.email}")
+            seen_emails.add(email)
 
 
 def _parse_lesson_cell(text: str) -> Tuple[Optional[int], str, List[CurriculumQuestion]]:

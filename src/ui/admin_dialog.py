@@ -38,7 +38,6 @@ from PySide6.QtWidgets import (
 )
 import json
 import zlib
-from uuid import uuid4
 from PySide6.QtCore import QProcess
 import sys
 import sqlite3
@@ -69,7 +68,7 @@ from ..services.app_paths import (
 )
 from ..ui.dialogs import (
     PasswordDialog,
-    SyncConflictDialog,
+    PasswordSetupDialog,
     TeacherDialog,
     ProgramDialog,
     DisciplineDialog,
@@ -77,17 +76,28 @@ from ..ui.dialogs import (
     LessonDialog,
     LessonTypeDialog,
     MaterialTypeDialog,
-    ImportCurriculumDialog,
     QuestionDialog,
     MaterialDialog,
 )
-from ..services.import_service import (
-    import_curriculum_structure,
-    import_curriculum_structure_by_names,
-    import_teachers_from_docx,
-)
 from ..services.file_storage import FileStorageManager
 from ..services.activity_log import ActivityLogService
+from ..services.internet_sync_service import InternetSyncService
+from ..ui.admin_dialog_import_ops import run_import_curriculum, run_import_teachers
+from ..ui.admin_dialog_material_ops import (
+    add_material as add_material_op,
+    attach_existing_material_file as attach_existing_material_file_op,
+    attach_material_file as attach_material_file_op,
+    check_database as check_database_op,
+    cleanup_unused_data as cleanup_unused_data_op,
+    database_diagnostics as database_diagnostics_op,
+    edit_material as edit_material_op,
+    prompt_material_location as prompt_material_location_op,
+)
+from ..ui.admin_dialog_sync_ops import (
+    connect_internet_database as connect_internet_database_op,
+    resolve_sync_conflict as resolve_sync_conflict_op,
+    synchronize_internet_database as synchronize_internet_database_op,
+)
 
 
 class AdminDialog(QDialog):
@@ -112,6 +122,7 @@ class AdminDialog(QDialog):
         self.activity_log = ActivityLogService()
         self.bootstrap_settings = QSettings()
         self.file_storage = FileStorageManager()
+        self.internet_sync_service = InternetSyncService()
         desired_db_path = self.bootstrap_settings.value("app/db_path", "")
         if desired_db_path:
             resolved = resolve_app_path(desired_db_path)
@@ -135,6 +146,8 @@ class AdminDialog(QDialog):
         self.activity_log.log(self.actor_name, mode, action, details)
 
     def _authorize(self) -> bool:
+        if not self._ensure_admin_password():
+            return False
         while True:
             dialog = PasswordDialog(
                 self,
@@ -146,6 +159,29 @@ class AdminDialog(QDialog):
             if self.controller.verify_password(dialog.get_password()):
                 return True
             QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid admin password."))
+
+    def _ensure_admin_password(self) -> bool:
+        if self.controller.auth_service.has_admin_password():
+            return True
+        dialog = PasswordSetupDialog(
+            self,
+            title=self.tr("Create admin password"),
+            label=self.tr("Create a local admin password."),
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return False
+        password = dialog.get_password()
+        confirm_password = dialog.get_confirm_password()
+        if password != confirm_password:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Passwords do not match."))
+            return False
+        try:
+            self.controller.auth_service.set_admin_password(password)
+        except ValueError as exc:
+            QMessageBox.warning(self, self.tr("Validation"), str(exc))
+            return False
+        QMessageBox.information(self, self.tr("Password created"), self.tr("Admin password has been saved."))
+        return True
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -168,6 +204,15 @@ class AdminDialog(QDialog):
         self.tabs.addTab(self._build_log_tab(), self.tr("Log"))
         self.tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
         self._apply_word_wrap()
+
+    def _create_material_dialog(self, material=None, teachers=None, selected_teacher_ids=None) -> MaterialDialog:
+        return MaterialDialog(
+            material,
+            material_types=self.controller.get_material_types(),
+            teachers=teachers or [],
+            selected_teacher_ids=selected_teacher_ids,
+            parent=self,
+        )
 
     def _build_teachers_tab(self) -> QWidget:
         tab = QWidget()
@@ -2552,80 +2597,10 @@ class AdminDialog(QDialog):
             self.materials_table.item(row, 0).setData(Qt.UserRole, material)
 
     def _add_material(self) -> None:
-        target = self._current_structure_material_target()
-        if not target:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program, discipline or lesson first."))
-            return
-        entity_type, entity = target
-        teachers = self._filtered_teachers_for_target(entity_type, entity)
-        dialog = MaterialDialog(
-            parent=self,
-            material_types=self.controller.get_material_types(),
-            teachers=teachers,
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return
-        material = dialog.get_material()
-        if not material.title:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Material title is required."))
-            return
-        material = self.controller.add_material(material)
-        self.controller.add_material_to_entity(material.id, entity_type, entity.id)
-        for teacher_id in dialog.get_selected_teacher_ids():
-            self.controller.add_teacher_to_material(teacher_id, material.id)
-        attach_path = dialog.get_attachment_path()
-        existing_path = dialog.get_existing_attachment_path()
-        try:
-            if attach_path:
-                self.controller.attach_material_file(material, attach_path)
-            elif existing_path:
-                self.controller.attach_existing_material_file(material, existing_path)
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-        self._refresh_materials()
+        add_material_op(self)
 
     def _edit_material(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
-            return
-        target = self._current_structure_material_target()
-        teachers = self.controller.get_teachers()
-        if target:
-            entity_type, entity = target
-            teachers = self._filtered_teachers_for_target(entity_type, entity)
-            material = self.controller.ensure_material_for_edit(material, entity_type, entity.id)
-        filtered_ids = {t.id for t in teachers if t.id is not None}
-        selected_teacher_ids = [teacher.id for teacher in material.teachers if teacher.id is not None]
-        if filtered_ids:
-            extra_teachers = [t for t in material.teachers if t.id not in filtered_ids]
-            if extra_teachers:
-                teachers = teachers + extra_teachers
-        dialog = MaterialDialog(
-            material,
-            material_types=self.controller.get_material_types(),
-            teachers=teachers,
-            selected_teacher_ids=selected_teacher_ids,
-            parent=self,
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return
-        self.controller.update_material(dialog.get_material())
-        new_teacher_ids = set(dialog.get_selected_teacher_ids())
-        old_teacher_ids = {teacher.id for teacher in material.teachers if teacher.id is not None}
-        for teacher_id in new_teacher_ids - old_teacher_ids:
-            self.controller.add_teacher_to_material(teacher_id, material.id)
-        for teacher_id in old_teacher_ids - new_teacher_ids:
-            self.controller.remove_teacher_from_material(teacher_id, material.id)
-        attach_path = dialog.get_attachment_path()
-        existing_path = dialog.get_existing_attachment_path()
-        try:
-            if attach_path:
-                self.controller.attach_material_file(material, attach_path)
-            elif existing_path:
-                self.controller.attach_existing_material_file(material, existing_path)
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-        self._refresh_materials()
+        edit_material_op(self)
 
     def _delete_material(self) -> None:
         materials = self._selected_entities(self.materials_table)
@@ -2690,98 +2665,13 @@ class AdminDialog(QDialog):
         self._refresh_material_types()
 
     def _attach_material_file(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
-            return
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            self.tr("Attach File"),
-            "",
-            self.tr("Documents (*.pdf *.pptx *.docx)"),
-        )
-        if not path:
-            return
-        try:
-            updated = self.controller.attach_material_file(material, path)
-        except Exception as exc:
-            selection = self._prompt_material_location()
-            if not selection:
-                QMessageBox.warning(self, self.tr("Import error"), f"{exc}\n\n{self._database_diagnostics()}")
-                return
-            program_id, discipline_id = selection
-            try:
-                updated = self.controller.attach_material_file_with_context(
-                    material, path, program_id, discipline_id
-                )
-            except Exception as inner_exc:
-                QMessageBox.warning(self, self.tr("Import error"), f"{inner_exc}\n\n{self._database_diagnostics()}")
-                return
-        if updated:
-            self._refresh_materials()
+        attach_material_file_op(self)
 
     def _attach_existing_material_file(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
-            return
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            self.tr("Attach existing file"),
-            "",
-            self.tr("All files (*)"),
-        )
-        if not path:
-            return
-        try:
-            updated = self.controller.attach_existing_material_file(material, path)
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), f"{exc}\n\n{self._database_diagnostics()}")
-            return
-        if updated:
-            self._refresh_materials()
+        attach_existing_material_file_op(self)
 
     def _prompt_material_location(self):
-        dialog = QDialog(self)
-        dialog.setWindowTitle(self.tr("Select material location"))
-        layout = QVBoxLayout(dialog)
-        form = QHBoxLayout()
-        program_label = QLabel(self.tr("Program"))
-        program_combo = QComboBox()
-        discipline_label = QLabel(self.tr("Discipline"))
-        discipline_combo = QComboBox()
-        form.addWidget(program_label)
-        form.addWidget(program_combo)
-        form.addWidget(discipline_label)
-        form.addWidget(discipline_combo)
-        layout.addLayout(form)
-
-        for program in self.controller.get_programs():
-            program_combo.addItem(program.name, program.id)
-
-        def refresh_disciplines():
-            discipline_combo.clear()
-            program_id = program_combo.currentData()
-            if program_id is None:
-                return
-            for discipline in self.controller.get_program_disciplines(program_id):
-                discipline_combo.addItem(discipline.name, discipline.id)
-
-        program_combo.currentIndexChanged.connect(refresh_disciplines)
-        refresh_disciplines()
-
-        buttons = QHBoxLayout()
-        ok_btn = QPushButton(self.tr("OK"))
-        cancel_btn = QPushButton(self.tr("Cancel"))
-        buttons.addStretch(1)
-        buttons.addWidget(ok_btn)
-        buttons.addWidget(cancel_btn)
-        layout.addLayout(buttons)
-
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        if dialog.exec() != QDialog.Accepted:
-            return None
-        return program_combo.currentData(), discipline_combo.currentData()
+        return prompt_material_location_op(self)
 
     def _open_material_file(self) -> None:
         material = self._current_entity(self.materials_table)
@@ -2824,46 +2714,13 @@ class AdminDialog(QDialog):
             QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
 
     def _database_diagnostics(self) -> str:
-        import sqlite3
-
-        path = self.controller.db.db_path
-        status = "unknown"
-        try:
-            con = sqlite3.connect(path)
-            rows = con.execute("PRAGMA integrity_check;").fetchall()
-            status = ", ".join(row[0] for row in rows)
-        except Exception as exc:
-            status = f"error: {exc}"
-        finally:
-            try:
-                con.close()
-            except Exception:
-                pass
-        return f"DB: {path}\nIntegrity: {status}"
+        return database_diagnostics_op(self)
 
     def _check_database(self) -> None:
-        diagnostics = self._database_diagnostics()
-        QMessageBox.information(self, self.tr("Check database"), diagnostics)
+        check_database_op(self)
 
     def _cleanup_unused_data(self) -> None:
-        counts = self.controller.get_unused_data_counts()
-        total = sum(counts.values())
-        if total == 0:
-            QMessageBox.information(self, self.tr("Cleanup unused data"), self.tr("No unused data found."))
-            return
-        details = [
-            f"{self.tr('Programs')}: {counts['programs']}",
-            f"{self.tr('Disciplines')}: {counts['disciplines']}",
-            f"{self.tr('Topics')}: {counts['topics']}",
-            f"{self.tr('Lessons')}: {counts['lessons']}",
-            f"{self.tr('Questions')}: {counts['questions']}",
-            f"{self.tr('Materials')}: {counts['materials']}",
-        ]
-        message = self.tr("Unused data will be deleted:") + "\n" + "\n".join(details)
-        if QMessageBox.question(self, self.tr("Confirm"), message) != QMessageBox.Yes:
-            return
-        self.controller.cleanup_unused_data()
-        QMessageBox.information(self, self.tr("Cleanup unused data"), self.tr("Cleanup completed."))
+        cleanup_unused_data_op(self)
 
     def _refresh_material_assignments(self) -> None:
         material = self._current_entity(self.materials_table)
@@ -2940,7 +2797,7 @@ class AdminDialog(QDialog):
             "port": "3306",
             "database": "l1l2",
             "user": "kvl1odva",
-            "password": "cY2(Gyw)=Tc(",
+            "password": "",
         }
 
     def _load_internet_db_settings(self) -> None:
@@ -2978,451 +2835,7 @@ class AdminDialog(QDialog):
             QMessageBox.information(self, self.tr("Settings"), self.tr("Internet DB settings saved."))
 
     def _connect_internet_database(self) -> None:
-        host = self.internet_db_host.text().strip()
-        port_text = self.internet_db_port.text().strip()
-        database = self.internet_db_name.text().strip()
-        user = self.internet_db_user.text().strip()
-        password = self.internet_db_password.text()
-
-        if not host or not port_text or not database or not user:
-            QMessageBox.warning(
-                self,
-                self.tr("Validation"),
-                self.tr("Host, port, database and login are required."),
-            )
-            return
-        try:
-            port = int(port_text)
-        except ValueError:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Port must be a number."))
-            return
-
-        try:
-            import pymysql
-        except ImportError:
-            QMessageBox.warning(
-                self,
-                self.tr("Import error"),
-                self.tr("PyMySQL is not installed. Install dependencies from requirements.txt."),
-            )
-            return
-
-        try:
-            conn = pymysql.connect(
-                host=host,
-                port=port,
-                user=user,
-                password=password,
-                database=database,
-                connect_timeout=5,
-                read_timeout=5,
-                write_timeout=5,
-            )
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT DATABASE(), VERSION()")
-                row = cursor.fetchone()
-            conn.close()
-            active_db = row[0] if row and len(row) > 0 else database
-            version = row[1] if row and len(row) > 1 else "-"
-            self.internet_db_status.setText(
-                self.tr("Connected: {0} (DB: {1}, MySQL: {2})").format(host, active_db, version)
-            )
-            self.internet_db_status.setStyleSheet("color: #1b7f3b;")
-            self._set_internet_db_indicator("ok")
-            self._save_internet_db_settings(show_message=False)
-            self._log_action("internet_connect_ok", f"{host}:{port}/{database}")
-            if hasattr(self, "log_table"):
-                self._refresh_log_tab()
-        except Exception as exc:
-            self.internet_db_status.setText(self.tr("Connection failed"))
-            self.internet_db_status.setStyleSheet("color: #a11f1f;")
-            self._set_internet_db_indicator("error")
-            self._log_action("internet_connect_failed", str(exc))
-            if hasattr(self, "log_table"):
-                self._refresh_log_tab()
-            QMessageBox.warning(self, self.tr("Connection failed"), str(exc))
-
-    def _internet_sync_tables(self) -> list[str]:
-        return self._internet_sync_entity_tables() + self._internet_sync_link_tables()
-
-    def _internet_sync_entity_tables(self) -> list[str]:
-        return [
-            "teachers",
-            "educational_programs",
-            "disciplines",
-            "topics",
-            "lesson_types",
-            "lessons",
-            "questions",
-            "material_types",
-            "methodical_materials",
-        ]
-
-    def _internet_sync_link_tables(self) -> list[str]:
-        return [
-            "program_disciplines",
-            "discipline_topics",
-            "program_topics",
-            "topic_lessons",
-            "lesson_questions",
-            "teacher_materials",
-            "teacher_disciplines",
-            "material_associations",
-        ]
-
-    def _fetch_sqlite_table(self, sqlite_conn, table: str) -> tuple[list[str], list[dict]]:  # noqa: ANN001
-        cursor = sqlite_conn.cursor()
-        cursor.execute(f'SELECT * FROM "{table}"')
-        columns = [desc[0] for desc in cursor.description]
-        rows = [dict(row) for row in cursor.fetchall()]
-        return columns, rows
-
-    def _sqlite_table_columns(self, sqlite_conn, table: str) -> list[str]:  # noqa: ANN001
-        cursor = sqlite_conn.cursor()
-        cursor.execute(f'PRAGMA table_info("{table}")')
-        return [row["name"] for row in cursor.fetchall()]
-
-    def _fetch_mysql_table(self, mysql_conn, table: str) -> tuple[list[str], list[dict]]:  # noqa: ANN001
-        with mysql_conn.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM `{table}`")
-            rows = cursor.fetchall()
-            if not rows:
-                cursor.execute(f"SHOW COLUMNS FROM `{table}`")
-                columns = [row["Field"] for row in cursor.fetchall()]
-                return columns, []
-            columns = list(rows[0].keys())
-        return columns, rows
-
-    def _mysql_table_exists(self, mysql_conn, table: str) -> bool:  # noqa: ANN001
-        with mysql_conn.cursor() as cursor:
-            cursor.execute("SHOW TABLES LIKE %s", (table,))
-            return cursor.fetchone() is not None
-
-    def _mysql_table_columns(self, mysql_conn, table: str) -> list[str]:  # noqa: ANN001
-        with mysql_conn.cursor() as cursor:
-            cursor.execute(f"SHOW COLUMNS FROM `{table}`")
-            return [row["Field"] for row in cursor.fetchall()]
-
-    def _sqlite_primary_keys(self, sqlite_conn, table: str) -> list[str]:  # noqa: ANN001
-        cursor = sqlite_conn.cursor()
-        cursor.execute(f'PRAGMA table_info("{table}")')
-        info = cursor.fetchall()
-        ordered = sorted((row for row in info if row["pk"]), key=lambda row: row["pk"])
-        return [row["name"] for row in ordered]
-
-    def _mysql_primary_keys(self, mysql_conn, table: str) -> list[str]:  # noqa: ANN001
-        with mysql_conn.cursor() as cursor:
-            cursor.execute(f"SHOW KEYS FROM `{table}` WHERE Key_name = 'PRIMARY'")
-            rows = cursor.fetchall()
-        rows = sorted(rows, key=lambda row: row.get("Seq_in_index", 0))
-        return [row["Column_name"] for row in rows]
-
-    def _map_sqlite_type_to_mysql(self, sqlite_type: str) -> str:
-        t = (sqlite_type or "").upper()
-        if "INT" in t:
-            return "BIGINT"
-        if "REAL" in t or "FLOA" in t or "DOUB" in t:
-            return "DOUBLE"
-        if "BLOB" in t:
-            return "LONGBLOB"
-        if "CHAR" in t or "CLOB" in t or "TEXT" in t:
-            return "LONGTEXT"
-        if "DATE" in t or "TIME" in t:
-            return "DATETIME"
-        return "LONGTEXT"
-
-    def _ensure_mysql_table_columns(self, mysql_conn, sqlite_conn, table: str) -> None:  # noqa: ANN001
-        sqlite_cursor = sqlite_conn.cursor()
-        sqlite_cursor.execute(f'PRAGMA table_info("{table}")')
-        sqlite_info = sqlite_cursor.fetchall()
-        mysql_columns = set(self._mysql_table_columns(mysql_conn, table))
-        with mysql_conn.cursor() as cursor:
-            for col in sqlite_info:
-                col_name = col["name"]
-                if col_name in mysql_columns:
-                    continue
-                col_type = self._map_sqlite_type_to_mysql(col["type"] or "")
-                cursor.execute(f"ALTER TABLE `{table}` ADD COLUMN `{col_name}` {col_type} NULL")
-        mysql_conn.commit()
-
-    def _ensure_mysql_sync_schema(self, mysql_conn) -> None:  # noqa: ANN001
-        ddl = [
-            """
-            CREATE TABLE IF NOT EXISTS teachers (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                full_name TEXT NOT NULL,
-                military_rank TEXT NULL,
-                position TEXT NULL,
-                department TEXT NULL,
-                email TEXT NULL,
-                phone TEXT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS educational_programs (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT NULL,
-                level TEXT NULL,
-                year INT NOT NULL DEFAULT 0,
-                duration_hours INT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS disciplines (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT NULL,
-                order_index INT DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS topics (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT NULL,
-                order_index INT DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS lesson_types (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                synonyms TEXT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS lessons (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT NULL,
-                duration_hours DOUBLE DEFAULT 1.0,
-                lesson_type_id INT NULL,
-                classroom_hours DOUBLE NULL,
-                self_study_hours DOUBLE NULL,
-                order_index INT DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_lessons_lesson_type_id (lesson_type_id),
-                CONSTRAINT fk_lessons_lesson_type
-                    FOREIGN KEY (lesson_type_id) REFERENCES lesson_types(id)
-                    ON DELETE SET NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS questions (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                content TEXT NOT NULL,
-                answer TEXT NULL,
-                order_index INT DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS material_types (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS methodical_materials (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                title TEXT NOT NULL,
-                material_type TEXT NOT NULL,
-                description TEXT NULL,
-                original_filename TEXT NULL,
-                stored_filename TEXT NULL,
-                relative_path TEXT NULL,
-                file_type TEXT NULL,
-                file_path TEXT NULL,
-                file_name TEXT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS program_disciplines (
-                program_id INT NOT NULL,
-                discipline_id INT NOT NULL,
-                order_index INT DEFAULT 0,
-                PRIMARY KEY (program_id, discipline_id),
-                CONSTRAINT fk_pd_program
-                    FOREIGN KEY (program_id) REFERENCES educational_programs(id)
-                    ON DELETE CASCADE,
-                CONSTRAINT fk_pd_discipline
-                    FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS discipline_topics (
-                discipline_id INT NOT NULL,
-                topic_id INT NOT NULL,
-                order_index INT DEFAULT 0,
-                PRIMARY KEY (discipline_id, topic_id),
-                CONSTRAINT fk_dt_discipline
-                    FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
-                    ON DELETE CASCADE,
-                CONSTRAINT fk_dt_topic
-                    FOREIGN KEY (topic_id) REFERENCES topics(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS program_topics (
-                program_id INT NOT NULL,
-                topic_id INT NOT NULL,
-                order_index INT DEFAULT 0,
-                PRIMARY KEY (program_id, topic_id),
-                CONSTRAINT fk_pt_program
-                    FOREIGN KEY (program_id) REFERENCES educational_programs(id)
-                    ON DELETE CASCADE,
-                CONSTRAINT fk_pt_topic
-                    FOREIGN KEY (topic_id) REFERENCES topics(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS topic_lessons (
-                topic_id INT NOT NULL,
-                lesson_id INT NOT NULL,
-                order_index INT DEFAULT 0,
-                PRIMARY KEY (topic_id, lesson_id),
-                CONSTRAINT fk_tl_topic
-                    FOREIGN KEY (topic_id) REFERENCES topics(id)
-                    ON DELETE CASCADE,
-                CONSTRAINT fk_tl_lesson
-                    FOREIGN KEY (lesson_id) REFERENCES lessons(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS lesson_questions (
-                lesson_id INT NOT NULL,
-                question_id INT NOT NULL,
-                order_index INT DEFAULT 0,
-                PRIMARY KEY (lesson_id, question_id),
-                CONSTRAINT fk_lq_lesson
-                    FOREIGN KEY (lesson_id) REFERENCES lessons(id)
-                    ON DELETE CASCADE,
-                CONSTRAINT fk_lq_question
-                    FOREIGN KEY (question_id) REFERENCES questions(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS teacher_materials (
-                teacher_id INT NOT NULL,
-                material_id INT NOT NULL,
-                role TEXT NULL,
-                PRIMARY KEY (teacher_id, material_id),
-                CONSTRAINT fk_tm_teacher
-                    FOREIGN KEY (teacher_id) REFERENCES teachers(id)
-                    ON DELETE CASCADE,
-                CONSTRAINT fk_tm_material
-                    FOREIGN KEY (material_id) REFERENCES methodical_materials(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS teacher_disciplines (
-                teacher_id INT NOT NULL,
-                discipline_id INT NOT NULL,
-                PRIMARY KEY (teacher_id, discipline_id),
-                CONSTRAINT fk_td_teacher
-                    FOREIGN KEY (teacher_id) REFERENCES teachers(id)
-                    ON DELETE CASCADE,
-                CONSTRAINT fk_td_discipline
-                    FOREIGN KEY (discipline_id) REFERENCES disciplines(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS material_associations (
-                material_id INT NOT NULL,
-                entity_type VARCHAR(32) NOT NULL,
-                entity_id INT NOT NULL,
-                PRIMARY KEY (material_id, entity_type, entity_id),
-                CONSTRAINT fk_ma_material
-                    FOREIGN KEY (material_id) REFERENCES methodical_materials(id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                version INT NOT NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-        ]
-        with mysql_conn.cursor() as cursor:
-            for stmt in ddl:
-                cursor.execute(stmt)
-        mysql_conn.commit()
-
-    def _ensure_sqlite_sync_uuid(self, sqlite_conn, table: str) -> None:  # noqa: ANN001
-        columns = set(self._sqlite_table_columns(sqlite_conn, table))
-        if "sync_uuid" not in columns:
-            sqlite_conn.execute(f'ALTER TABLE "{table}" ADD COLUMN sync_uuid TEXT')
-        sqlite_conn.execute(
-            f'CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_sync_uuid ON "{table}"(sync_uuid)'
-        )
-        cursor = sqlite_conn.cursor()
-        cursor.execute(f'SELECT id FROM "{table}" WHERE sync_uuid IS NULL OR sync_uuid = ""')
-        for row in cursor.fetchall():
-            sqlite_conn.execute(
-                f'UPDATE "{table}" SET sync_uuid = ? WHERE id = ?',
-                (str(uuid4()), row["id"]),
-            )
-
-    def _ensure_mysql_sync_uuid(self, mysql_conn, table: str) -> None:  # noqa: ANN001
-        columns = set(self._mysql_table_columns(mysql_conn, table))
-        with mysql_conn.cursor() as cursor:
-            if "sync_uuid" not in columns:
-                cursor.execute(f"ALTER TABLE `{table}` ADD COLUMN sync_uuid VARCHAR(36) NULL")
-            cursor.execute(
-                f"UPDATE `{table}` SET sync_uuid = UUID() WHERE sync_uuid IS NULL OR sync_uuid = ''"
-            )
-            cursor.execute(f"SHOW INDEX FROM `{table}` WHERE Column_name = 'sync_uuid'")
-            if cursor.fetchone() is None:
-                cursor.execute(f"CREATE UNIQUE INDEX idx_{table}_sync_uuid ON `{table}`(sync_uuid)")
-        mysql_conn.commit()
-
-    def _normalize_sync_value(self, value):  # noqa: ANN001
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            return value.isoformat(sep=" ", timespec="seconds")
-        if isinstance(value, (int, float)):
-            return float(value)
-        return str(value)
-
-    def _rows_differ(self, left: dict, right: dict, columns: list[str]) -> bool:
-        for col in columns:
-            if self._normalize_sync_value(left.get(col)) != self._normalize_sync_value(right.get(col)):
-                return True
-        return False
-
-    def _conflict_compare_columns(self, columns: list[str]) -> list[str]:
-        ignored = {"id", "sync_uuid", "created_at", "updated_at"}
-        return [col for col in columns if col not in ignored]
-
-    def _format_conflict_row(self, row: dict, columns: list[str]) -> str:
-        payload = {col: row.get(col) for col in columns}
-        return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+        connect_internet_database_op(self)
 
     def _resolve_sync_conflict(
         self,
@@ -3432,395 +2845,10 @@ class AdminDialog(QDialog):
         remote_row: dict,
         compare_columns: list[str],
     ) -> str:
-        dialog = SyncConflictDialog(
-            table_name=table,
-            record_uuid=sync_uuid,
-            local_text=self._format_conflict_row(local_row, compare_columns),
-            remote_text=self._format_conflict_row(remote_row, compare_columns),
-            parent=self,
-        )
-        if dialog.exec() != QDialog.Accepted:
-            raise RuntimeError(self.tr("Synchronization canceled by user."))
-        return dialog.get_choice()
-
-    def _mysql_insert_entity(self, mysql_conn, table: str, row: dict, common_columns: list[str]) -> None:  # noqa: ANN001
-        insert_columns = [col for col in common_columns if col != "id"]
-        if not insert_columns:
-            return
-        with mysql_conn.cursor() as cursor:
-            cols_sql = ", ".join(f"`{col}`" for col in insert_columns)
-            placeholders = ", ".join(["%s"] * len(insert_columns))
-            sql = f"INSERT INTO `{table}` ({cols_sql}) VALUES ({placeholders})"
-            cursor.execute(sql, tuple(row.get(col) for col in insert_columns))
-
-    def _mysql_update_entity_by_uuid(
-        self, mysql_conn, table: str, row: dict, common_columns: list[str]
-    ) -> None:  # noqa: ANN001
-        update_columns = [col for col in common_columns if col not in {"id", "sync_uuid"}]
-        if not update_columns:
-            return
-        set_clause = ", ".join(f"`{col}` = %s" for col in update_columns)
-        values = [row.get(col) for col in update_columns]
-        values.append(row.get("sync_uuid"))
-        with mysql_conn.cursor() as cursor:
-            cursor.execute(
-                f"UPDATE `{table}` SET {set_clause} WHERE sync_uuid = %s",
-                tuple(values),
-            )
-
-    def _sqlite_insert_entity(self, sqlite_conn, table: str, row: dict, common_columns: list[str]) -> None:  # noqa: ANN001
-        insert_columns = [col for col in common_columns if col != "id"]
-        if not insert_columns:
-            return
-        cols_sql = ", ".join(f'"{col}"' for col in insert_columns)
-        placeholders = ", ".join(["?"] * len(insert_columns))
-        sqlite_conn.execute(
-            f'INSERT INTO "{table}" ({cols_sql}) VALUES ({placeholders})',
-            tuple(row.get(col) for col in insert_columns),
-        )
-
-    def _sqlite_update_entity_by_uuid(
-        self, sqlite_conn, table: str, row: dict, common_columns: list[str]
-    ) -> None:  # noqa: ANN001
-        update_columns = [col for col in common_columns if col not in {"id", "sync_uuid"}]
-        if not update_columns:
-            return
-        set_clause = ", ".join(f'"{col}" = ?' for col in update_columns)
-        values = [row.get(col) for col in update_columns]
-        values.append(row.get("sync_uuid"))
-        sqlite_conn.execute(
-            f'UPDATE "{table}" SET {set_clause} WHERE sync_uuid = ?',
-            tuple(values),
-        )
-
-    def _uuid_maps_sqlite(self, sqlite_conn, table: str) -> tuple[dict[int, str], dict[str, int]]:  # noqa: ANN001
-        cursor = sqlite_conn.cursor()
-        cursor.execute(f'SELECT id, sync_uuid FROM "{table}" WHERE sync_uuid IS NOT NULL AND sync_uuid <> ""')
-        id_to_uuid: dict[int, str] = {}
-        uuid_to_id: dict[str, int] = {}
-        for row in cursor.fetchall():
-            id_to_uuid[row["id"]] = row["sync_uuid"]
-            uuid_to_id[row["sync_uuid"]] = row["id"]
-        return id_to_uuid, uuid_to_id
-
-    def _uuid_maps_mysql(self, mysql_conn, table: str) -> tuple[dict[int, str], dict[str, int]]:  # noqa: ANN001
-        with mysql_conn.cursor() as cursor:
-            cursor.execute(f"SELECT id, sync_uuid FROM `{table}` WHERE sync_uuid IS NOT NULL AND sync_uuid <> ''")
-            rows = cursor.fetchall()
-        id_to_uuid: dict[int, str] = {}
-        uuid_to_id: dict[str, int] = {}
-        for row in rows:
-            id_to_uuid[row["id"]] = row["sync_uuid"]
-            uuid_to_id[row["sync_uuid"]] = row["id"]
-        return id_to_uuid, uuid_to_id
-
-    def _sync_entity_tables(self, sqlite_conn, mysql_conn, direction: str) -> list[str]:  # noqa: ANN001
-        stats: list[str] = []
-        for table in self._internet_sync_entity_tables():
-            if not self._mysql_table_exists(mysql_conn, table):
-                raise ValueError(f"Internet DB is missing table: {table}")
-            self._ensure_mysql_table_columns(mysql_conn, sqlite_conn, table)
-            self._ensure_sqlite_sync_uuid(sqlite_conn, table)
-            self._ensure_mysql_sync_uuid(mysql_conn, table)
-            sqlite_columns = self._sqlite_table_columns(sqlite_conn, table)
-            mysql_columns = self._mysql_table_columns(mysql_conn, table)
-            common_columns = [col for col in sqlite_columns if col in set(mysql_columns)]
-            compare_columns = self._conflict_compare_columns(common_columns)
-
-            _, local_rows = self._fetch_sqlite_table(sqlite_conn, table)
-            _, remote_rows = self._fetch_mysql_table(mysql_conn, table)
-            local_by_uuid = {row.get("sync_uuid"): row for row in local_rows if row.get("sync_uuid")}
-            remote_by_uuid = {row.get("sync_uuid"): row for row in remote_rows if row.get("sync_uuid")}
-
-            inserted = 0
-            updated = 0
-            conflicts = 0
-
-            if direction == "push":
-                for sync_uuid, local_row in local_by_uuid.items():
-                    remote_row = remote_by_uuid.get(sync_uuid)
-                    if remote_row is None:
-                        self._mysql_insert_entity(mysql_conn, table, local_row, common_columns)
-                        inserted += 1
-                        continue
-                    if self._rows_differ(local_row, remote_row, compare_columns):
-                        conflicts += 1
-                        choice = self._resolve_sync_conflict(
-                            table, sync_uuid, local_row, remote_row, compare_columns
-                        )
-                        if choice == "local":
-                            self._mysql_update_entity_by_uuid(mysql_conn, table, local_row, common_columns)
-                            updated += 1
-                        elif choice == "remote":
-                            self._sqlite_update_entity_by_uuid(sqlite_conn, table, remote_row, common_columns)
-                            updated += 1
-            else:
-                for sync_uuid, remote_row in remote_by_uuid.items():
-                    local_row = local_by_uuid.get(sync_uuid)
-                    if local_row is None:
-                        self._sqlite_insert_entity(sqlite_conn, table, remote_row, common_columns)
-                        inserted += 1
-                        continue
-                    if self._rows_differ(local_row, remote_row, compare_columns):
-                        conflicts += 1
-                        choice = self._resolve_sync_conflict(
-                            table, sync_uuid, local_row, remote_row, compare_columns
-                        )
-                        if choice == "remote":
-                            self._sqlite_update_entity_by_uuid(sqlite_conn, table, remote_row, common_columns)
-                            updated += 1
-                        elif choice == "local":
-                            self._mysql_update_entity_by_uuid(mysql_conn, table, local_row, common_columns)
-                            updated += 1
-
-            stats.append(
-                f"{table}: inserted={inserted}, updated={updated}, conflicts={conflicts}"
-            )
-        return stats
-
-    def _link_fk_table_map(self) -> dict[str, dict[str, str]]:
-        return {
-            "program_disciplines": {"program_id": "educational_programs", "discipline_id": "disciplines"},
-            "discipline_topics": {"discipline_id": "disciplines", "topic_id": "topics"},
-            "program_topics": {"program_id": "educational_programs", "topic_id": "topics"},
-            "topic_lessons": {"topic_id": "topics", "lesson_id": "lessons"},
-            "lesson_questions": {"lesson_id": "lessons", "question_id": "questions"},
-            "teacher_materials": {"teacher_id": "teachers", "material_id": "methodical_materials"},
-            "teacher_disciplines": {"teacher_id": "teachers", "discipline_id": "disciplines"},
-            "material_associations": {"material_id": "methodical_materials", "entity_id": "dynamic"},
-        }
-
-    def _entity_type_to_table(self, entity_type: str) -> str | None:
-        mapping = {
-            "program": "educational_programs",
-            "discipline": "disciplines",
-            "topic": "topics",
-            "lesson": "lessons",
-        }
-        return mapping.get(entity_type)
-
-    def _upsert_mysql_link_row(self, mysql_conn, table: str, row: dict) -> bool:  # noqa: ANN001
-        columns = [col for col in self._mysql_table_columns(mysql_conn, table) if col in row]
-        if not columns:
-            return False
-        pk_columns = self._mysql_primary_keys(mysql_conn, table)
-        non_pk_columns = [col for col in columns if col not in pk_columns]
-        cols_sql = ", ".join(f"`{col}`" for col in columns)
-        placeholders = ", ".join(["%s"] * len(columns))
-        if non_pk_columns:
-            update_sql = ", ".join(f"`{col}` = VALUES(`{col}`)" for col in non_pk_columns)
-            sql = (
-                f"INSERT INTO `{table}` ({cols_sql}) VALUES ({placeholders}) "
-                f"ON DUPLICATE KEY UPDATE {update_sql}"
-            )
-        else:
-            sql = f"INSERT IGNORE INTO `{table}` ({cols_sql}) VALUES ({placeholders})"
-        with mysql_conn.cursor() as cursor:
-            cursor.execute(sql, tuple(row.get(col) for col in columns))
-        return True
-
-    def _upsert_sqlite_link_row(self, sqlite_conn, table: str, row: dict) -> bool:  # noqa: ANN001
-        sqlite_columns = set(self._sqlite_table_columns(sqlite_conn, table))
-        columns = [col for col in row if col in sqlite_columns]
-        if not columns:
-            return False
-        pk_columns = self._sqlite_primary_keys(sqlite_conn, table)
-        non_pk_columns = [col for col in columns if col not in pk_columns]
-        cols_sql = ", ".join(f'"{col}"' for col in columns)
-        placeholders = ", ".join(["?"] * len(columns))
-        if pk_columns and non_pk_columns:
-            conflict_cols = ", ".join(f'"{col}"' for col in pk_columns)
-            update_sql = ", ".join(f'"{col}" = excluded."{col}"' for col in non_pk_columns)
-            sql = (
-                f'INSERT INTO "{table}" ({cols_sql}) VALUES ({placeholders}) '
-                f"ON CONFLICT ({conflict_cols}) DO UPDATE SET {update_sql}"
-            )
-        elif pk_columns:
-            sql = f'INSERT OR IGNORE INTO "{table}" ({cols_sql}) VALUES ({placeholders})'
-        else:
-            sql = f'INSERT INTO "{table}" ({cols_sql}) VALUES ({placeholders})'
-        sqlite_conn.execute(sql, tuple(row.get(col) for col in columns))
-        return True
-
-    def _sync_link_tables(self, sqlite_conn, mysql_conn, direction: str) -> list[str]:  # noqa: ANN001
-        stats: list[str] = []
-        local_maps: dict[str, dict[str, dict]] = {}
-        remote_maps: dict[str, dict[str, dict]] = {}
-        for table in self._internet_sync_entity_tables():
-            l_id_to_uuid, l_uuid_to_id = self._uuid_maps_sqlite(sqlite_conn, table)
-            r_id_to_uuid, r_uuid_to_id = self._uuid_maps_mysql(mysql_conn, table)
-            local_maps[table] = {"id_to_uuid": l_id_to_uuid, "uuid_to_id": l_uuid_to_id}
-            remote_maps[table] = {"id_to_uuid": r_id_to_uuid, "uuid_to_id": r_uuid_to_id}
-
-        fk_map = self._link_fk_table_map()
-        for table in self._internet_sync_link_tables():
-            processed = 0
-            if direction == "push":
-                columns, rows = self._fetch_sqlite_table(sqlite_conn, table)
-                if not self._mysql_table_exists(mysql_conn, table):
-                    raise ValueError(f"Internet DB is missing table: {table}")
-                for row in rows:
-                    new_row = {col: row.get(col) for col in columns}
-                    skip_row = False
-                    for fk_col, parent_table in fk_map.get(table, {}).items():
-                        if fk_col not in new_row:
-                            continue
-                        if parent_table == "dynamic":
-                            dynamic_parent = self._entity_type_to_table(new_row.get("entity_type"))
-                            if not dynamic_parent:
-                                skip_row = True
-                                break
-                            parent_table = dynamic_parent
-                        local_id = new_row.get(fk_col)
-                        source_uuid = local_maps[parent_table]["id_to_uuid"].get(local_id)
-                        target_id = remote_maps[parent_table]["uuid_to_id"].get(source_uuid)
-                        if target_id is None:
-                            skip_row = True
-                            break
-                        new_row[fk_col] = target_id
-                    if skip_row:
-                        continue
-                    if self._upsert_mysql_link_row(mysql_conn, table, new_row):
-                        processed += 1
-            else:
-                columns, rows = self._fetch_mysql_table(mysql_conn, table)
-                for row in rows:
-                    new_row = {col: row.get(col) for col in columns}
-                    skip_row = False
-                    for fk_col, parent_table in fk_map.get(table, {}).items():
-                        if fk_col not in new_row:
-                            continue
-                        if parent_table == "dynamic":
-                            dynamic_parent = self._entity_type_to_table(new_row.get("entity_type"))
-                            if not dynamic_parent:
-                                skip_row = True
-                                break
-                            parent_table = dynamic_parent
-                        remote_id = new_row.get(fk_col)
-                        source_uuid = remote_maps[parent_table]["id_to_uuid"].get(remote_id)
-                        target_id = local_maps[parent_table]["uuid_to_id"].get(source_uuid)
-                        if target_id is None:
-                            skip_row = True
-                            break
-                        new_row[fk_col] = target_id
-                    if skip_row:
-                        continue
-                    if self._upsert_sqlite_link_row(sqlite_conn, table, new_row):
-                        processed += 1
-            stats.append(f"{table}: merged={processed}")
-        return stats
+        return resolve_sync_conflict_op(self, table, sync_uuid, local_row, remote_row, compare_columns)
 
     def _synchronize_internet_database(self) -> None:
-        host = self.internet_db_host.text().strip()
-        port_text = self.internet_db_port.text().strip()
-        database = self.internet_db_name.text().strip()
-        user = self.internet_db_user.text().strip()
-        password = self.internet_db_password.text()
-        direction = self.internet_sync_direction.currentData() or "push"
-
-        if not host or not port_text or not database or not user:
-            QMessageBox.warning(
-                self,
-                self.tr("Validation"),
-                self.tr("Host, port, database and login are required."),
-            )
-            return
-        try:
-            port = int(port_text)
-        except ValueError:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Port must be a number."))
-            return
-
-        if direction == "push":
-            confirm_text = self.tr(
-                "Synchronize local changes to Internet DB (merge, no full overwrite)?"
-            )
-        else:
-            confirm_text = self.tr(
-                "Synchronize Internet DB changes to local database (merge, no full overwrite)?"
-            )
-        if QMessageBox.question(self, self.tr("Confirm synchronization"), confirm_text) != QMessageBox.Yes:
-            return
-
-        try:
-            import pymysql
-            from pymysql.cursors import DictCursor
-        except ImportError:
-            QMessageBox.warning(
-                self,
-                self.tr("Import error"),
-                self.tr("PyMySQL is not installed. Install dependencies from requirements.txt."),
-            )
-            return
-
-        try:
-            mysql_conn = pymysql.connect(
-                host=host,
-                port=port,
-                user=user,
-                password=password,
-                database=database,
-                connect_timeout=8,
-                read_timeout=30,
-                write_timeout=30,
-                cursorclass=DictCursor,
-                autocommit=False,
-            )
-        except Exception as exc:
-            self.internet_db_status.setText(self.tr("Connection failed"))
-            self.internet_db_status.setStyleSheet("color: #a11f1f;")
-            self._set_internet_db_indicator("error")
-            QMessageBox.warning(self, self.tr("Connection failed"), str(exc))
-            return
-
-        sync_stats: list[str] = []
-        try:
-            self._ensure_mysql_sync_schema(mysql_conn)
-            if direction == "push":
-                with self.controller.db.get_connection() as sqlite_conn:
-                    with mysql_conn.cursor() as cursor:
-                        cursor.execute("SET FOREIGN_KEY_CHECKS=0")
-                    sync_stats.extend(self._sync_entity_tables(sqlite_conn, mysql_conn, direction="push"))
-                    sync_stats.extend(self._sync_link_tables(sqlite_conn, mysql_conn, direction="push"))
-                    with mysql_conn.cursor() as cursor:
-                        cursor.execute("SET FOREIGN_KEY_CHECKS=1")
-                    mysql_conn.commit()
-            else:
-                with self.controller.db.get_connection() as sqlite_conn:
-                    sqlite_conn.execute("PRAGMA foreign_keys = OFF")
-                    sync_stats.extend(self._sync_entity_tables(sqlite_conn, mysql_conn, direction="pull"))
-                    sync_stats.extend(self._sync_link_tables(sqlite_conn, mysql_conn, direction="pull"))
-                    sqlite_conn.execute("PRAGMA foreign_keys = ON")
-                self._refresh_all()
-
-            self.internet_db_status.setText(self.tr("Synchronization completed"))
-            self.internet_db_status.setStyleSheet("color: #1b7f3b;")
-            self._set_internet_db_indicator("ok")
-            self._save_internet_db_settings(show_message=False)
-            QMessageBox.information(
-                self,
-                self.tr("Synchronization"),
-                self.tr("Synchronization completed.\nRows processed:\n{0}").format("\n".join(sync_stats)),
-            )
-            self._log_action("internet_sync_completed", f"direction={direction}")
-            if hasattr(self, "log_table"):
-                self._refresh_log_tab()
-        except Exception as exc:
-            try:
-                with mysql_conn.cursor() as cursor:
-                    cursor.execute("SET FOREIGN_KEY_CHECKS=1")
-            except Exception:
-                pass
-            mysql_conn.rollback()
-            self.internet_db_status.setText(self.tr("Synchronization failed"))
-            self.internet_db_status.setStyleSheet("color: #a11f1f;")
-            self._set_internet_db_indicator("error")
-            self._log_action("internet_sync_failed", str(exc))
-            if hasattr(self, "log_table"):
-                self._refresh_log_tab()
-            QMessageBox.warning(self, self.tr("Synchronization failed"), str(exc))
-        finally:
-            mysql_conn.close()
+        synchronize_internet_database_op(self)
 
     def _change_database_path(self) -> None:
         current = self.bootstrap_settings.value("app/db_path", "")
@@ -4160,7 +3188,7 @@ class AdminDialog(QDialog):
                     order_index=discipline.order_index,
                 )
             )
-            order_index = self.controller._get_next_order_index("program_disciplines", "program_id", target_program_id)
+            order_index = self.controller.get_next_order_index("program_disciplines", "program_id", target_program_id)
             self.controller.add_discipline_to_program(target_program_id, target_discipline.id, order_index)
             self._sync_materials_for_entity(
                 "discipline",
@@ -4178,7 +3206,7 @@ class AdminDialog(QDialog):
                         order_index=topic.order_index,
                     )
                 )
-                order_index = self.controller._get_next_order_index("discipline_topics", "discipline_id", target_discipline.id)
+                order_index = self.controller.get_next_order_index("discipline_topics", "discipline_id", target_discipline.id)
                 self.controller.add_topic_to_discipline(target_discipline.id, target_topic.id, order_index)
                 self._sync_materials_for_entity(
                     "topic",
@@ -4207,7 +3235,7 @@ class AdminDialog(QDialog):
                             order_index=lesson.order_index,
                         )
                     )
-                    order_index = self.controller._get_next_order_index("topic_lessons", "topic_id", target_topic.id)
+                    order_index = self.controller.get_next_order_index("topic_lessons", "topic_id", target_topic.id)
                     self.controller.add_lesson_to_topic(target_topic.id, target_lesson.id, order_index)
                     self._sync_materials_for_entity(
                         "lesson",
@@ -4225,7 +3253,7 @@ class AdminDialog(QDialog):
                                 order_index=question.order_index,
                             )
                         )
-                        order_index = self.controller._get_next_order_index(
+                        order_index = self.controller.get_next_order_index(
                             "lesson_questions",
                             "lesson_id",
                             target_lesson.id,
@@ -4242,7 +3270,7 @@ class AdminDialog(QDialog):
                     root_path = Path(root)
                     if root_path.exists():
                         return root_path
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 pass
         files_root = sync_root / "files"
         return files_root
@@ -4921,7 +3949,7 @@ class AdminDialog(QDialog):
             try:
                 teachers = controller.material_repo.get_material_teachers(material.id)
                 return {t.full_name for t in teachers if t.full_name}
-            except Exception:
+            except sqlite3.Error:
                 return set()
         return set()
 
@@ -4941,7 +3969,7 @@ class AdminDialog(QDialog):
                     order_index=discipline.order_index,
                 )
             )
-        order_index = self.controller._get_next_order_index("program_disciplines", "program_id", program.id)
+        order_index = self.controller.get_next_order_index("program_disciplines", "program_id", program.id)
         self.controller.add_discipline_to_program(program.id, target.id, order_index)
         return target
 
@@ -4958,7 +3986,7 @@ class AdminDialog(QDialog):
                 order_index=topic.order_index,
             )
         )
-        order_index = self.controller._get_next_order_index("discipline_topics", "discipline_id", discipline.id)
+        order_index = self.controller.get_next_order_index("discipline_topics", "discipline_id", discipline.id)
         self.controller.add_topic_to_discipline(discipline.id, target.id, order_index)
         return target
 
@@ -4985,7 +4013,7 @@ class AdminDialog(QDialog):
                 order_index=lesson.order_index,
             )
         )
-        order_index = self.controller._get_next_order_index("topic_lessons", "topic_id", topic.id)
+        order_index = self.controller.get_next_order_index("topic_lessons", "topic_id", topic.id)
         self.controller.add_lesson_to_topic(topic.id, target.id, order_index)
         return target
 
@@ -5002,7 +4030,7 @@ class AdminDialog(QDialog):
                 order_index=question.order_index,
             )
         )
-        order_index = self.controller._get_next_order_index("lesson_questions", "lesson_id", lesson.id)
+        order_index = self.controller.get_next_order_index("lesson_questions", "lesson_id", lesson.id)
         self.controller.add_question_to_lesson(lesson.id, target.id, order_index)
         return target
 
@@ -5014,7 +4042,7 @@ class AdminDialog(QDialog):
         base = program.name if program else str(program_id)
         name = f"{self.tr('Discipline for')} {base}"
         discipline = self.controller.add_discipline(Discipline(name=name))
-        order_index = self.controller._get_next_order_index("program_disciplines", "program_id", program_id)
+        order_index = self.controller.get_next_order_index("program_disciplines", "program_id", program_id)
         self.controller.add_discipline_to_program(program_id, discipline.id, order_index)
         return discipline.id
 
@@ -5056,15 +4084,15 @@ class AdminDialog(QDialog):
                     self.controller.attach_material_file_with_context(
                         new_material, str(source_path), target_program_id, target_discipline_id
                     )
-                except Exception:
-                    pass
+                except (ValueError, OSError, sqlite3.Error, RuntimeError) as exc:
+                    self._log_action("sync_material_attach_failed", str(exc))
 
     def _sync_material_authors(self, source_material: MethodicalMaterial, target_material: MethodicalMaterial) -> None:
         source_teachers = source_material.teachers
         if not source_teachers:
             try:
                 source_teachers = self.sync_source_admin.material_repo.get_material_teachers(source_material.id)
-            except Exception:
+            except sqlite3.Error:
                 source_teachers = []
         if not source_teachers:
             return
@@ -5088,8 +4116,8 @@ class AdminDialog(QDialog):
                 self._sync_teacher_cache[teacher.full_name] = target_teacher
             try:
                 self.controller.add_teacher_to_material(target_teacher.id, target_material.id)
-            except Exception:
-                pass
+            except sqlite3.Error as exc:
+                self._log_action("sync_material_author_link_failed", str(exc))
 
     def _resolve_source_material_path(self, material: MethodicalMaterial) -> Path | None:
         if material.relative_path:
@@ -5270,77 +4298,7 @@ class AdminDialog(QDialog):
         self._refresh_materials()
 
     def _on_import_curriculum(self) -> None:
-        dialog = ImportCurriculumDialog(self.controller, self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        program_id, discipline_id, new_name, raw_text, parsed_topics, file_paths = dialog.get_payload()
-
-        if file_paths:
-            totals = {"topics": 0, "lessons": 0, "questions": 0}
-            errors = []
-            from ..services.import_service import extract_text_from_file, parse_curriculum_text, program_discipline_from_filename
-
-            for path in file_paths:
-                try:
-                    content = extract_text_from_file(path)
-                    topics = parse_curriculum_text(content)
-                    program_name, discipline_name = program_discipline_from_filename(path)
-                    if not discipline_name:
-                        discipline_name = program_name
-                    t_added, l_added, q_added = import_curriculum_structure_by_names(
-                        self.controller.db,
-                        program_name,
-                        discipline_name,
-                        topics,
-                    )
-                    totals["topics"] += t_added
-                    totals["lessons"] += l_added
-                    totals["questions"] += q_added
-                except Exception as exc:
-                    errors.append(f"{path}: {exc}")
-
-            if errors:
-                QMessageBox.warning(self, self.tr("Import error"), "\n".join(errors))
-            QMessageBox.information(
-                self,
-                self.tr("Import complete"),
-                self.tr("Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}").format(
-                    totals["topics"], totals["lessons"], totals["questions"]
-                ),
-            )
-            self._refresh_all()
-            return
-
-        if not raw_text.strip():
-            QMessageBox.warning(self, self.tr("Import error"), self.tr("No input text provided."))
-            return
-        if parsed_topics is None:
-            try:
-                from ..services.import_service import parse_curriculum_text
-
-                parsed_topics = parse_curriculum_text(raw_text)
-            except Exception as exc:
-                QMessageBox.warning(self, self.tr("Import error"), str(exc))
-                return
-        try:
-            topics_added, lessons_added, questions_added = import_curriculum_structure(
-                self.controller.db,
-                program_id,
-                discipline_id,
-                new_name,
-                parsed_topics,
-            )
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-            return
-        QMessageBox.information(
-            self,
-            self.tr("Import complete"),
-            self.tr("Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}").format(
-                topics_added, lessons_added, questions_added
-            ),
-        )
-        self._refresh_all()
+        run_import_curriculum(self)
 
     def _on_import_teachers(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -5352,8 +4310,8 @@ class AdminDialog(QDialog):
         if not path:
             return
         try:
-            added, skipped = import_teachers_from_docx(self.controller.db, path)
-        except Exception as exc:
+            added, skipped = run_import_teachers(self, path)
+        except (ValueError, sqlite3.Error) as exc:
             QMessageBox.warning(self, self.tr("Import error"), str(exc))
             return
         QMessageBox.information(

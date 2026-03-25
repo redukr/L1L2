@@ -700,10 +700,16 @@ class MainWindow(QMainWindow):
         self.content_tree.scrollToItem(item)
 
     def _on_open_admin(self) -> None:
-        from ..ui.dialogs import PasswordDialog
+        from ..ui.dialogs import PasswordDialog, PasswordSetupDialog
         from ..controllers.admin_controller import AdminController
 
         admin_controller = AdminController(self.controller.db)
+        if not self._ensure_mode_password(
+            "admin",
+            admin_controller.auth_service,
+            PasswordSetupDialog,
+        ):
+            return
         while True:
             dialog = PasswordDialog(
                 self,
@@ -736,8 +742,14 @@ class MainWindow(QMainWindow):
             self._refresh_report(self.last_program_id)
 
     def _on_open_editor(self) -> None:
-        from ..ui.dialogs import PasswordDialog
+        from ..ui.dialogs import PasswordDialog, PasswordSetupDialog
 
+        if not self._ensure_mode_password(
+            "editor",
+            self.auth_service,
+            PasswordSetupDialog,
+        ):
+            return
         while True:
             dialog = PasswordDialog(
                 self,
@@ -764,6 +776,33 @@ class MainWindow(QMainWindow):
             self._load_program_structure(self.last_program_id) if self.last_program_id else None
         if self.last_program_id:
             self._refresh_report(self.last_program_id)
+
+    def _ensure_mode_password(self, role: str, auth_service: AuthService, setup_dialog_cls) -> bool:
+        has_password = auth_service.has_admin_password() if role == "admin" else auth_service.has_editor_password()
+        if has_password:
+            return True
+        dialog = setup_dialog_cls(
+            self,
+            title=self.tr("Create {0} password").format(role),
+            label=self.tr("Create a local password for {0} mode.").format(role),
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return False
+        password = dialog.get_password()
+        confirm_password = dialog.get_confirm_password()
+        if password != confirm_password:
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Passwords do not match."))
+            return False
+        try:
+            if role == "admin":
+                auth_service.set_admin_password(password)
+            else:
+                auth_service.set_editor_password(password)
+        except ValueError as exc:
+            QMessageBox.warning(self, self.tr("Validation"), str(exc))
+            return False
+        QMessageBox.information(self, self.tr("Password created"), self.tr("Password has been saved."))
+        return True
 
     def _on_open_material(self) -> None:
         items = self.materials_list.selectedItems()

@@ -38,7 +38,12 @@ from ..models.entities import (
     Question,
     MethodicalMaterial,
 )
-from ..services.import_service import extract_text_from_file, parse_curriculum_text, CurriculumTopic
+from ..services.import_service import (
+    CurriculumPreviewSummary,
+    CurriculumTopic,
+    extract_text_from_file,
+    preview_curriculum_text,
+)
 
 
 class PasswordDialog(QDialog):
@@ -59,6 +64,32 @@ class PasswordDialog(QDialog):
 
     def get_password(self) -> str:
         return self.password_input.text().strip()
+
+
+class PasswordSetupDialog(QDialog):
+    """Dialog for creating a new local password."""
+
+    def __init__(self, parent=None, title: Optional[str] = None, label: Optional[str] = None):
+        super().__init__(parent)
+        self.setWindowTitle(title or self.tr("Set Password"))
+        layout = QFormLayout(self)
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+        self.confirm_input = QLineEdit()
+        self.confirm_input.setEchoMode(QLineEdit.Password)
+        layout.addRow(QLabel(label or self.tr("Create a new password:")))
+        layout.addRow(self.tr("Password"), self.password_input)
+        layout.addRow(self.tr("Confirm"), self.confirm_input)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_password(self) -> str:
+        return self.password_input.text().strip()
+
+    def get_confirm_password(self) -> str:
+        return self.confirm_input.text().strip()
 
 
 class TeacherLoginDialog(QDialog):
@@ -787,10 +818,24 @@ class MaterialTypeDialog(QDialog):
 class ImportPreviewDialog(QDialog):
     """Preview parsed curriculum structure."""
 
-    def __init__(self, topics: list[CurriculumTopic], parent=None):
+    def __init__(
+        self,
+        topics: list[CurriculumTopic],
+        summary: Optional[CurriculumPreviewSummary] = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Import preview"))
         layout = QVBoxLayout(self)
+        if summary is not None:
+            summary_label = QLabel(
+                self.tr("Topics: {0} | Lessons: {1} | Questions: {2}").format(
+                    summary.topics_count,
+                    summary.lessons_count,
+                    summary.questions_count,
+                )
+            )
+            layout.addWidget(summary_label)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([self.tr("Title"), self.tr("Details")])
         self.tree.setColumnWidth(0, 420)
@@ -928,11 +973,11 @@ class ImportCurriculumDialog(QDialog):
             )
             return
         try:
-            topics = parse_curriculum_text(self.input_text.toPlainText())
+            topics, summary = preview_curriculum_text(self.input_text.toPlainText())
         except Exception as exc:
             QMessageBox.warning(self, self.tr("Import error"), str(exc))
             return
-        dialog = ImportPreviewDialog(topics, self)
+        dialog = ImportPreviewDialog(topics, summary, self)
         if dialog.exec() == QDialog.Accepted:
             self.parsed_topics = topics
 

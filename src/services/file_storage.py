@@ -92,7 +92,7 @@ class FileStorageManager:
             raise ValueError("Selected file must be inside the storage folder.") from exc
         if not source.exists():
             raise ValueError("Selected file does not exist.")
-        relative_path = str(source.relative_to(self._files_root).as_posix())
+        relative_path = str(source.relative_to(files_root).as_posix())
         ext = source.suffix.lower()
         self._ensure_under_max_path(source)
         return source.name, source.name, relative_path, ext.lstrip(".")
@@ -220,9 +220,10 @@ class FileStorageManager:
         return None, None
 
     def move_storage(self, database, new_root: Path) -> None:
-        """Move all stored files to a new root and persist the setting."""
+        """Copy all stored files to a new root, then switch storage settings."""
         old_root = self._files_root
         new_root.mkdir(parents=True, exist_ok=True)
+        copied_targets: list[Path] = []
         with database.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -230,15 +231,34 @@ class FileStorageManager:
                 FROM methodical_materials
                 WHERE relative_path IS NOT NULL
             """)
-            for row in cursor.fetchall():
+            rows = cursor.fetchall()
+        try:
+            for row in rows:
                 relative = self._normalize_relative_path(row["relative_path"])
                 source = old_root / relative
                 target = new_root / relative
                 if source.exists():
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(source), str(target))
-        self._files_root = new_root
-        set_materials_root(new_root)
+                    shutil.copy2(str(source), str(target))
+                    copied_targets.append(target)
+            set_materials_root(new_root)
+            self._files_root = new_root
+        except Exception:
+            for target in reversed(copied_targets):
+                try:
+                    if target.exists():
+                        target.unlink()
+                except OSError:
+                    pass
+            raise
+        for row in rows:
+            relative = self._normalize_relative_path(row["relative_path"])
+            source = old_root / relative
+            try:
+                if source.exists():
+                    source.unlink()
+            except OSError:
+                continue
 
     def _resolve_path(self, relative_path: str) -> Path:
         relative = self._normalize_relative_path(relative_path)
