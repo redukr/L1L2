@@ -82,6 +82,7 @@ from ..ui.dialogs import (
 from ..services.file_storage import FileStorageManager
 from ..services.activity_log import ActivityLogService
 from ..services.internet_sync_service import InternetSyncService
+from ..services.teacher_sorting import teacher_sort_key
 from ..ui.admin_dialog_import_ops import run_import_curriculum, run_import_teachers
 from ..ui.admin_dialog_material_ops import (
     add_material as add_material_op,
@@ -145,14 +146,22 @@ class AdminDialog(QDialog):
             mode = f"user.{mode}"
         self.activity_log.log(self.actor_name, mode, action, details)
 
+    def _tr_or_fallback(self, source: str, fallback: str) -> str:
+        text = self.tr(source)
+        stripped = (text or "").strip()
+        normalized = "".join(ch for ch in stripped if ch not in " \t\r\n.,:;!?-()[]{}<>/\\\"'")
+        if (not stripped) or stripped == source or (normalized and set(normalized) == {"?"}):
+            return fallback
+        return text
+
     def _authorize(self) -> bool:
         if not self._ensure_admin_password():
             return False
         while True:
             dialog = PasswordDialog(
                 self,
-                title=self.tr("Admin Access"),
-                label=self.tr("Enter admin password:"),
+                title=self._tr_or_fallback("Admin Access", "Доступ адміністратора"),
+                label=self._tr_or_fallback("Enter admin password:", "Введіть пароль адміністратора:"),
             )
             if dialog.exec() != QDialog.Accepted:
                 return False
@@ -165,8 +174,8 @@ class AdminDialog(QDialog):
             return True
         dialog = PasswordSetupDialog(
             self,
-            title=self.tr("Create admin password"),
-            label=self.tr("Create a local admin password."),
+            title=self._tr_or_fallback("Create admin password", "Створення пароля адміністратора"),
+            label=self._tr_or_fallback("Create a local admin password.", "Створіть локальний пароль адміністратора."),
         )
         if dialog.exec() != QDialog.Accepted:
             return False
@@ -429,26 +438,38 @@ class AdminDialog(QDialog):
         layout = QVBoxLayout(tab)
 
         self.structure_hint = QLabel(
-            self.tr(
+            self._tr_or_fallback(
                 "Use the tree on the left to choose a program element. "
-                "Use the action bar above to add, edit, copy, or import structure items."
+                "Use the action bar above to add, edit, copy, or import structure items.",
+                "\u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u0434\u0435\u0440\u0435\u0432\u043e \u043b\u0456\u0432\u043e\u0440\u0443\u0447, \u0449\u043e\u0431 \u0432\u0438\u0431\u0440\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438. \u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u043f\u0430\u043d\u0435\u043b\u044c \u0434\u0456\u0439 \u0443\u0433\u043e\u0440\u0456, \u0449\u043e\u0431 \u0434\u043e\u0434\u0430\u0432\u0430\u0442\u0438, \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438, \u043a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438 \u0430\u0431\u043e \u0456\u043c\u043f\u043e\u0440\u0442\u0443\u0432\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0438 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438.",
             )
         )
         self._style_hint_label(self.structure_hint)
         layout.addWidget(self.structure_hint)
 
         action_row = QHBoxLayout()
-        self.structure_add_program = QPushButton(self.tr("Add program"))
+        self.structure_add_program = QPushButton(
+            self._tr_or_fallback("Add program", "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0443")
+        )
         self.structure_add_discipline = QPushButton(self.tr("Add discipline"))
         self.structure_add_topic = QPushButton(self.tr("Add topic"))
         self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
         self.structure_add_question = QPushButton(self.tr("Add question"))
-        self.structure_import = QPushButton(self.tr("Import curriculum structure"))
+        self.structure_import = QPushButton(
+            self._tr_or_fallback(
+                "Import curriculum structure",
+                "\u0406\u043c\u043f\u043e\u0440\u0442 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438 \u043d\u0430\u0432\u0447\u0430\u043b\u044c\u043d\u043e\u0457 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438",
+            )
+        )
         self.structure_refresh = QPushButton(self.tr("Refresh"))
         self.structure_edit = QPushButton(self.tr("Edit"))
         self.structure_delete = QPushButton(self.tr("Delete"))
-        self.structure_duplicate = QPushButton(self.tr("Duplicate"))
-        self.structure_copy = QPushButton(self.tr("Copy"))
+        self.structure_duplicate = QPushButton(
+            self._tr_or_fallback("Duplicate", "\u0414\u0443\u0431\u043b\u044e\u0432\u0430\u0442\u0438")
+        )
+        self.structure_copy = QPushButton(
+            self._tr_or_fallback("Copy", "\u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438")
+        )
         self._compact_action_buttons(
             self.structure_add_program,
             self.structure_add_discipline,
@@ -492,15 +513,18 @@ class AdminDialog(QDialog):
 
         details = QWidget()
         details_layout = QVBoxLayout(details)
-        self.structure_title = QLabel(self.tr("Select an item"))
+        self.structure_title = QLabel(
+            self._tr_or_fallback("Select an item", "\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0435\u043b\u0435\u043c\u0435\u043d\u0442")
+        )
         self.structure_details = QLabel("")
         self.structure_details.setWordWrap(True)
         details_layout.addWidget(self.structure_title)
         details_layout.addWidget(self.structure_details)
 
         self.structure_materials_hint = QLabel(
-            self.tr(
-                "Materials below belong to the currently selected program element."
+            self._tr_or_fallback(
+                "Materials below belong to the currently selected program element.",
+                "\u041c\u0430\u0442\u0435\u0440\u0456\u0430\u043b\u0438 \u043d\u0438\u0436\u0447\u0435 \u043d\u0430\u043b\u0435\u0436\u0430\u0442\u044c \u0434\u043e \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u0433\u043e \u0432\u0438\u0431\u0440\u0430\u043d\u043e\u0433\u043e \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0430 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438.",
             )
         )
         self._style_hint_label(self.structure_materials_hint)
@@ -4580,6 +4604,9 @@ class AdminDialog(QDialog):
         }
         return mapping.get(material_type or "", material_type or "")
 
+    def _teacher_sort_key(self, teacher) -> tuple:
+        return teacher_sort_key(teacher)
+
     def _show_context_menu(self, table: QTableWidget, pos, on_edit, on_delete) -> None:  # noqa: ANN001
         item = table.itemAt(pos)
         if not item:
@@ -4717,14 +4744,18 @@ class AdminDialog(QDialog):
             self.lesson_types_group.setTitle(self.tr("Lesson types"))
         if hasattr(self, "structure_hint"):
             self.structure_hint.setText(
-                self.tr(
+                self._tr_or_fallback(
                     "Use the tree on the left to choose a program element. "
-                    "Use the action bar above to add, edit, copy, or import structure items."
+                    "Use the action bar above to add, edit, copy, or import structure items.",
+                    "\u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u0434\u0435\u0440\u0435\u0432\u043e \u043b\u0456\u0432\u043e\u0440\u0443\u0447, \u0449\u043e\u0431 \u0432\u0438\u0431\u0440\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438. \u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u043f\u0430\u043d\u0435\u043b\u044c \u0434\u0456\u0439 \u0443\u0433\u043e\u0440\u0456, \u0449\u043e\u0431 \u0434\u043e\u0434\u0430\u0432\u0430\u0442\u0438, \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438, \u043a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438 \u0430\u0431\u043e \u0456\u043c\u043f\u043e\u0440\u0442\u0443\u0432\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0438 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438.",
                 )
             )
         if hasattr(self, "structure_materials_hint"):
             self.structure_materials_hint.setText(
-                self.tr("Materials below belong to the currently selected program element.")
+                self._tr_or_fallback(
+                    "Materials below belong to the currently selected program element.",
+                    "\u041c\u0430\u0442\u0435\u0440\u0456\u0430\u043b\u0438 \u043d\u0438\u0436\u0447\u0435 \u043d\u0430\u043b\u0435\u0436\u0430\u0442\u044c \u0434\u043e \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u0433\u043e \u0432\u0438\u0431\u0440\u0430\u043d\u043e\u0433\u043e \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0430 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438.",
+                )
             )
         if hasattr(self, "material_types_hint"):
             self.material_types_hint.setText(
@@ -4734,17 +4765,28 @@ class AdminDialog(QDialog):
                 )
             )
         self.structure_tree.setHeaderLabels([self.tr("Structure")])
-        self.structure_add_program.setText(self.tr("Add program"))
+        self.structure_add_program.setText(
+            self._tr_or_fallback("Add program", "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0443")
+        )
         self.structure_add_discipline.setText(self.tr("Add discipline"))
         self.structure_add_topic.setText(self.tr("Add topic"))
         self.structure_add_lesson.setText(self.tr("Add lesson"))
         self.structure_add_question.setText(self.tr("Add question"))
-        self.structure_import.setText(self.tr("Import curriculum structure"))
+        self.structure_import.setText(
+            self._tr_or_fallback(
+                "Import curriculum structure",
+                "\u0406\u043c\u043f\u043e\u0440\u0442 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438 \u043d\u0430\u0432\u0447\u0430\u043b\u044c\u043d\u043e\u0457 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438",
+            )
+        )
         self.structure_refresh.setText(self.tr("Refresh"))
         self.structure_edit.setText(self.tr("Edit"))
         self.structure_delete.setText(self.tr("Delete"))
-        self.structure_duplicate.setText(self.tr("Duplicate"))
-        self.structure_copy.setText(self.tr("Copy"))
+        self.structure_duplicate.setText(
+            self._tr_or_fallback("Duplicate", "\u0414\u0443\u0431\u043b\u044e\u0432\u0430\u0442\u0438")
+        )
+        self.structure_copy.setText(
+            self._tr_or_fallback("Copy", "\u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438")
+        )
 
         if hasattr(self, "database_path_label"):
             self.database_path_label.setText(self.tr("Database file"))
@@ -4792,32 +4834,44 @@ class AdminDialog(QDialog):
                 self.tr("Use the log to review user actions and recent administrative changes.")
             )
 
-        self.teachers_table.setHorizontalHeaderLabels(
-            [
-                self.tr("Full name"),
-                self.tr("Military rank"),
-                self.tr("Position"),
-                self.tr("Department"),
-                self.tr("Email"),
-                self.tr("Phone"),
-            ]
-        )
-        self.programs_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Level"), self.tr("Duration")])
-        self.disciplines_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Order")])
-        self.topics_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Order")])
-        self.lessons_table.setHorizontalHeaderLabels(
-            [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
-        )
-        self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
-        self.questions_table.setHorizontalHeaderLabels([self.tr("Question")])
-        self.materials_table.setHorizontalHeaderLabels(
-            [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
-        )
+        if hasattr(self, "teachers_table"):
+            self.teachers_table.setHorizontalHeaderLabels(
+                [
+                    self.tr("Full name"),
+                    self.tr("Military rank"),
+                    self.tr("Position"),
+                    self.tr("Department"),
+                    self.tr("Email"),
+                    self.tr("Phone"),
+                ]
+            )
+        if hasattr(self, "programs_table"):
+            self.programs_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Level"), self.tr("Duration")])
+        if hasattr(self, "disciplines_table"):
+            self.disciplines_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Order")])
+        if hasattr(self, "topics_table"):
+            self.topics_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Order")])
+        if hasattr(self, "lessons_table"):
+            self.lessons_table.setHorizontalHeaderLabels(
+                [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
+            )
+        if hasattr(self, "lesson_types_table"):
+            self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
+        if hasattr(self, "questions_table"):
+            self.questions_table.setHorizontalHeaderLabels([self.tr("Question")])
+        if hasattr(self, "materials_table"):
+            self.materials_table.setHorizontalHeaderLabels(
+                [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
+            )
 
-        self.teacher_add.setText(self.tr("Add"))
-        self.teacher_edit.setText(self.tr("Edit"))
-        self.teacher_delete.setText(self.tr("Delete"))
-        self.teacher_import.setText(self.tr("Import teachers from DOCX"))
+        if hasattr(self, "teacher_add"):
+            self.teacher_add.setText(self.tr("Add"))
+        if hasattr(self, "teacher_edit"):
+            self.teacher_edit.setText(self.tr("Edit"))
+        if hasattr(self, "teacher_delete"):
+            self.teacher_delete.setText(self.tr("Delete"))
+        if hasattr(self, "teacher_import"):
+            self.teacher_import.setText(self.tr("Import teachers from DOCX"))
         if hasattr(self, "teachers_hint"):
             self.teachers_hint.setText(
                 self.tr(
@@ -4830,76 +4884,114 @@ class AdminDialog(QDialog):
             )
             self.teacher_discipline_add.setText(self.tr("Add ->"))
             self.teacher_discipline_remove.setText(self.tr("<- Remove"))
-        self.program_add.setText(self.tr("Add"))
-        self.program_edit.setText(self.tr("Edit"))
-        self.program_delete.setText(self.tr("Delete"))
+        if hasattr(self, "program_add"):
+            self.program_add.setText(self.tr("Add"))
+        if hasattr(self, "program_edit"):
+            self.program_edit.setText(self.tr("Edit"))
+        if hasattr(self, "program_delete"):
+            self.program_delete.setText(self.tr("Delete"))
         if hasattr(self, "programs_hint"):
             self.programs_hint.setText(
                 self.tr("Select a program in the table, then manage its discipline links below.")
             )
-        self.program_disciplines_label.setText(self.tr("Program disciplines"))
-        self.program_discipline_add.setText(self.tr("Add ->"))
-        self.program_discipline_remove.setText(self.tr("<- Remove"))
-        self.program_discipline_remove.setText(self.tr("<- Remove"))
+        if hasattr(self, "program_disciplines_label"):
+            self.program_disciplines_label.setText(self.tr("Program disciplines"))
+        if hasattr(self, "program_discipline_add"):
+            self.program_discipline_add.setText(self.tr("Add ->"))
+        if hasattr(self, "program_discipline_remove"):
+            self.program_discipline_remove.setText(self.tr("<- Remove"))
 
-        self.discipline_add.setText(self.tr("Add"))
-        self.discipline_edit.setText(self.tr("Edit"))
-        self.discipline_delete.setText(self.tr("Delete"))
+        if hasattr(self, "discipline_add"):
+            self.discipline_add.setText(self.tr("Add"))
+        if hasattr(self, "discipline_edit"):
+            self.discipline_edit.setText(self.tr("Edit"))
+        if hasattr(self, "discipline_delete"):
+            self.discipline_delete.setText(self.tr("Delete"))
         if hasattr(self, "disciplines_hint"):
             self.disciplines_hint.setText(
                 self.tr("Select a discipline in the table, then manage its topic links below.")
             )
-        self.discipline_topics_label.setText(self.tr("Discipline topics"))
-        self.discipline_topic_add.setText(self.tr("Add ->"))
-        self.discipline_topic_remove.setText(self.tr("<- Remove"))
-        self.discipline_topic_remove.setText(self.tr("<- Remove"))
+        if hasattr(self, "discipline_topics_label"):
+            self.discipline_topics_label.setText(self.tr("Discipline topics"))
+        if hasattr(self, "discipline_topic_add"):
+            self.discipline_topic_add.setText(self.tr("Add ->"))
+        if hasattr(self, "discipline_topic_remove"):
+            self.discipline_topic_remove.setText(self.tr("<- Remove"))
 
-        self.topic_add.setText(self.tr("Add"))
-        self.topic_edit.setText(self.tr("Edit"))
-        self.topic_delete.setText(self.tr("Delete"))
+        if hasattr(self, "topic_add"):
+            self.topic_add.setText(self.tr("Add"))
+        if hasattr(self, "topic_edit"):
+            self.topic_edit.setText(self.tr("Edit"))
+        if hasattr(self, "topic_delete"):
+            self.topic_delete.setText(self.tr("Delete"))
         if hasattr(self, "topics_hint"):
             self.topics_hint.setText(
                 self.tr("Select a topic in the table, then manage linked lessons and topic materials below.")
             )
-        self.topic_lessons_label.setText(self.tr("Topic lessons"))
-        self.topic_lesson_add.setText(self.tr("Add ->"))
-        self.topic_lesson_remove.setText(self.tr("<- Remove"))
-        self.topic_lesson_remove.setText(self.tr("<- Remove"))
-        self.topic_materials_label.setText(self.tr("Topic materials"))
-        self.topic_material_add.setText(self.tr("Add ->"))
-        self.topic_material_remove.setText(self.tr("<- Remove"))
+        if hasattr(self, "topic_lessons_label"):
+            self.topic_lessons_label.setText(self.tr("Topic lessons"))
+        if hasattr(self, "topic_lesson_add"):
+            self.topic_lesson_add.setText(self.tr("Add ->"))
+        if hasattr(self, "topic_lesson_remove"):
+            self.topic_lesson_remove.setText(self.tr("<- Remove"))
+        if hasattr(self, "topic_materials_label"):
+            self.topic_materials_label.setText(self.tr("Topic materials"))
+        if hasattr(self, "topic_material_add"):
+            self.topic_material_add.setText(self.tr("Add ->"))
+        if hasattr(self, "topic_material_remove"):
+            self.topic_material_remove.setText(self.tr("<- Remove"))
 
-        self.lesson_add.setText(self.tr("Add"))
-        self.lesson_edit.setText(self.tr("Edit"))
-        self.lesson_delete.setText(self.tr("Delete"))
+        if hasattr(self, "lesson_add"):
+            self.lesson_add.setText(self.tr("Add"))
+        if hasattr(self, "lesson_edit"):
+            self.lesson_edit.setText(self.tr("Edit"))
+        if hasattr(self, "lesson_delete"):
+            self.lesson_delete.setText(self.tr("Delete"))
         if hasattr(self, "lessons_hint"):
             self.lessons_hint.setText(
                 self.tr("Select a lesson in the table, then manage linked questions and lesson materials below.")
             )
-        self.lesson_questions_label.setText(self.tr("Lesson questions"))
-        self.lesson_question_add.setText(self.tr("Add ->"))
-        self.lesson_question_remove.setText(self.tr("<- Remove"))
-        self.lesson_question_remove.setText(self.tr("<- Remove"))
-        self.lesson_materials_label.setText(self.tr("Lesson materials"))
-        self.lesson_material_add.setText(self.tr("Add ->"))
-        self.lesson_material_remove.setText(self.tr("<- Remove"))
+        if hasattr(self, "lesson_questions_label"):
+            self.lesson_questions_label.setText(self.tr("Lesson questions"))
+        if hasattr(self, "lesson_question_add"):
+            self.lesson_question_add.setText(self.tr("Add ->"))
+        if hasattr(self, "lesson_question_remove"):
+            self.lesson_question_remove.setText(self.tr("<- Remove"))
+        if hasattr(self, "lesson_materials_label"):
+            self.lesson_materials_label.setText(self.tr("Lesson materials"))
+        if hasattr(self, "lesson_material_add"):
+            self.lesson_material_add.setText(self.tr("Add ->"))
+        if hasattr(self, "lesson_material_remove"):
+            self.lesson_material_remove.setText(self.tr("<- Remove"))
 
-        self.lesson_type_add.setText(self.tr("Add"))
-        self.lesson_type_edit.setText(self.tr("Edit"))
-        self.lesson_type_delete.setText(self.tr("Delete"))
+        if hasattr(self, "lesson_type_add"):
+            self.lesson_type_add.setText(self.tr("Add"))
+        if hasattr(self, "lesson_type_edit"):
+            self.lesson_type_edit.setText(self.tr("Edit"))
+        if hasattr(self, "lesson_type_delete"):
+            self.lesson_type_delete.setText(self.tr("Delete"))
 
-        self.question_add.setText(self.tr("Add"))
-        self.question_edit.setText(self.tr("Edit"))
-        self.question_delete.setText(self.tr("Delete"))
+        if hasattr(self, "question_add"):
+            self.question_add.setText(self.tr("Add"))
+        if hasattr(self, "question_edit"):
+            self.question_edit.setText(self.tr("Edit"))
+        if hasattr(self, "question_delete"):
+            self.question_delete.setText(self.tr("Delete"))
         if hasattr(self, "questions_hint"):
             self.questions_hint.setText(self.tr("Use this section to manage standalone question records."))
 
-        self.material_add.setText(self.tr("Add"))
-        self.material_edit.setText(self.tr("Edit"))
-        self.material_delete.setText(self.tr("Delete"))
-        self.material_open.setText(self.tr("Open file"))
-        self.material_show.setText(self.tr("Show folder"))
-        self.material_copy.setText(self.tr("Save copy"))
+        if hasattr(self, "material_add"):
+            self.material_add.setText(self.tr("Add"))
+        if hasattr(self, "material_edit"):
+            self.material_edit.setText(self.tr("Edit"))
+        if hasattr(self, "material_delete"):
+            self.material_delete.setText(self.tr("Delete"))
+        if hasattr(self, "material_open"):
+            self.material_open.setText(self.tr("Open file"))
+        if hasattr(self, "material_show"):
+            self.material_show.setText(self.tr("Show folder"))
+        if hasattr(self, "material_copy"):
+            self.material_copy.setText(self.tr("Save copy"))
         if hasattr(self, "material_types_table"):
             self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
             self.material_type_add.setText(self.tr("Add"))

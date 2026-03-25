@@ -41,6 +41,7 @@ from ..ui.editor_wizard import EditorWizardDialog
 from ..services.auth_service import AuthService
 from ..services.i18n import I18nManager
 from ..services.file_storage import FileStorageManager
+from ..services.teacher_sorting import teacher_sort_key
 from ..ui.dialogs import TeacherLoginDialog
 
 
@@ -67,6 +68,7 @@ class MainWindow(QMainWindow):
         self._load_programs()
         self._load_settings()
         self.i18n.language_changed.connect(self._on_language_changed)
+        self.retranslate_ui()
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -269,6 +271,14 @@ class MainWindow(QMainWindow):
         label.setContentsMargins(0, 0, 0, 4)
         label.setStyleSheet("color: #444444;")
 
+    def _tr_or_fallback(self, source: str, fallback: str) -> str:
+        text = self.tr(source)
+        stripped = (text or "").strip()
+        normalized = "".join(ch for ch in stripped if ch not in " \t\r\n.,:;!?-()[]{}<>/\\\"'")
+        if (not stripped) or stripped == source or (normalized and set(normalized) == {"?"}):
+            return fallback
+        return text
+
     def _compact_action_buttons(self, *buttons: QPushButton) -> None:
         for button in buttons:
             button.setMinimumHeight(28)
@@ -305,7 +315,7 @@ class MainWindow(QMainWindow):
             )
             return True
 
-        teachers.sort(key=lambda t: ((t.full_name or "").strip().casefold(), t.id or 0))
+        teachers.sort(key=teacher_sort_key)
         preferred_teacher_id = self.settings.value("session/teacher_id")
         preferred_teacher_id = int(preferred_teacher_id) if preferred_teacher_id else None
         dialog = TeacherLoginDialog(teachers, selected_teacher_id=preferred_teacher_id, parent=self)
@@ -791,8 +801,8 @@ class MainWindow(QMainWindow):
         while True:
             dialog = PasswordDialog(
                 self,
-                title=self.tr("Admin Access"),
-                label=self.tr("Enter admin password:"),
+                title=self._tr_or_fallback("Admin Access", "Доступ адміністратора"),
+                label=self._tr_or_fallback("Enter admin password:", "Введіть пароль адміністратора:"),
             )
             if dialog.exec() != QDialog.Accepted:
                 return
@@ -831,8 +841,8 @@ class MainWindow(QMainWindow):
         while True:
             dialog = PasswordDialog(
                 self,
-                title=self.tr("Editor Access"),
-                label=self.tr("Enter editor password:"),
+                title=self._tr_or_fallback("Editor Access", "Доступ редактора"),
+                label=self._tr_or_fallback("Enter editor password:", "Введіть пароль редактора:"),
             )
             if dialog.exec() != QDialog.Accepted:
                 return
@@ -859,10 +869,20 @@ class MainWindow(QMainWindow):
         has_password = auth_service.has_admin_password() if role == "admin" else auth_service.has_editor_password()
         if has_password:
             return True
+        if role == "admin":
+            title = self._tr_or_fallback("Create admin password", "Створення пароля адміністратора")
+            label = self._tr_or_fallback(
+                "Create a local admin password.", "Створіть локальний пароль адміністратора."
+            )
+        else:
+            title = self._tr_or_fallback("Create editor password", "Створення пароля редактора")
+            label = self._tr_or_fallback(
+                "Create a local editor password.", "Створіть локальний пароль редактора."
+            )
         dialog = setup_dialog_cls(
             self,
-            title=self.tr("Create {0} password").format(role),
-            label=self.tr("Create a local password for {0} mode.").format(role),
+            title=title,
+            label=label,
         )
         if dialog.exec() != QDialog.Accepted:
             return False
@@ -1066,7 +1086,7 @@ class MainWindow(QMainWindow):
 
         teachers = sorted(
             teachers,
-            key=lambda t: (t.id not in teachers_with_materials, t.full_name.lower()),
+            key=lambda t: (t.id not in teachers_with_materials, *teacher_sort_key(t)),
         )
 
         self.report_table.setRowCount(len(lessons))

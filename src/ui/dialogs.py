@@ -44,6 +44,7 @@ from ..services.import_service import (
     extract_text_from_file,
     preview_curriculum_text,
 )
+from ..services.teacher_sorting import teacher_sort_key
 
 
 def _style_hint_label(label: QLabel) -> None:
@@ -52,14 +53,27 @@ def _style_hint_label(label: QLabel) -> None:
     label.setStyleSheet("color: #444444;")
 
 
+def _translated_or_fallback(widget: QDialog, source: str, fallback: str) -> str:
+    text = widget.tr(source)
+    stripped = (text or "").strip()
+    normalized = "".join(ch for ch in stripped if ch not in " \t\r\n.,:;!?-()[]{}<>/\\\"'")
+    if (not stripped) or stripped == source or (normalized and set(normalized) == {"?"}):
+        return fallback
+    return text
+
+
 class PasswordDialog(QDialog):
     """Password prompt dialog."""
 
     def __init__(self, parent=None, title: Optional[str] = None, label: Optional[str] = None):
         super().__init__(parent)
-        self.setWindowTitle(title or self.tr("Admin Access"))
+        self.setWindowTitle(
+            title or _translated_or_fallback(self, "Admin Access", "Доступ адміністратора")
+        )
         layout = QVBoxLayout(self)
-        self.intro_label = QLabel(label or self.tr("Enter admin password:"))
+        self.intro_label = QLabel(
+            label or _translated_or_fallback(self, "Enter admin password:", "Введіть пароль адміністратора:")
+        )
         _style_hint_label(self.intro_label)
         layout.addWidget(self.intro_label)
         self.password_input = QLineEdit()
@@ -81,13 +95,15 @@ class PasswordSetupDialog(QDialog):
 
     def __init__(self, parent=None, title: Optional[str] = None, label: Optional[str] = None):
         super().__init__(parent)
-        self.setWindowTitle(title or self.tr("Set Password"))
+        self.setWindowTitle(title or _translated_or_fallback(self, "Set Password", "Встановлення пароля"))
         layout = QFormLayout(self)
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
         self.confirm_input = QLineEdit()
         self.confirm_input.setEchoMode(QLineEdit.Password)
-        self.intro_label = QLabel(label or self.tr("Create a new password:"))
+        self.intro_label = QLabel(
+            label or _translated_or_fallback(self, "Create a new password:", "Створіть новий пароль:")
+        )
         _style_hint_label(self.intro_label)
         layout.addRow(self.intro_label)
         layout.addRow(self.tr("Password"), self.password_input)
@@ -134,7 +150,12 @@ class TeacherLoginDialog(QDialog):
                 self.teacher_combo.setCurrentIndex(idx)
         layout.addRow(self.tr("Work as"), self.teacher_combo)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Continue"))
+        buttons.button(QDialogButtonBox.Ok).setText(
+            _translated_or_fallback(self, "Continue", "Продовжити")
+        )
+        buttons.button(QDialogButtonBox.Cancel).setText(
+            _translated_or_fallback(self, "Cancel", "Скасувати")
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
@@ -778,8 +799,8 @@ class MaterialDialog(QDialog):
                 key=lambda t: (getattr(t, sort_key) or "").strip().casefold(),
                 reverse=self._teacher_sort_desc,
             )
-        elif self._teacher_sort_desc:
-            teachers.reverse()
+        else:
+            teachers.sort(key=teacher_sort_key, reverse=self._teacher_sort_desc)
         self.teacher_list.clear()
         for teacher in teachers:
             label = teacher.full_name

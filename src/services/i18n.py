@@ -1,11 +1,12 @@
 """Translation management using Qt QTranslator."""
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QSettings
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtCore import QTranslator
 from .app_paths import get_translations_dir, resolve_app_path, make_relative_to_app
+from .ui_fallback_translations import UK_UI_FALLBACKS
 
 
 class TsTranslator(QTranslator):
@@ -35,7 +36,36 @@ class TsTranslator(QTranslator):
                     self._translations[(context_name, source_text)] = translation_text
 
     def translate(self, context, source_text, disambiguation=None, n=-1):  # noqa: ANN001
-        return self._translations.get((context, source_text), source_text)
+        return self._translations.get((context, source_text), "")
+
+
+class DictTranslator(QTranslator):
+    """Fallback translator that resolves known UI strings from a Python dict."""
+
+    def __init__(self, translations: Dict[str, str]):
+        super().__init__()
+        self._translations = translations
+
+    def translate(self, context, source_text, disambiguation=None, n=-1):  # noqa: ANN001
+        return self._translations.get(source_text, "")
+
+
+class CompositeTranslator(QTranslator):
+    """Translator that resolves strings through multiple sources in a fixed order."""
+
+    def __init__(self, translators: List[QTranslator], source_fallbacks: Optional[Dict[str, str]] = None):
+        super().__init__()
+        self._translators = translators
+        self._source_fallbacks = source_fallbacks or {}
+
+    def translate(self, context, source_text, disambiguation=None, n=-1):  # noqa: ANN001
+        for translator in self._translators:
+            translated = translator.translate(context, source_text, disambiguation, n)
+            if translated:
+                return translated
+        if source_text in self._source_fallbacks:
+            return self._source_fallbacks[source_text]
+        return source_text
 
 
 class I18nManager(QObject):
@@ -46,7 +76,7 @@ class I18nManager(QObject):
     def __init__(self, settings: QSettings):
         super().__init__()
         self._settings = settings
-        self._translator: Optional[QTranslator] = None
+        self._translators: List[QTranslator] = []
         self._current_language = "uk"
 
     def current_language(self) -> str:
@@ -58,11 +88,12 @@ class I18nManager(QObject):
 
     def set_language(self, language: str, persist: bool = True) -> None:
         language = "uk" if language not in {"uk", "en"} else language
-        if self._current_language == language and self._translator is not None:
+        if self._current_language == language and self._translators:
             return
 
-        if self._translator is not None:
-            QCoreApplication.removeTranslator(self._translator)
+        for translator in reversed(self._translators):
+            QCoreApplication.removeTranslator(translator)
+        self._translators = []
 
         settings = QSettings()
         translations_path = settings.value("app/translations_path", "")
@@ -81,18 +112,18 @@ class I18nManager(QObject):
             qm_path = translations_dir / f"app_{language}.qm"
             ts_path = translations_dir / f"app_{language}.ts"
 
+        backend_translators: List[QTranslator] = []
         if qm_path and qm_path.exists():
             translator = QTranslator()
             translator.load(str(qm_path))
-            QCoreApplication.installTranslator(translator)
-            self._translator = translator
-        else:
-            if ts_path and ts_path.exists():
-                translator = TsTranslator(str(ts_path))
-                QCoreApplication.installTranslator(translator)
-                self._translator = translator
-            else:
-                self._translator = None
+            backend_translators.append(translator)
+        if ts_path and ts_path.exists():
+            backend_translators.append(TsTranslator(str(ts_path)))
+
+        source_fallbacks = UK_UI_FALLBACKS if language == "uk" else {}
+        composite = CompositeTranslator(backend_translators, source_fallbacks)
+        QCoreApplication.installTranslator(composite)
+        self._translators.append(composite)
 
         self._current_language = language
         if persist:
