@@ -8,6 +8,7 @@ Offline desktop application for managing educational programs, topics, lessons, 
 - Methodical material tracking with file attachments
 - Report tab that shows lesson coverage by teacher/material type with color status
 - Admin mode for CRUD and relationship management
+- V2 UI hierarchy with clearer main navigation, grouped admin sections, and helper text across core workflows
 - Local SQLite database with FTS5 support
 - Designed for offline use and portable packaging
 
@@ -37,6 +38,13 @@ If you need to reset it, delete `settings/admin_credentials.json` and create a n
 Curriculum import supports a preview step before writing changes to the database.
 Batch curriculum import also shows a confirmation summary based on filenames before data is written.
 
+## UI / UX V2
+The current UI includes the V2 layout update:
+- Main window uses a clearer top bar: search, active teacher, settings, and administration.
+- Admin mode is grouped into `Main`, `Import & Sync`, and `System`.
+- Core sections include short helper text so users can understand each workflow without guessing.
+- Report, import preview, synchronization, and system screens now use more explicit labels and guidance.
+
 ## Build Portable EXE (PyInstaller)
 Use the provided build script (Windows):
 ```bat
@@ -46,7 +54,7 @@ build.bat
 Build scripts automatically sync the app version from the latest Git commit message.
 Use this format in the last commit message before building:
 ```text
-v=0.0.0.26
+v=0.0.0.27
 ```
 
 Manual build from the repository root:

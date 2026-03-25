@@ -46,6 +46,12 @@ from ..services.import_service import (
 )
 
 
+def _style_hint_label(label: QLabel) -> None:
+    label.setWordWrap(True)
+    label.setContentsMargins(0, 0, 0, 4)
+    label.setStyleSheet("color: #444444;")
+
+
 class PasswordDialog(QDialog):
     """Password prompt dialog."""
 
@@ -53,11 +59,15 @@ class PasswordDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title or self.tr("Admin Access"))
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(label or self.tr("Enter admin password:")))
+        self.intro_label = QLabel(label or self.tr("Enter admin password:"))
+        _style_hint_label(self.intro_label)
+        layout.addWidget(self.intro_label)
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.password_input)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Continue"))
+        buttons.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -77,10 +87,14 @@ class PasswordSetupDialog(QDialog):
         self.password_input.setEchoMode(QLineEdit.Password)
         self.confirm_input = QLineEdit()
         self.confirm_input.setEchoMode(QLineEdit.Password)
-        layout.addRow(QLabel(label or self.tr("Create a new password:")))
+        self.intro_label = QLabel(label or self.tr("Create a new password:"))
+        _style_hint_label(self.intro_label)
+        layout.addRow(self.intro_label)
         layout.addRow(self.tr("Password"), self.password_input)
         layout.addRow(self.tr("Confirm"), self.confirm_input)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Save password"))
+        buttons.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
@@ -98,8 +112,16 @@ class TeacherLoginDialog(QDialog):
     def __init__(self, teachers: list[Teacher], selected_teacher_id: Optional[int] = None, parent=None):
         super().__init__(parent)
         self._teachers = list(teachers)
-        self.setWindowTitle(self.tr("Select teacher"))
+        self.setWindowTitle(self.tr("Select active teacher"))
         layout = QFormLayout(self)
+        self.intro_label = QLabel(
+            self.tr(
+                "Choose the teacher identity for this work session. "
+                "Your actions in the application will be recorded under this teacher."
+            )
+        )
+        _style_hint_label(self.intro_label)
+        layout.addRow(self.intro_label)
         self.teacher_combo = QComboBox()
         for teacher in self._teachers:
             label = teacher.full_name or self.tr("Unknown teacher")
@@ -110,8 +132,9 @@ class TeacherLoginDialog(QDialog):
             idx = self.teacher_combo.findData(selected_teacher_id)
             if idx >= 0:
                 self.teacher_combo.setCurrentIndex(idx)
-        layout.addRow(self.tr("Login as"), self.teacher_combo)
+        layout.addRow(self.tr("Work as"), self.teacher_combo)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Continue"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
@@ -139,12 +162,20 @@ class SyncConflictDialog(QDialog):
         self.setWindowTitle(self.tr("Synchronization conflict"))
         self._choice = "local"
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(self.tr("Table: {0}").format(table_name)))
-        layout.addWidget(QLabel(self.tr("Record UUID: {0}").format(record_uuid)))
+        summary = QLabel(
+            self.tr(
+                "Choose which version to keep for this record. "
+                "The selected version will be written during synchronization."
+            )
+        )
+        _style_hint_label(summary)
+        layout.addWidget(summary)
+        layout.addWidget(QLabel(self.tr("Entity: {0}").format(table_name)))
+        layout.addWidget(QLabel(self.tr("Record ID: {0}").format(record_uuid)))
 
         panes = QHBoxLayout()
         local_box = QVBoxLayout()
-        local_box.addWidget(QLabel(self.tr("Local value")))
+        local_box.addWidget(QLabel(self.tr("Local version")))
         self.local_view = QPlainTextEdit()
         self.local_view.setReadOnly(True)
         self.local_view.setPlainText(local_text)
@@ -152,7 +183,7 @@ class SyncConflictDialog(QDialog):
         panes.addLayout(local_box)
 
         remote_box = QVBoxLayout()
-        remote_box.addWidget(QLabel(self.tr("Internet value")))
+        remote_box.addWidget(QLabel(self.tr("Internet DB version")))
         self.remote_view = QPlainTextEdit()
         self.remote_view.setReadOnly(True)
         self.remote_view.setPlainText(remote_text)
@@ -160,16 +191,17 @@ class SyncConflictDialog(QDialog):
         panes.addLayout(remote_box)
         layout.addLayout(panes)
 
-        self.use_local = QRadioButton(self.tr("Use Local (Recommended)"))
-        self.use_remote = QRadioButton(self.tr("Use Internet"))
-        self.skip_conflict = QRadioButton(self.tr("Skip this conflict"))
+        self.use_local = QRadioButton(self.tr("Keep local version (Recommended)"))
+        self.use_remote = QRadioButton(self.tr("Keep Internet DB version"))
+        self.skip_conflict = QRadioButton(self.tr("Skip this record for now"))
         self.use_local.setChecked(True)
         layout.addWidget(self.use_local)
         layout.addWidget(self.use_remote)
         layout.addWidget(self.skip_conflict)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Next"))
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Continue"))
+        buttons.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel synchronization"))
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -835,6 +867,7 @@ class ImportPreviewDialog(QDialog):
                     summary.questions_count,
                 )
             )
+            _style_hint_label(summary_label)
             layout.addWidget(summary_label)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([self.tr("Title"), self.tr("Details")])
@@ -861,6 +894,8 @@ class ImportPreviewDialog(QDialog):
             self.tree.addTopLevelItem(topic_item)
         self.tree.expandAll()
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Use this preview"))
+        buttons.button(QDialogButtonBox.Cancel).setText(self.tr("Close"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -876,6 +911,15 @@ class ImportCurriculumDialog(QDialog):
         self.file_paths: list[str] = []
         self.setWindowTitle(self.tr("Import curriculum structure"))
         layout = QVBoxLayout(self)
+
+        self.mode_hint = QLabel(
+            self.tr(
+                "Single import: choose one file or paste text and preview it before import. "
+                "Batch import: choose multiple files and confirm filename-based targets."
+            )
+        )
+        _style_hint_label(self.mode_hint)
+        layout.addWidget(self.mode_hint)
 
         form = QFormLayout()
         self.program_combo = QComboBox()
@@ -893,9 +937,9 @@ class ImportCurriculumDialog(QDialog):
         layout.addWidget(self.input_text)
 
         action_row = QHBoxLayout()
-        self.load_file = QPushButton(self.tr("Load file"))
-        self.load_files = QPushButton(self.tr("Load files (batch)"))
-        self.preview_btn = QPushButton(self.tr("Preview"))
+        self.load_file = QPushButton(self.tr("Open single file"))
+        self.load_files = QPushButton(self.tr("Open batch files"))
+        self.preview_btn = QPushButton(self.tr("Preview single import"))
         action_row.addWidget(self.load_file)
         action_row.addWidget(self.load_files)
         action_row.addWidget(self.preview_btn)
@@ -903,6 +947,8 @@ class ImportCurriculumDialog(QDialog):
         layout.addLayout(action_row)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Start import"))
+        buttons.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -986,3 +1032,55 @@ class ImportCurriculumDialog(QDialog):
         discipline_id = self.discipline_combo.currentData()
         new_name = self.new_discipline.text().strip() if discipline_id is None else None
         return program_id, discipline_id, new_name, self.input_text.toPlainText(), self.parsed_topics, self.file_paths
+
+
+class BatchImportPreviewDialog(QDialog):
+    """Review batch import target mapping before writing to DB."""
+
+    def __init__(self, plan_items, parent=None):  # noqa: ANN001
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Batch import preview"))
+        layout = QVBoxLayout(self)
+        hint = QLabel(
+            self.tr(
+                "Check the detected targets before import. "
+                "Each row shows which program and discipline will receive the parsed content."
+            )
+        )
+        _style_hint_label(hint)
+        layout.addWidget(hint)
+
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(
+            [
+                self.tr("File"),
+                self.tr("Program"),
+                self.tr("Discipline"),
+                self.tr("Topics"),
+                self.tr("Lessons"),
+                self.tr("Questions"),
+            ]
+        )
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        for column in range(1, 6):
+            self.table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeToContents)
+        for item in plan_items:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(Path(item.path).name))
+            self.table.setItem(row, 1, QTableWidgetItem(item.program_name))
+            self.table.setItem(row, 2, QTableWidgetItem(item.discipline_name))
+            self.table.setItem(row, 3, QTableWidgetItem(str(item.summary.topics_count)))
+            self.table.setItem(row, 4, QTableWidgetItem(str(item.summary.lessons_count)))
+            self.table.setItem(row, 5, QTableWidgetItem(str(item.summary.questions_count)))
+        layout.addWidget(self.table)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(self.tr("Import"))
+        buttons.button(QDialogButtonBox.Cancel).setText(self.tr("Back"))
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)

@@ -13,7 +13,7 @@ from ..services.import_service import (
     import_teachers_from_docx,
     preview_curriculum_text,
 )
-from .dialogs import ImportCurriculumDialog
+from .dialogs import BatchImportPreviewDialog, ImportCurriculumDialog
 
 
 def run_import_curriculum(dialog) -> None:  # noqa: ANN001
@@ -67,16 +67,8 @@ def _run_batch_curriculum_import(dialog, file_paths: list[str]) -> None:  # noqa
         QMessageBox.warning(dialog, dialog.tr("Import error"), str(exc))
         return
 
-    summary_lines = [
-        f"{item.program_name} -> {item.discipline_name}: "
-        f"{item.summary.topics_count}/{item.summary.lessons_count}/{item.summary.questions_count}"
-        for item in plan
-    ]
-    confirm_text = dialog.tr(
-        "Import the selected files using names derived from filenames?\n"
-        "Format: Program -> Discipline: topics/lessons/questions\n\n{0}"
-    ).format("\n".join(summary_lines))
-    if QMessageBox.question(dialog, dialog.tr("Confirm"), confirm_text) != QMessageBox.Yes:
+    preview_dialog = BatchImportPreviewDialog(plan, dialog)
+    if preview_dialog.exec() != QDialog.Accepted:
         return
 
     totals = {"topics": 0, "lessons": 0, "questions": 0}

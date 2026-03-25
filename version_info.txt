@@ -1,0 +1,29 @@
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(0, 0, 0, 27),
+    prodvers=(0, 0, 0, 27),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+    ),
+  kids=[
+    StringFileInfo(
+      [
+      StringTable(
+        '040904B0',
+        [
+        StringStruct('CompanyName', 'L1L2'),
+        StringStruct('FileDescription', 'L1L2'),
+        StringStruct('FileVersion', '0.0.0.27'),
+        StringStruct('InternalName', 'L1L2'),
+        StringStruct('OriginalFilename', 'L1L2.exe'),
+        StringStruct('ProductName', 'L1L2'),
+        StringStruct('ProductVersion', '0.0.0.27')
+        ])
+      ]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)

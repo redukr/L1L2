@@ -1,0 +1,11 @@
+v=0.0.0.27
+
+Release V2 UI/UX update
+
+- reorganize main window into search, active teacher, settings, and administration
+- group admin area into Main, Import & Sync, and System
+- add helper text across structure, materials, teachers, sync, settings, log, and dialogs
+- improve report readability with legend, selection guidance, and clearer labels
+- simplify import, batch preview, sync conflict, and password dialogs
+- unify button density and visual spacing across V2 screens
+- sync application version and add release notes for 0.0.0.27

@@ -31,8 +31,9 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QStyle,
     QApplication,
+    QMenu,
 )
-from PySide6.QtGui import QFont, QColor, QBrush, QTextDocument, QFontMetrics
+from PySide6.QtGui import QActionGroup, QFont, QColor, QBrush, QTextDocument, QFontMetrics
 from PySide6.QtCore import QProcess
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
@@ -84,22 +85,15 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self.search_label)
         self.search_input = QLineEdit()
         self.search_button = QPushButton(self.tr("Search"))
-        self.language_combo = QComboBox()
-        self.language_combo.addItem(self.tr("Ukrainian"), "uk")
-        self.language_combo.addItem(self.tr("English"), "en")
-        self.font_combo = QComboBox()
-        self.font_combo.addItems(["10", "11", "12", "13", "14", "15", "16", "18"])
-        self.editor_button = QPushButton(self.tr("Editor Mode"))
-        self.admin_button = QPushButton(self.tr("Admin Mode"))
-        self.active_teacher_label = QLabel(self.tr("User: not selected"))
+        self.settings_button = QPushButton(self.tr("Settings"))
+        self.administration_button = QPushButton(self.tr("Administration"))
+        self.active_teacher_label = QLabel(self.tr("Active teacher: not selected"))
         top_bar.addWidget(self.search_input)
         top_bar.addWidget(self.search_button)
-        top_bar.addWidget(self.language_combo)
-        top_bar.addWidget(self.font_combo)
         top_bar.addStretch(1)
         top_bar.addWidget(self.active_teacher_label)
-        top_bar.addWidget(self.editor_button)
-        top_bar.addWidget(self.admin_button)
+        top_bar.addWidget(self.settings_button)
+        top_bar.addWidget(self.administration_button)
         layout.addLayout(top_bar)
 
         self.main_splitter = QSplitter()
@@ -131,6 +125,23 @@ class MainWindow(QMainWindow):
         self.report_table.horizontalHeader().setStretchLastSection(True)
         self.report_table.verticalHeader().setVisible(False)
         self.report_label = QLabel(self.tr("Report"))
+        self.report_hint = QLabel(
+            self.tr(
+                "The report shows lessons in rows and teachers in columns. "
+                "Use it to quickly see who is assigned to each lesson."
+            )
+        )
+        self._style_hint_label(self.report_hint)
+        self.report_legend = QLabel(
+            self.tr(
+                "Color legend: green = complete set, yellow = partially filled, red = no materials."
+            )
+        )
+        self._style_hint_label(self.report_legend)
+        self.report_selection_hint = QLabel(
+            self.tr("Select a lesson or teacher cell to see the related details and materials.")
+        )
+        self._style_hint_label(self.report_selection_hint)
 
         self.structure_tabs = QTabWidget()
         structure_tab = QWidget()
@@ -138,6 +149,9 @@ class MainWindow(QMainWindow):
         structure_layout.addWidget(self._wrap_with_label(self.content_tree, self.structure_label))
         report_tab = QWidget()
         report_layout = QVBoxLayout(report_tab)
+        report_layout.addWidget(self.report_hint)
+        report_layout.addWidget(self.report_legend)
+        report_layout.addWidget(self.report_selection_hint)
         report_layout.addWidget(self._wrap_with_label(self.report_table, self.report_label))
         self.structure_tabs.addTab(structure_tab, self.tr("Structure"))
         self.structure_tabs.addTab(report_tab, self.tr("Report"))
@@ -146,8 +160,6 @@ class MainWindow(QMainWindow):
 
         self.search_results = QTableWidget(0, 3)
         self.search_results.setHorizontalHeaderLabels([self.tr("Type"), self.tr("Title"), self.tr("Description")])
-        self.language_combo.setItemText(0, self.tr("Ukrainian"))
-        self.language_combo.setItemText(1, self.tr("English"))
         self.search_results.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.search_results.horizontalHeader().setStretchLastSection(True)
         self.search_results_label = QLabel(self.tr("Search Results"))
@@ -184,12 +196,20 @@ class MainWindow(QMainWindow):
         self.materials_label = QLabel(self.tr("Methodical Materials"))
         right_layout.addWidget(self._wrap_with_label(self.materials_list, self.materials_label))
 
-        self.open_material_button = QPushButton(self.tr("Open Selected File"))
-        self.show_material_button = QPushButton(self.tr("Show in folder"))
-        self.copy_material_button = QPushButton(self.tr("Copy file as..."))
-        right_layout.addWidget(self.open_material_button)
-        right_layout.addWidget(self.show_material_button)
-        right_layout.addWidget(self.copy_material_button)
+        self.open_material_button = QPushButton(self.tr("Open file"))
+        self.show_material_button = QPushButton(self.tr("Show folder"))
+        self.copy_material_button = QPushButton(self.tr("Save copy"))
+        self._compact_action_buttons(
+            self.open_material_button,
+            self.show_material_button,
+            self.copy_material_button,
+        )
+        material_actions = QHBoxLayout()
+        material_actions.addWidget(self.open_material_button)
+        material_actions.addWidget(self.show_material_button)
+        material_actions.addWidget(self.copy_material_button)
+        material_actions.addStretch(1)
+        right_layout.addLayout(material_actions)
 
         self.main_splitter.addWidget(right_panel)
         self.main_splitter.setStretchFactor(1, 2)
@@ -204,15 +224,73 @@ class MainWindow(QMainWindow):
         self.content_tree.itemSelectionChanged.connect(self._on_tree_selected)
         self.search_results.cellDoubleClicked.connect(self._on_search_result_activated)
         self.search_results.itemSelectionChanged.connect(self._on_search_result_selected)
-        self.admin_button.clicked.connect(self._on_open_admin)
-        self.editor_button.clicked.connect(self._on_open_editor)
         self.materials_list.itemDoubleClicked.connect(self._on_open_material_item)
         self.report_table.itemSelectionChanged.connect(self._on_report_selection_changed)
         self.open_material_button.clicked.connect(self._on_open_material)
         self.show_material_button.clicked.connect(self._on_show_material)
         self.copy_material_button.clicked.connect(self._on_copy_material)
-        self.language_combo.currentIndexChanged.connect(self._on_language_combo_changed)
-        self.font_combo.currentTextChanged.connect(self._on_font_size_changed)
+        self._build_v2_menus()
+
+    def _build_v2_menus(self) -> None:
+        self.settings_menu = QMenu(self)
+        self.settings_button.setMenu(self.settings_menu)
+        self.language_menu = self.settings_menu.addMenu(self.tr("Language"))
+        self.font_menu = self.settings_menu.addMenu(self.tr("Font size"))
+
+        self.language_action_group = QActionGroup(self)
+        self.language_action_group.setExclusive(True)
+        self.language_actions = {}
+        for label, code in ((self.tr("Ukrainian"), "uk"), (self.tr("English"), "en")):
+            action = self.language_menu.addAction(label)
+            action.setCheckable(True)
+            action.triggered.connect(lambda _checked=False, lang=code: self._set_language_choice(lang))
+            self.language_action_group.addAction(action)
+            self.language_actions[code] = action
+
+        self.font_action_group = QActionGroup(self)
+        self.font_action_group.setExclusive(True)
+        self.font_actions = {}
+        for size in ["10", "11", "12", "13", "14", "15", "16", "18"]:
+            action = self.font_menu.addAction(size)
+            action.setCheckable(True)
+            action.triggered.connect(lambda _checked=False, value=size: self._set_font_size_choice(value))
+            self.font_action_group.addAction(action)
+            self.font_actions[size] = action
+
+        self.administration_menu = QMenu(self)
+        self.administration_button.setMenu(self.administration_menu)
+        self.editor_mode_action = self.administration_menu.addAction(self.tr("Editor Mode"))
+        self.admin_mode_action = self.administration_menu.addAction(self.tr("Admin Mode"))
+        self.editor_mode_action.triggered.connect(self._on_open_editor)
+        self.admin_mode_action.triggered.connect(self._on_open_admin)
+
+    def _style_hint_label(self, label: QLabel) -> None:
+        label.setWordWrap(True)
+        label.setContentsMargins(0, 0, 0, 4)
+        label.setStyleSheet("color: #444444;")
+
+    def _compact_action_buttons(self, *buttons: QPushButton) -> None:
+        for button in buttons:
+            button.setMinimumHeight(28)
+
+    def _set_language_choice(self, language: str) -> None:
+        if language:
+            self.i18n.set_language(language)
+
+    def _set_font_size_choice(self, value: str) -> None:
+        if not value:
+            return
+        try:
+            size = int(value)
+        except ValueError:
+            return
+        font = QFont(self.font())
+        font.setPointSize(size)
+        self.setFont(font)
+        self.settings.setValue("ui/font_size", size)
+        action = self.font_actions.get(str(size))
+        if action:
+            action.setChecked(True)
 
     def ensure_teacher_login(self) -> bool:
         teachers = list(self.controller.teacher_repo.get_all())
@@ -222,8 +300,8 @@ class MainWindow(QMainWindow):
             self._update_active_teacher_label()
             QMessageBox.information(
                 self,
-                self.tr("Teacher Login"),
-                self.tr("No teachers found. Continue in guest mode and add a teacher in admin mode."),
+                self.tr("Select active teacher"),
+                self.tr("No teachers found. Continue in guest mode and add a teacher in Administration."),
             )
             return True
 
@@ -244,12 +322,12 @@ class MainWindow(QMainWindow):
 
     def _update_active_teacher_label(self) -> None:
         if not self.active_teacher:
-            self.active_teacher_label.setText(self.tr("User: not selected"))
+            self.active_teacher_label.setText(self.tr("Active teacher: not selected"))
             return
         name = self.active_teacher.full_name or self.tr("Unknown teacher")
         if self.active_teacher.military_rank:
             name = f"{self.active_teacher.military_rank} {name}"
-        self.active_teacher_label.setText(self.tr("User: {0}").format(name))
+        self.active_teacher_label.setText(self.tr("Active teacher: {0}").format(name))
 
     def _active_user_name(self) -> str:
         if not self.active_teacher:
@@ -993,7 +1071,7 @@ class MainWindow(QMainWindow):
 
         self.report_table.setRowCount(len(lessons))
         self.report_table.setColumnCount(len(teachers) + 1)
-        headers = [self.tr("Lesson")] + [
+        headers = [self.tr("Lesson code")] + [
             (f"{t.military_rank}\n{t.full_name}" if t.military_rank else t.full_name) for t in teachers
         ]
         self.report_table.setHorizontalHeaderLabels(headers)
@@ -1024,6 +1102,10 @@ class MainWindow(QMainWindow):
                         item.setBackground(QBrush(QColor(255, 242, 204)))
                     else:
                         item.setBackground(QBrush(QColor(255, 199, 206)))
+                teacher_name = teacher.full_name or self.tr("Unknown teacher")
+                item.setToolTip(
+                    self.tr("Teacher: {0}\nMaterials: {1}").format(teacher_name, len(titles))
+                )
                 self.report_table.setItem(row_index, col_offset, item)
 
         for idx, info in enumerate(lessons):
@@ -1048,11 +1130,24 @@ class MainWindow(QMainWindow):
         if col > 0 and not item.text().strip():
             self._show_details({})
             self.materials_list.clear()
+            self.report_selection_hint.setText(
+                self.tr("No materials are assigned in the selected teacher cell.")
+            )
             return
         lesson = self._report_rows[row]
         details = self.controller.get_entity_details("lesson", lesson.id)
         self._show_details(details)
         self._load_materials("lesson", lesson.id)
+        if col == 0:
+            self.report_selection_hint.setText(
+                self.tr("Showing lesson details and all lesson materials.")
+            )
+        else:
+            header_item = self.report_table.horizontalHeaderItem(col)
+            teacher_label = header_item.text().replace("\n", " ") if header_item else self.tr("selected teacher")
+            self.report_selection_hint.setText(
+                self.tr("Showing lesson details. Selected teacher column: {0}").format(teacher_label)
+            )
 
     def _material_copy_name_parts(self, material) -> Tuple[str, str]:
         original = material.original_filename or ""
@@ -1106,15 +1201,15 @@ class MainWindow(QMainWindow):
             self.program_list.setCurrentItem(self.program_items[int(last_program)])
 
         current_language = self.i18n.current_language()
-        index = self.language_combo.findData(current_language)
-        if index >= 0:
-            self.language_combo.setCurrentIndex(index)
+        if current_language in self.language_actions:
+            self.language_actions[current_language].setChecked(True)
 
         font_size = self.settings.value("ui/font_size")
         if font_size:
-            idx = self.font_combo.findText(str(font_size))
-            if idx >= 0:
-                self.font_combo.setCurrentIndex(idx)
+            action = self.font_actions.get(str(font_size))
+            if action:
+                action.setChecked(True)
+                self._set_font_size_choice(str(font_size))
 
     def closeEvent(self, event) -> None:
         self.settings.setValue("ui/main_geometry", self.saveGeometry())
@@ -1127,23 +1222,6 @@ class MainWindow(QMainWindow):
         self.settings.sync()
         super().closeEvent(event)
 
-    def _on_language_combo_changed(self) -> None:
-        language = self.language_combo.currentData()
-        if language:
-            self.i18n.set_language(language)
-
-    def _on_font_size_changed(self, value: str) -> None:
-        if not value:
-            return
-        try:
-            size = int(value)
-        except ValueError:
-            return
-        font = QFont(self.font())
-        font.setPointSize(size)
-        self.setFont(font)
-        self.settings.setValue("ui/font_size", size)
-
     def _on_language_changed(self, _language: str) -> None:
         self.retranslate_ui()
 
@@ -1151,8 +1229,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.tr("Educational Program Manager"))
         self.search_label.setText(self.tr("Search:"))
         self.search_button.setText(self.tr("Search"))
-        self.editor_button.setText(self.tr("Editor Mode"))
-        self.admin_button.setText(self.tr("Admin Mode"))
+        self.settings_button.setText(self.tr("Settings"))
+        self.administration_button.setText(self.tr("Administration"))
         self._update_active_teacher_label()
         self.menuBar().clear()
         app_menu = self.menuBar().addMenu(self.tr("Application"))
@@ -1164,17 +1242,44 @@ class MainWindow(QMainWindow):
         self.action_exit.triggered.connect(self._close_application)
         self.program_label.setText(self.tr("Programs"))
         self.structure_label.setText(self.tr("Program Structure"))
+        self.report_label.setText(self.tr("Report"))
+        self.report_hint.setText(
+            self.tr(
+                "The report shows lessons in rows and teachers in columns. "
+                "Use it to quickly see who is assigned to each lesson."
+            )
+        )
+        self.report_legend.setText(
+            self.tr(
+                "Color legend: green = complete set, yellow = partially filled, red = no materials."
+            )
+        )
+        self.report_selection_hint.setText(
+            self.tr("Select a lesson or teacher cell to see the related details and materials.")
+        )
         self.search_results_label.setText(self.tr("Search Results"))
         self.details_label.setText(self.tr("Details"))
         self.materials_label.setText(self.tr("Methodical Materials"))
-        self.open_material_button.setText(self.tr("Open Selected File"))
-        self.show_material_button.setText(self.tr("Show in folder"))
-        self.copy_material_button.setText(self.tr("Copy file as..."))
         self.content_tree.setHeaderLabels([self.tr("Title"), self.tr("Type")])
         self.search_results.setHorizontalHeaderLabels([self.tr("Type"), self.tr("Title"), self.tr("Description")])
+        self.open_material_button.setText(self.tr("Open file"))
+        self.show_material_button.setText(self.tr("Show folder"))
+        self.copy_material_button.setText(self.tr("Save copy"))
+        self._retranslate_v2_menus()
         self._load_program_structure(self.last_program_id) if self.last_program_id else None
         if self.content_tree.currentItem():
             self._on_tree_selected()
+
+    def _retranslate_v2_menus(self) -> None:
+        self.settings_menu.setTitle(self.tr("Settings"))
+        self.language_menu.setTitle(self.tr("Language"))
+        self.font_menu.setTitle(self.tr("Font size"))
+        self.administration_menu.setTitle(self.tr("Administration"))
+        self.editor_mode_action.setText(self.tr("Editor Mode"))
+        self.admin_mode_action.setText(self.tr("Admin Mode"))
+        language_labels = {"uk": self.tr("Ukrainian"), "en": self.tr("English")}
+        for code, action in self.language_actions.items():
+            action.setText(language_labels.get(code, code))
 
     def _build_search_context(self, result) -> str:
         navigation = self.controller.resolve_search_navigation(result)

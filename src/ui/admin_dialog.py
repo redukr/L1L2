@@ -196,13 +196,23 @@ class AdminDialog(QDialog):
         layout.addWidget(menu_bar)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
-        self.tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
-        self.tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
-        self.tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
-        self.tabs.addTab(self._build_sync_tab(), self.tr("Synchronization"))
-        self.tabs.addTab(self._build_internet_tab(), self.tr("Internet"))
-        self.tabs.addTab(self._build_log_tab(), self.tr("Log"))
-        self.tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
+
+        self.main_tabs = QTabWidget()
+        self.main_tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
+        self.main_tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
+        self.main_tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
+
+        self.sync_tabs = QTabWidget()
+        self.sync_tabs.addTab(self._build_sync_tab(), self.tr("Synchronization"))
+        self.sync_tabs.addTab(self._build_internet_tab(), self.tr("Internet"))
+
+        self.system_tabs = QTabWidget()
+        self.system_tabs.addTab(self._build_log_tab(), self.tr("Log"))
+        self.system_tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
+
+        self.tabs.addTab(self.main_tabs, self.tr("Main"))
+        self.tabs.addTab(self.sync_tabs, self.tr("Import & Sync"))
+        self.tabs.addTab(self.system_tabs, self.tr("System"))
         self._apply_word_wrap()
 
     def _create_material_dialog(self, material=None, teachers=None, selected_teacher_ids=None) -> MaterialDialog:
@@ -214,9 +224,49 @@ class AdminDialog(QDialog):
             parent=self,
         )
 
+    def _compact_action_buttons(self, *buttons: QPushButton) -> None:
+        for button in buttons:
+            button.setMinimumHeight(28)
+            button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+
+    def _style_hint_label(self, label: QLabel) -> None:
+        label.setWordWrap(True)
+        label.setContentsMargins(0, 0, 0, 4)
+        label.setStyleSheet("color: #444444;")
+
+    def _compact_group_box(self, group_box: QGroupBox) -> None:
+        layout = group_box.layout()
+        if layout is not None:
+            layout.setContentsMargins(8, 10, 8, 8)
+            layout.setSpacing(6)
+
     def _build_teachers_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        self.teachers_hint = QLabel(
+            self.tr(
+                "Use this section to manage teachers. Select a teacher in the table, then assign disciplines below."
+            )
+        )
+        self._style_hint_label(self.teachers_hint)
+        layout.addWidget(self.teachers_hint)
+        btn_layout = QHBoxLayout()
+        self.teacher_add = QPushButton(self.tr("Add"))
+        self.teacher_edit = QPushButton(self.tr("Edit"))
+        self.teacher_delete = QPushButton(self.tr("Delete"))
+        self.teacher_import = QPushButton(self.tr("Import teachers from DOCX"))
+        self._compact_action_buttons(
+            self.teacher_add,
+            self.teacher_edit,
+            self.teacher_delete,
+            self.teacher_import,
+        )
+        btn_layout.addWidget(self.teacher_add)
+        btn_layout.addWidget(self.teacher_edit)
+        btn_layout.addWidget(self.teacher_delete)
+        btn_layout.addWidget(self.teacher_import)
+        btn_layout.addStretch(1)
+        layout.addLayout(btn_layout)
         self.teachers_table = QTableWidget(0, 6)
         self.teachers_table.setHorizontalHeaderLabels(
             [
@@ -237,21 +287,12 @@ class AdminDialog(QDialog):
         )
         self.teachers_table.itemChanged.connect(self._on_teacher_item_changed)
         layout.addWidget(self.teachers_table)
-        btn_layout = QHBoxLayout()
-        self.teacher_add = QPushButton(self.tr("Add"))
-        self.teacher_edit = QPushButton(self.tr("Edit"))
-        self.teacher_delete = QPushButton(self.tr("Delete"))
-        self.teacher_import = QPushButton(self.tr("Import teachers from DOCX"))
-        btn_layout.addWidget(self.teacher_add)
-        btn_layout.addWidget(self.teacher_edit)
-        btn_layout.addWidget(self.teacher_delete)
-        btn_layout.addWidget(self.teacher_import)
-        btn_layout.addStretch(1)
-        layout.addLayout(btn_layout)
 
-        disciplines_group = QWidget()
+        disciplines_group = QGroupBox(self.tr("Teacher discipline assignment"))
         disciplines_layout = QHBoxLayout(disciplines_group)
-        self.teacher_disciplines_label = QLabel(self.tr("Assigned disciplines"))
+        self.teacher_disciplines_label = QLabel(
+            self.tr("Available disciplines on the left, assigned disciplines on the right")
+        )
         disciplines_layout.addWidget(self.teacher_disciplines_label)
         self.teacher_disciplines_available = QListWidget()
         self.teacher_disciplines_assigned = QListWidget()
@@ -265,6 +306,7 @@ class AdminDialog(QDialog):
         disciplines_layout.addWidget(self.teacher_disciplines_available)
         disciplines_layout.addLayout(mid_layout)
         disciplines_layout.addWidget(self.teacher_disciplines_assigned)
+        self._compact_group_box(disciplines_group)
         layout.addWidget(disciplines_group)
 
         self.teacher_add.clicked.connect(self._add_teacher)
@@ -384,6 +426,56 @@ class AdminDialog(QDialog):
 
     def _build_structure_tab(self) -> QWidget:
         tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        self.structure_hint = QLabel(
+            self.tr(
+                "Use the tree on the left to choose a program element. "
+                "Use the action bar above to add, edit, copy, or import structure items."
+            )
+        )
+        self._style_hint_label(self.structure_hint)
+        layout.addWidget(self.structure_hint)
+
+        action_row = QHBoxLayout()
+        self.structure_add_program = QPushButton(self.tr("Add program"))
+        self.structure_add_discipline = QPushButton(self.tr("Add discipline"))
+        self.structure_add_topic = QPushButton(self.tr("Add topic"))
+        self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
+        self.structure_add_question = QPushButton(self.tr("Add question"))
+        self.structure_import = QPushButton(self.tr("Import curriculum structure"))
+        self.structure_refresh = QPushButton(self.tr("Refresh"))
+        self.structure_edit = QPushButton(self.tr("Edit"))
+        self.structure_delete = QPushButton(self.tr("Delete"))
+        self.structure_duplicate = QPushButton(self.tr("Duplicate"))
+        self.structure_copy = QPushButton(self.tr("Copy"))
+        self._compact_action_buttons(
+            self.structure_add_program,
+            self.structure_add_discipline,
+            self.structure_add_topic,
+            self.structure_add_lesson,
+            self.structure_add_question,
+            self.structure_import,
+            self.structure_refresh,
+            self.structure_edit,
+            self.structure_delete,
+            self.structure_duplicate,
+            self.structure_copy,
+        )
+        action_row.addWidget(self.structure_add_program)
+        action_row.addWidget(self.structure_add_discipline)
+        action_row.addWidget(self.structure_add_topic)
+        action_row.addWidget(self.structure_add_lesson)
+        action_row.addWidget(self.structure_add_question)
+        action_row.addWidget(self.structure_import)
+        action_row.addWidget(self.structure_refresh)
+        action_row.addWidget(self.structure_edit)
+        action_row.addWidget(self.structure_delete)
+        action_row.addWidget(self.structure_duplicate)
+        action_row.addWidget(self.structure_copy)
+        action_row.addStretch(1)
+        layout.addLayout(action_row)
+
         splitter = QSplitter(Qt.Horizontal)
 
         self.structure_tree = QTreeWidget()
@@ -406,34 +498,39 @@ class AdminDialog(QDialog):
         details_layout.addWidget(self.structure_title)
         details_layout.addWidget(self.structure_details)
 
-        btn_row = QHBoxLayout()
-        self.structure_add_program = QPushButton(self.tr("Add program"))
-        self.structure_add_discipline = QPushButton(self.tr("Add discipline"))
-        self.structure_add_topic = QPushButton(self.tr("Add topic"))
-        self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
-        self.structure_add_question = QPushButton(self.tr("Add question"))
-        self.structure_import = QPushButton(self.tr("Import curriculum structure"))
-        self.structure_refresh = QPushButton(self.tr("Refresh"))
-        self.structure_edit = QPushButton(self.tr("Edit"))
-        self.structure_delete = QPushButton(self.tr("Delete"))
-        self.structure_duplicate = QPushButton(self.tr("Duplicate"))
-        self.structure_copy = QPushButton(self.tr("Copy"))
-        btn_row.addWidget(self.structure_add_program)
-        btn_row.addWidget(self.structure_add_discipline)
-        btn_row.addWidget(self.structure_add_topic)
-        btn_row.addWidget(self.structure_add_lesson)
-        btn_row.addWidget(self.structure_add_question)
-        btn_row.addWidget(self.structure_import)
-        btn_row.addWidget(self.structure_refresh)
-        btn_row.addWidget(self.structure_edit)
-        btn_row.addWidget(self.structure_delete)
-        btn_row.addWidget(self.structure_duplicate)
-        btn_row.addWidget(self.structure_copy)
-        btn_row.addStretch(1)
-        details_layout.addLayout(btn_row)
+        self.structure_materials_hint = QLabel(
+            self.tr(
+                "Materials below belong to the currently selected program element."
+            )
+        )
+        self._style_hint_label(self.structure_materials_hint)
+        details_layout.addWidget(self.structure_materials_hint)
 
         materials_group = QWidget()
         materials_layout = QVBoxLayout(materials_group)
+        materials_btns = QHBoxLayout()
+        self.material_add = QPushButton(self.tr("Add"))
+        self.material_edit = QPushButton(self.tr("Edit"))
+        self.material_delete = QPushButton(self.tr("Delete"))
+        self.material_open = QPushButton(self.tr("Open file"))
+        self.material_show = QPushButton(self.tr("Show folder"))
+        self.material_copy = QPushButton(self.tr("Save copy"))
+        self._compact_action_buttons(
+            self.material_add,
+            self.material_edit,
+            self.material_delete,
+            self.material_open,
+            self.material_show,
+            self.material_copy,
+        )
+        materials_btns.addWidget(self.material_add)
+        materials_btns.addWidget(self.material_edit)
+        materials_btns.addWidget(self.material_delete)
+        materials_btns.addWidget(self.material_open)
+        materials_btns.addWidget(self.material_show)
+        materials_btns.addWidget(self.material_copy)
+        materials_btns.addStretch(1)
+        materials_layout.addLayout(materials_btns)
         self.materials_table = QTableWidget(0, 4)
         self.materials_table.setHorizontalHeaderLabels(
             [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
@@ -449,22 +546,6 @@ class AdminDialog(QDialog):
         )
         materials_layout.addWidget(self.materials_table)
 
-        materials_btns = QHBoxLayout()
-        self.material_add = QPushButton(self.tr("Add"))
-        self.material_edit = QPushButton(self.tr("Edit"))
-        self.material_delete = QPushButton(self.tr("Delete"))
-        self.material_open = QPushButton(self.tr("Open file"))
-        self.material_show = QPushButton(self.tr("Show in folder"))
-        self.material_copy = QPushButton(self.tr("Copy file as..."))
-        materials_btns.addWidget(self.material_add)
-        materials_btns.addWidget(self.material_edit)
-        materials_btns.addWidget(self.material_delete)
-        materials_btns.addWidget(self.material_open)
-        materials_btns.addWidget(self.material_show)
-        materials_btns.addWidget(self.material_copy)
-        materials_btns.addStretch(1)
-        materials_layout.addLayout(materials_btns)
-
         details_layout.addWidget(QLabel(self.tr("Materials")))
         details_layout.addWidget(materials_group)
         details_layout.addStretch(1)
@@ -472,7 +553,6 @@ class AdminDialog(QDialog):
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 3)
 
-        layout = QVBoxLayout(tab)
         layout.addWidget(splitter)
 
         self.structure_add_program.clicked.connect(self._add_structure_program)
@@ -496,6 +576,14 @@ class AdminDialog(QDialog):
 
     def _build_programs_tab(self) -> QWidget:
         tab = QWidget()
+        wrapper = QVBoxLayout(tab)
+        self.programs_hint = QLabel(
+            self.tr(
+                "Select a program in the table, then manage its discipline links below."
+            )
+        )
+        self._style_hint_label(self.programs_hint)
+        wrapper.addWidget(self.programs_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -509,6 +597,7 @@ class AdminDialog(QDialog):
         self.program_add = QPushButton(self.tr("Add"))
         self.program_edit = QPushButton(self.tr("Edit"))
         self.program_delete = QPushButton(self.tr("Delete"))
+        self._compact_action_buttons(self.program_add, self.program_edit, self.program_delete)
         btn_layout.addWidget(self.program_add)
         btn_layout.addWidget(self.program_edit)
         btn_layout.addWidget(self.program_delete)
@@ -533,8 +622,6 @@ class AdminDialog(QDialog):
         bottom_layout.addLayout(mid_layout)
         bottom_layout.addWidget(self.program_disciplines_assigned)
         splitter.addWidget(bottom)
-
-        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
 
         self.program_add.clicked.connect(self._add_program)
@@ -547,6 +634,14 @@ class AdminDialog(QDialog):
 
     def _build_disciplines_tab(self) -> QWidget:
         tab = QWidget()
+        wrapper = QVBoxLayout(tab)
+        self.disciplines_hint = QLabel(
+            self.tr(
+                "Select a discipline in the table, then manage its topic links below."
+            )
+        )
+        self._style_hint_label(self.disciplines_hint)
+        wrapper.addWidget(self.disciplines_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -560,6 +655,7 @@ class AdminDialog(QDialog):
         self.discipline_add = QPushButton(self.tr("Add"))
         self.discipline_edit = QPushButton(self.tr("Edit"))
         self.discipline_delete = QPushButton(self.tr("Delete"))
+        self._compact_action_buttons(self.discipline_add, self.discipline_edit, self.discipline_delete)
         btn_layout.addWidget(self.discipline_add)
         btn_layout.addWidget(self.discipline_edit)
         btn_layout.addWidget(self.discipline_delete)
@@ -584,8 +680,6 @@ class AdminDialog(QDialog):
         bottom_layout.addLayout(mid_layout)
         bottom_layout.addWidget(self.discipline_topics_assigned)
         splitter.addWidget(bottom)
-
-        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
 
         self.discipline_add.clicked.connect(self._add_discipline)
@@ -598,6 +692,14 @@ class AdminDialog(QDialog):
 
     def _build_topics_tab(self) -> QWidget:
         tab = QWidget()
+        wrapper = QVBoxLayout(tab)
+        self.topics_hint = QLabel(
+            self.tr(
+                "Select a topic in the table, then manage linked lessons and topic materials below."
+            )
+        )
+        self._style_hint_label(self.topics_hint)
+        wrapper.addWidget(self.topics_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -611,6 +713,7 @@ class AdminDialog(QDialog):
         self.topic_add = QPushButton(self.tr("Add"))
         self.topic_edit = QPushButton(self.tr("Edit"))
         self.topic_delete = QPushButton(self.tr("Delete"))
+        self._compact_action_buttons(self.topic_add, self.topic_edit, self.topic_delete)
         btn_layout.addWidget(self.topic_add)
         btn_layout.addWidget(self.topic_edit)
         btn_layout.addWidget(self.topic_delete)
@@ -653,7 +756,6 @@ class AdminDialog(QDialog):
         materials_layout.addLayout(materials_mid)
         materials_layout.addWidget(self.topic_materials_assigned)
 
-        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
         wrapper.addWidget(materials_group)
 
@@ -669,6 +771,14 @@ class AdminDialog(QDialog):
 
     def _build_lessons_tab(self) -> QWidget:
         tab = QWidget()
+        wrapper = QVBoxLayout(tab)
+        self.lessons_hint = QLabel(
+            self.tr(
+                "Select a lesson in the table, then manage linked questions and lesson materials below."
+            )
+        )
+        self._style_hint_label(self.lessons_hint)
+        wrapper.addWidget(self.lessons_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -684,6 +794,7 @@ class AdminDialog(QDialog):
         self.lesson_add = QPushButton(self.tr("Add"))
         self.lesson_edit = QPushButton(self.tr("Edit"))
         self.lesson_delete = QPushButton(self.tr("Delete"))
+        self._compact_action_buttons(self.lesson_add, self.lesson_edit, self.lesson_delete)
         btn_layout.addWidget(self.lesson_add)
         btn_layout.addWidget(self.lesson_edit)
         btn_layout.addWidget(self.lesson_delete)
@@ -726,7 +837,6 @@ class AdminDialog(QDialog):
         materials_layout.addLayout(materials_mid)
         materials_layout.addWidget(self.lesson_materials_assigned)
 
-        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
         wrapper.addWidget(materials_group)
 
@@ -743,6 +853,11 @@ class AdminDialog(QDialog):
     def _build_questions_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        self.questions_hint = QLabel(
+            self.tr("Use this section to manage standalone question records.")
+        )
+        self._style_hint_label(self.questions_hint)
+        layout.addWidget(self.questions_hint)
         self.questions_table = QTableWidget(0, 1)
         self.questions_table.setHorizontalHeaderLabels([self.tr("Question")])
         self.questions_table.horizontalHeader().setStretchLastSection(True)
@@ -753,6 +868,7 @@ class AdminDialog(QDialog):
         self.question_add = QPushButton(self.tr("Add"))
         self.question_edit = QPushButton(self.tr("Edit"))
         self.question_delete = QPushButton(self.tr("Delete"))
+        self._compact_action_buttons(self.question_add, self.question_edit, self.question_delete)
         btn_layout.addWidget(self.question_add)
         btn_layout.addWidget(self.question_edit)
         btn_layout.addWidget(self.question_delete)
@@ -767,11 +883,30 @@ class AdminDialog(QDialog):
     def _build_materials_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        self.material_types_hint = QLabel(
+            self.tr(
+                "Manage reference lists for material types and lesson types here. "
+                "These values are used across the whole database."
+            )
+        )
+        self._style_hint_label(self.material_types_hint)
+        layout.addWidget(self.material_types_hint)
+
         splitter = QSplitter(Qt.Vertical)
         layout.addWidget(splitter)
 
-        self.materials_group = QGroupBox(self.tr("Materials"))
+        self.materials_group = QGroupBox(self.tr("Material types"))
         materials_layout = QVBoxLayout(self.materials_group)
+        btn_layout = QHBoxLayout()
+        self.material_type_add = QPushButton(self.tr("Add"))
+        self.material_type_edit = QPushButton(self.tr("Edit"))
+        self.material_type_delete = QPushButton(self.tr("Delete"))
+        self._compact_action_buttons(self.material_type_add, self.material_type_edit, self.material_type_delete)
+        btn_layout.addWidget(self.material_type_add)
+        btn_layout.addWidget(self.material_type_edit)
+        btn_layout.addWidget(self.material_type_delete)
+        btn_layout.addStretch(1)
+        materials_layout.addLayout(btn_layout)
         self.material_types_table = QTableWidget(0, 1)
         self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
         self.material_types_table.horizontalHeader().setStretchLastSection(True)
@@ -784,19 +919,21 @@ class AdminDialog(QDialog):
             )
         )
         materials_layout.addWidget(self.material_types_table)
-        btn_layout = QHBoxLayout()
-        self.material_type_add = QPushButton(self.tr("Add"))
-        self.material_type_edit = QPushButton(self.tr("Edit"))
-        self.material_type_delete = QPushButton(self.tr("Delete"))
-        btn_layout.addWidget(self.material_type_add)
-        btn_layout.addWidget(self.material_type_edit)
-        btn_layout.addWidget(self.material_type_delete)
-        btn_layout.addStretch(1)
-        materials_layout.addLayout(btn_layout)
+        self._compact_group_box(self.materials_group)
         splitter.addWidget(self.materials_group)
 
         self.lesson_types_group = QGroupBox(self.tr("Lesson types"))
         lesson_types_layout = QVBoxLayout(self.lesson_types_group)
+        btn_layout = QHBoxLayout()
+        self.lesson_type_add = QPushButton(self.tr("Add"))
+        self.lesson_type_edit = QPushButton(self.tr("Edit"))
+        self.lesson_type_delete = QPushButton(self.tr("Delete"))
+        self._compact_action_buttons(self.lesson_type_add, self.lesson_type_edit, self.lesson_type_delete)
+        btn_layout.addWidget(self.lesson_type_add)
+        btn_layout.addWidget(self.lesson_type_edit)
+        btn_layout.addWidget(self.lesson_type_delete)
+        btn_layout.addStretch(1)
+        lesson_types_layout.addLayout(btn_layout)
         self.lesson_types_table = QTableWidget(0, 2)
         self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
         self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
@@ -809,15 +946,7 @@ class AdminDialog(QDialog):
             )
         )
         lesson_types_layout.addWidget(self.lesson_types_table)
-        btn_layout = QHBoxLayout()
-        self.lesson_type_add = QPushButton(self.tr("Add"))
-        self.lesson_type_edit = QPushButton(self.tr("Edit"))
-        self.lesson_type_delete = QPushButton(self.tr("Delete"))
-        btn_layout.addWidget(self.lesson_type_add)
-        btn_layout.addWidget(self.lesson_type_edit)
-        btn_layout.addWidget(self.lesson_type_delete)
-        btn_layout.addStretch(1)
-        lesson_types_layout.addLayout(btn_layout)
+        self._compact_group_box(self.lesson_types_group)
         splitter.addWidget(self.lesson_types_group)
 
         self.material_type_add.clicked.connect(self._add_material_type)
@@ -834,6 +963,24 @@ class AdminDialog(QDialog):
     def _build_sync_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+
+        self.sync_hint = QLabel(
+            self.tr(
+                "Use this section to compare the current database with another local source "
+                "before applying synchronization."
+            )
+        )
+        self._style_hint_label(self.sync_hint)
+        layout.addWidget(self.sync_hint)
+
+        self.sync_steps_hint = QLabel(
+            self.tr(
+                "Recommended order: 1) choose synchronization mode, 2) choose programs, "
+                "3) review differences, 4) apply changes."
+            )
+        )
+        self._style_hint_label(self.sync_steps_hint)
+        layout.addWidget(self.sync_steps_hint)
 
         self.sync_mode_panel = QWidget()
         mode_layout = QHBoxLayout(self.sync_mode_panel)
@@ -881,6 +1028,14 @@ class AdminDialog(QDialog):
         self.sync_panel = QWidget()
         panel_layout = QVBoxLayout(self.sync_panel)
 
+        self.sync_mapping_hint = QLabel(
+            self.tr(
+                "Choose the current local program on the left and the source program to compare on the right."
+            )
+        )
+        self._style_hint_label(self.sync_mapping_hint)
+        panel_layout.addWidget(self.sync_mapping_hint)
+
         mapping_row = QHBoxLayout()
         self.sync_target_label = QLabel(self.tr("Target program:"))
         self.sync_target_program_combo = QComboBox()
@@ -915,6 +1070,14 @@ class AdminDialog(QDialog):
 
         self.sync_hide_identical = QCheckBox(self.tr("Hide identical elements"))
         panel_layout.addWidget(self.sync_hide_identical)
+        self.sync_compare_hint = QLabel(
+            self.tr(
+                "Left side shows the current local structure. Right side shows the source structure "
+                "that will be imported or used for synchronization."
+            )
+        )
+        self._style_hint_label(self.sync_compare_hint)
+        panel_layout.addWidget(self.sync_compare_hint)
 
         splitter = QSplitter(Qt.Horizontal)
         self.sync_left_tree = QTreeWidget()
@@ -958,6 +1121,14 @@ class AdminDialog(QDialog):
     def _build_settings_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+
+        self.settings_hint = QLabel(
+            self.tr(
+                "Use this section to manage file locations, database maintenance, and user settings backups."
+            )
+        )
+        self._style_hint_label(self.settings_hint)
+        layout.addWidget(self.settings_hint)
 
         info_group = QWidget()
         info_layout = QVBoxLayout(info_group)
@@ -1003,13 +1174,20 @@ class AdminDialog(QDialog):
         storage_layout.addWidget(self.materials_location_browse)
         layout.addWidget(storage_group)
 
-        db_group = QWidget()
+        db_group = QGroupBox(self.tr("Database maintenance"))
         db_layout = QHBoxLayout(db_group)
-        self.db_export = QPushButton(self.tr("Export database"))
-        self.db_import = QPushButton(self.tr("Import database"))
-        self.db_check = QPushButton(self.tr("Check database"))
+        self.db_export = QPushButton(self.tr("Export DB copy"))
+        self.db_import = QPushButton(self.tr("Import DB file"))
+        self.db_check = QPushButton(self.tr("Check DB"))
         self.db_cleanup = QPushButton(self.tr("Cleanup unused data"))
-        self.db_repair = QPushButton(self.tr("Repair database"))
+        self.db_repair = QPushButton(self.tr("Repair DB"))
+        self._compact_action_buttons(
+            self.db_export,
+            self.db_import,
+            self.db_check,
+            self.db_cleanup,
+            self.db_repair,
+        )
         db_layout.addWidget(self.db_export)
         db_layout.addWidget(self.db_import)
         db_layout.addWidget(self.db_check)
@@ -1017,17 +1195,24 @@ class AdminDialog(QDialog):
         db_layout.addWidget(self.db_repair)
         db_layout.addStretch(1)
         layout.addWidget(db_group)
+        self._compact_group_box(db_group)
 
-        user_settings_group = QWidget()
+        user_settings_group = QGroupBox(self.tr("User settings backup"))
         user_settings_layout = QHBoxLayout(user_settings_group)
-        self.user_settings_export = QPushButton(self.tr("Export user settings"))
-        self.user_settings_import = QPushButton(self.tr("Import user settings"))
-        self.user_settings_save = QPushButton(self.tr("Save user settings"))
+        self.user_settings_export = QPushButton(self.tr("Export settings copy"))
+        self.user_settings_import = QPushButton(self.tr("Import settings file"))
+        self.user_settings_save = QPushButton(self.tr("Save current settings"))
+        self._compact_action_buttons(
+            self.user_settings_export,
+            self.user_settings_import,
+            self.user_settings_save,
+        )
         user_settings_layout.addWidget(self.user_settings_export)
         user_settings_layout.addWidget(self.user_settings_import)
         user_settings_layout.addWidget(self.user_settings_save)
         user_settings_layout.addStretch(1)
         layout.addWidget(user_settings_group)
+        self._compact_group_box(user_settings_group)
         layout.addStretch(1)
 
         self.materials_location_browse.clicked.connect(self._change_materials_location)
@@ -1050,6 +1235,12 @@ class AdminDialog(QDialog):
         tab = QWidget()
         layout = QVBoxLayout(tab)
 
+        self.log_hint = QLabel(
+            self.tr("Use the log to review user actions and recent administrative changes.")
+        )
+        self._style_hint_label(self.log_hint)
+        layout.addWidget(self.log_hint)
+
         self.log_table = QTableWidget(0, 5)
         self.log_table.setHorizontalHeaderLabels(
             [
@@ -1067,11 +1258,13 @@ class AdminDialog(QDialog):
         self.log_table.horizontalHeader().setStretchLastSection(True)
         self.log_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.log_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.log_table.setAlternatingRowColors(True)
         layout.addWidget(self.log_table)
 
         btn_row = QHBoxLayout()
-        self.log_refresh_btn = QPushButton(self.tr("Refresh"))
-        self.log_clear_btn = QPushButton(self.tr("Clear log"))
+        self.log_refresh_btn = QPushButton(self.tr("Refresh log"))
+        self.log_clear_btn = QPushButton(self.tr("Clear log entries"))
+        self._compact_action_buttons(self.log_refresh_btn, self.log_clear_btn)
         btn_row.addWidget(self.log_refresh_btn)
         btn_row.addWidget(self.log_clear_btn)
         btn_row.addStretch(1)
@@ -1085,6 +1278,23 @@ class AdminDialog(QDialog):
     def _build_internet_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+
+        self.internet_sync_hint = QLabel(
+            self.tr(
+                "Use this section to connect to the Internet database and synchronize data safely."
+            )
+        )
+        self._style_hint_label(self.internet_sync_hint)
+        layout.addWidget(self.internet_sync_hint)
+
+        self.internet_sync_steps_hint = QLabel(
+            self.tr(
+                "Recommended order: 1) enter connection settings, 2) connect, "
+                "3) choose synchronization direction, 4) review conflicts, 5) apply changes."
+            )
+        )
+        self._style_hint_label(self.internet_sync_steps_hint)
+        layout.addWidget(self.internet_sync_steps_hint)
 
         self.internet_db_group = QGroupBox(self.tr("Internet database connection"))
         form_layout = QFormLayout(self.internet_db_group)
@@ -1113,19 +1323,27 @@ class AdminDialog(QDialog):
         self.internet_db_indicator = QLabel()
         self.internet_db_indicator.setFixedSize(10, 10)
         self.internet_db_save = QPushButton(self.tr("Save"))
-        self.internet_db_connect = QPushButton(self.tr("Connect"))
+        self.internet_db_connect = QPushButton(self.tr("Connect to Internet DB"))
         self.internet_db_status = QLabel(self.tr("Not connected"))
+        self._compact_action_buttons(self.internet_db_save, self.internet_db_connect)
         actions_layout.addWidget(self.internet_db_indicator)
         actions_layout.addWidget(self.internet_db_save)
         actions_layout.addWidget(self.internet_db_connect)
         actions_layout.addWidget(self.internet_db_status, 1)
         layout.addLayout(actions_layout)
 
+        self.internet_direction_hint = QLabel(
+            self.tr("Choose where the changes should go before starting synchronization.")
+        )
+        self._style_hint_label(self.internet_direction_hint)
+        layout.addWidget(self.internet_direction_hint)
+
         sync_layout = QHBoxLayout()
         self.internet_sync_direction = QComboBox()
-        self.internet_sync_direction.addItem(self.tr("Local -> Internet"), "push")
-        self.internet_sync_direction.addItem(self.tr("Internet -> Local"), "pull")
-        self.internet_db_sync = QPushButton(self.tr("Synchronize"))
+        self.internet_sync_direction.addItem(self.tr("Upload local changes to Internet DB"), "push")
+        self.internet_sync_direction.addItem(self.tr("Download Internet DB changes to local database"), "pull")
+        self.internet_db_sync = QPushButton(self.tr("Start synchronization"))
+        self._compact_action_buttons(self.internet_db_sync)
         sync_layout.addWidget(self.internet_sync_direction)
         sync_layout.addWidget(self.internet_db_sync)
         sync_layout.addStretch(1)
@@ -4429,13 +4647,56 @@ class AdminDialog(QDialog):
             action_about.triggered.connect(self._show_about)
             action_restart.triggered.connect(self._restart_application)
             action_exit.triggered.connect(self._close_application)
-        self.tabs.setTabText(0, self.tr("Structure"))
-        self.tabs.setTabText(1, self.tr("Materials"))
-        self.tabs.setTabText(2, self.tr("Teachers"))
-        self.tabs.setTabText(3, self.tr("Synchronization"))
-        self.tabs.setTabText(4, self.tr("Internet"))
-        self.tabs.setTabText(5, self.tr("Log"))
-        self.tabs.setTabText(6, self.tr("Settings"))
+        self.tabs.setTabText(0, self.tr("Main"))
+        self.tabs.setTabText(1, self.tr("Import & Sync"))
+        self.tabs.setTabText(2, self.tr("System"))
+        self.main_tabs.setTabText(0, self.tr("Structure"))
+        self.main_tabs.setTabText(1, self.tr("Materials"))
+        self.main_tabs.setTabText(2, self.tr("Teachers"))
+        self.sync_tabs.setTabText(0, self.tr("Synchronization"))
+        self.sync_tabs.setTabText(1, self.tr("Internet"))
+        self.system_tabs.setTabText(0, self.tr("Log"))
+        self.system_tabs.setTabText(1, self.tr("Settings"))
+        if hasattr(self, "sync_hint"):
+            self.sync_hint.setText(
+                self.tr(
+                    "Use this section to compare the current database with another local source "
+                    "before applying synchronization."
+                )
+            )
+        if hasattr(self, "sync_steps_hint"):
+            self.sync_steps_hint.setText(
+                self.tr(
+                    "Recommended order: 1) choose synchronization mode, 2) choose programs, "
+                    "3) review differences, 4) apply changes."
+                )
+            )
+        if hasattr(self, "internet_sync_hint"):
+            self.internet_sync_hint.setText(
+                self.tr(
+                    "Use this section to connect to the Internet database and synchronize data safely."
+                )
+            )
+        if hasattr(self, "internet_sync_steps_hint"):
+            self.internet_sync_steps_hint.setText(
+                self.tr(
+                    "Recommended order: 1) enter connection settings, 2) connect, "
+                    "3) choose synchronization direction, 4) review conflicts, 5) apply changes."
+                )
+            )
+        if hasattr(self, "sync_mapping_hint"):
+            self.sync_mapping_hint.setText(
+                self.tr(
+                    "Choose the current local program on the left and the source program to compare on the right."
+                )
+            )
+        if hasattr(self, "sync_compare_hint"):
+            self.sync_compare_hint.setText(
+                self.tr(
+                    "Left side shows the current local structure. Right side shows the source structure "
+                    "that will be imported or used for synchronization."
+                )
+            )
         if hasattr(self, "sync_target_label"):
             self.sync_target_label.setText(self.tr("Target program:"))
         if hasattr(self, "sync_source_label"):
@@ -4451,9 +4712,27 @@ class AdminDialog(QDialog):
         if hasattr(self, "sync_import_apply"):
             self.sync_import_apply.setText(self.tr("Import program"))
         if hasattr(self, "materials_group"):
-            self.materials_group.setTitle(self.tr("Materials"))
+            self.materials_group.setTitle(self.tr("Material types"))
         if hasattr(self, "lesson_types_group"):
             self.lesson_types_group.setTitle(self.tr("Lesson types"))
+        if hasattr(self, "structure_hint"):
+            self.structure_hint.setText(
+                self.tr(
+                    "Use the tree on the left to choose a program element. "
+                    "Use the action bar above to add, edit, copy, or import structure items."
+                )
+            )
+        if hasattr(self, "structure_materials_hint"):
+            self.structure_materials_hint.setText(
+                self.tr("Materials below belong to the currently selected program element.")
+            )
+        if hasattr(self, "material_types_hint"):
+            self.material_types_hint.setText(
+                self.tr(
+                    "Manage reference lists for material types and lesson types here. "
+                    "These values are used across the whole database."
+                )
+            )
         self.structure_tree.setHeaderLabels([self.tr("Structure")])
         self.structure_add_program.setText(self.tr("Add program"))
         self.structure_add_discipline.setText(self.tr("Add discipline"))
@@ -4471,6 +4750,12 @@ class AdminDialog(QDialog):
             self.database_path_label.setText(self.tr("Database file"))
         if hasattr(self, "ui_settings_path_label"):
             self.ui_settings_path_label.setText(self.tr("UI settings file"))
+        if hasattr(self, "settings_hint"):
+            self.settings_hint.setText(
+                self.tr(
+                    "Use this section to manage file locations, database maintenance, and user settings backups."
+                )
+            )
         if hasattr(self, "internet_db_group"):
             self.internet_db_group.setTitle(self.tr("Internet database connection"))
             self.internet_db_host_label.setText(self.tr("Host"))
@@ -4479,11 +4764,15 @@ class AdminDialog(QDialog):
             self.internet_db_user_label.setText(self.tr("Login"))
             self.internet_db_password_label.setText(self.tr("Password"))
             self.internet_db_save.setText(self.tr("Save"))
-            self.internet_db_connect.setText(self.tr("Connect"))
-            self.internet_db_sync.setText(self.tr("Synchronize"))
+            self.internet_db_connect.setText(self.tr("Connect to Internet DB"))
+            self.internet_db_sync.setText(self.tr("Start synchronization"))
             if self.internet_sync_direction.count() >= 2:
-                self.internet_sync_direction.setItemText(0, self.tr("Local -> Internet"))
-                self.internet_sync_direction.setItemText(1, self.tr("Internet -> Local"))
+                self.internet_sync_direction.setItemText(0, self.tr("Upload local changes to Internet DB"))
+                self.internet_sync_direction.setItemText(1, self.tr("Download Internet DB changes to local database"))
+        if hasattr(self, "internet_direction_hint"):
+            self.internet_direction_hint.setText(
+                self.tr("Choose where the changes should go before starting synchronization.")
+            )
         if hasattr(self, "internet_db_status") and not self.internet_db_status.text().strip():
             self.internet_db_status.setText(self.tr("Not connected"))
         if hasattr(self, "log_table"):
@@ -4496,8 +4785,12 @@ class AdminDialog(QDialog):
                     self.tr("Details"),
                 ]
             )
-            self.log_refresh_btn.setText(self.tr("Refresh"))
-            self.log_clear_btn.setText(self.tr("Clear log"))
+            self.log_refresh_btn.setText(self.tr("Refresh log"))
+            self.log_clear_btn.setText(self.tr("Clear log entries"))
+        if hasattr(self, "log_hint"):
+            self.log_hint.setText(
+                self.tr("Use the log to review user actions and recent administrative changes.")
+            )
 
         self.teachers_table.setHorizontalHeaderLabels(
             [
@@ -4525,13 +4818,25 @@ class AdminDialog(QDialog):
         self.teacher_edit.setText(self.tr("Edit"))
         self.teacher_delete.setText(self.tr("Delete"))
         self.teacher_import.setText(self.tr("Import teachers from DOCX"))
+        if hasattr(self, "teachers_hint"):
+            self.teachers_hint.setText(
+                self.tr(
+                    "Use this section to manage teachers. Select a teacher in the table, then assign disciplines below."
+                )
+            )
         if hasattr(self, "teacher_disciplines_label"):
-            self.teacher_disciplines_label.setText(self.tr("Assigned disciplines"))
+            self.teacher_disciplines_label.setText(
+                self.tr("Available disciplines on the left, assigned disciplines on the right")
+            )
             self.teacher_discipline_add.setText(self.tr("Add ->"))
             self.teacher_discipline_remove.setText(self.tr("<- Remove"))
         self.program_add.setText(self.tr("Add"))
         self.program_edit.setText(self.tr("Edit"))
         self.program_delete.setText(self.tr("Delete"))
+        if hasattr(self, "programs_hint"):
+            self.programs_hint.setText(
+                self.tr("Select a program in the table, then manage its discipline links below.")
+            )
         self.program_disciplines_label.setText(self.tr("Program disciplines"))
         self.program_discipline_add.setText(self.tr("Add ->"))
         self.program_discipline_remove.setText(self.tr("<- Remove"))
@@ -4540,6 +4845,10 @@ class AdminDialog(QDialog):
         self.discipline_add.setText(self.tr("Add"))
         self.discipline_edit.setText(self.tr("Edit"))
         self.discipline_delete.setText(self.tr("Delete"))
+        if hasattr(self, "disciplines_hint"):
+            self.disciplines_hint.setText(
+                self.tr("Select a discipline in the table, then manage its topic links below.")
+            )
         self.discipline_topics_label.setText(self.tr("Discipline topics"))
         self.discipline_topic_add.setText(self.tr("Add ->"))
         self.discipline_topic_remove.setText(self.tr("<- Remove"))
@@ -4548,6 +4857,10 @@ class AdminDialog(QDialog):
         self.topic_add.setText(self.tr("Add"))
         self.topic_edit.setText(self.tr("Edit"))
         self.topic_delete.setText(self.tr("Delete"))
+        if hasattr(self, "topics_hint"):
+            self.topics_hint.setText(
+                self.tr("Select a topic in the table, then manage linked lessons and topic materials below.")
+            )
         self.topic_lessons_label.setText(self.tr("Topic lessons"))
         self.topic_lesson_add.setText(self.tr("Add ->"))
         self.topic_lesson_remove.setText(self.tr("<- Remove"))
@@ -4559,6 +4872,10 @@ class AdminDialog(QDialog):
         self.lesson_add.setText(self.tr("Add"))
         self.lesson_edit.setText(self.tr("Edit"))
         self.lesson_delete.setText(self.tr("Delete"))
+        if hasattr(self, "lessons_hint"):
+            self.lessons_hint.setText(
+                self.tr("Select a lesson in the table, then manage linked questions and lesson materials below.")
+            )
         self.lesson_questions_label.setText(self.tr("Lesson questions"))
         self.lesson_question_add.setText(self.tr("Add ->"))
         self.lesson_question_remove.setText(self.tr("<- Remove"))
@@ -4574,13 +4891,15 @@ class AdminDialog(QDialog):
         self.question_add.setText(self.tr("Add"))
         self.question_edit.setText(self.tr("Edit"))
         self.question_delete.setText(self.tr("Delete"))
+        if hasattr(self, "questions_hint"):
+            self.questions_hint.setText(self.tr("Use this section to manage standalone question records."))
 
         self.material_add.setText(self.tr("Add"))
         self.material_edit.setText(self.tr("Edit"))
         self.material_delete.setText(self.tr("Delete"))
         self.material_open.setText(self.tr("Open file"))
-        self.material_show.setText(self.tr("Show in folder"))
-        self.material_copy.setText(self.tr("Copy file as..."))
+        self.material_show.setText(self.tr("Show folder"))
+        self.material_copy.setText(self.tr("Save copy"))
         if hasattr(self, "material_types_table"):
             self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
             self.material_type_add.setText(self.tr("Add"))
@@ -4601,14 +4920,22 @@ class AdminDialog(QDialog):
             self.translations_path_label.setText(self.tr("Translations file"))
         if hasattr(self, "translations_path_browse"):
             self.translations_path_browse.setText(self.tr("Change..."))
-        self.db_export.setText(self.tr("Export database"))
-        self.db_import.setText(self.tr("Import database"))
-        self.db_check.setText(self.tr("Check database"))
+        for child in self.findChildren(QGroupBox):
+            title = child.title()
+            if title == "Database maintenance" or title == self.tr("Database maintenance"):
+                child.setTitle(self.tr("Database maintenance"))
+            elif title == "User settings backup" or title == self.tr("User settings backup"):
+                child.setTitle(self.tr("User settings backup"))
+            elif title == "Teacher discipline assignment" or title == self.tr("Teacher discipline assignment"):
+                child.setTitle(self.tr("Teacher discipline assignment"))
+        self.db_export.setText(self.tr("Export DB copy"))
+        self.db_import.setText(self.tr("Import DB file"))
+        self.db_check.setText(self.tr("Check DB"))
         self.db_cleanup.setText(self.tr("Cleanup unused data"))
-        self.db_repair.setText(self.tr("Repair database"))
-        self.user_settings_export.setText(self.tr("Export user settings"))
-        self.user_settings_import.setText(self.tr("Import user settings"))
-        self.user_settings_save.setText(self.tr("Save user settings"))
+        self.db_repair.setText(self.tr("Repair DB"))
+        self.user_settings_export.setText(self.tr("Export settings copy"))
+        self.user_settings_import.setText(self.tr("Import settings file"))
+        self.user_settings_save.setText(self.tr("Save current settings"))
         if hasattr(self, "sync_start"):
             self.sync_start.setText(self.tr("Start synchronization"))
             self.sync_apply.setText(self.tr("Apply synchronization"))
