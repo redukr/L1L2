@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QAbstractScrollArea,
     QTabWidget,
     QDialog,
+    QCheckBox,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QStyle,
@@ -42,6 +43,7 @@ from ..ui.editor_wizard import EditorWizardDialog
 from ..services.auth_service import AuthService
 from ..services.i18n import I18nManager
 from ..services.file_storage import FileStorageManager
+from ..services.teacher_sorting import teacher_sort_key
 from ..ui.dialogs import TeacherLoginDialog
 
 
@@ -143,6 +145,8 @@ class MainWindow(QMainWindow):
         structure_layout.addWidget(self._wrap_with_label(self.content_tree, self.structure_label))
         report_tab = QWidget()
         report_layout = QVBoxLayout(report_tab)
+        self.report_include_all_teachers = QCheckBox(self.tr("Include all teachers"))
+        report_layout.addWidget(self.report_include_all_teachers)
         report_layout.addWidget(self._wrap_with_label(self.report_table, self.report_label))
         self.structure_tabs.addTab(structure_tab, self.tr("Structure"))
         self.structure_tabs.addTab(report_tab, self.tr("Report"))
@@ -213,6 +217,7 @@ class MainWindow(QMainWindow):
         self.editor_button.clicked.connect(self._on_open_editor)
         self.materials_list.itemDoubleClicked.connect(self._on_open_material_item)
         self.report_table.itemSelectionChanged.connect(self._on_report_selection_changed)
+        self.report_include_all_teachers.toggled.connect(self._on_report_include_all_teachers_toggled)
         self.open_material_button.clicked.connect(self._on_open_material)
         self.show_material_button.clicked.connect(self._on_show_material)
         self.copy_material_button.clicked.connect(self._on_copy_material)
@@ -232,7 +237,7 @@ class MainWindow(QMainWindow):
             )
             return True
 
-        teachers.sort(key=lambda t: ((t.full_name or "").strip().casefold(), t.id or 0))
+        teachers.sort(key=teacher_sort_key)
         preferred_teacher_id = self.settings.value("session/teacher_id")
         preferred_teacher_id = int(preferred_teacher_id) if preferred_teacher_id else None
         dialog = TeacherLoginDialog(teachers, selected_teacher_id=preferred_teacher_id, parent=self)
@@ -978,9 +983,6 @@ class MainWindow(QMainWindow):
     def _refresh_report(self, program_id: int) -> None:
         self.report_table.clear()
         self._report_rows = []
-        disciplines = self.controller.get_program_disciplines(program_id)
-        discipline_ids = [d.id for d in disciplines if d and d.id is not None]
-        teachers = self.controller.get_teachers_for_disciplines(discipline_ids)
 
         lessons = []
         program_structure = self.controller.get_program_structure(program_id)
@@ -1009,14 +1011,14 @@ class MainWindow(QMainWindow):
                         lesson_index += 1
                 topic_index += 1
 
-        if not teachers or not lessons:
+        if not lessons:
             self.report_table.setRowCount(0)
             self.report_table.setColumnCount(0)
             return
 
         cell_map = {}
         cell_types = {}
-        teachers_with_materials = set()
+        material_teachers = {}
         for lesson_row, info in enumerate(lessons):
             lesson = info["lesson"]
             materials = self.controller.get_materials_for_entity("lesson", lesson.id)
@@ -1024,27 +1026,34 @@ class MainWindow(QMainWindow):
                 for teacher in material.teachers:
                     if teacher.id is None:
                         continue
-                    teachers_with_materials.add(teacher.id)
+                    material_teachers[teacher.id] = teacher
                     key = (lesson_row, teacher.id)
                     cell_map.setdefault(key, []).append(material.title)
                     raw_type = (material.material_type or "").strip().lower()
                     normalized = "guide" if raw_type == "metod" else raw_type
                     cell_types.setdefault(key, set()).add(normalized)
 
-        teachers = sorted(
-            teachers,
-            key=lambda t: (t.id not in teachers_with_materials, t.full_name.lower()),
-        )
+        if self.report_include_all_teachers.isChecked():
+            teachers = list(material_teachers.values())
+        else:
+            disciplines = self.controller.get_program_disciplines(program_id)
+            discipline_ids = [d.id for d in disciplines if d and d.id is not None]
+            teachers = self.controller.get_teachers_for_disciplines(discipline_ids)
+
+        teachers = sorted(teachers, key=teacher_sort_key)
 
         self.report_table.setRowCount(len(lessons))
         self.report_table.setColumnCount(len(teachers) + 1)
         headers = [self.tr("Lesson")] + [
-            (f"{t.military_rank}\n{t.full_name}" if t.military_rank else t.full_name) for t in teachers
+            self._format_report_teacher_header(t) for t in teachers
         ]
         self.report_table.setHorizontalHeaderLabels(headers)
 
         for row_index, info in enumerate(lessons):
-            self.report_table.setItem(row_index, 0, QTableWidgetItem(info["code"]))
+            row_code_item = QTableWidgetItem(info["code"])
+            row_has_green = False
+            row_has_sand = False
+            row_has_red = False
             for col_offset, teacher in enumerate(teachers, start=1):
                 titles = cell_map.get((row_index, teacher.id), [])
                 item = QTableWidgetItem("\n".join(titles) if titles else "")
@@ -1055,21 +1064,37 @@ class MainWindow(QMainWindow):
                     has_teachers = any("викладач" in t for t in normalized)
                     if len(titles) >= 2 and has_cadets and has_teachers:
                         item.setBackground(QBrush(QColor(198, 239, 206)))
+                        row_has_green = True
                     elif titles:
                         item.setBackground(QBrush(QColor(255, 242, 204)))
+                        row_has_sand = True
                     else:
                         item.setBackground(QBrush(QColor(255, 199, 206)))
+                        row_has_red = True
                 else:
                     has_plan = "plan" in types
                     has_guide = "guide" in types
                     has_presentation = "presentation" in types
                     if has_plan and has_guide and has_presentation:
                         item.setBackground(QBrush(QColor(198, 239, 206)))
+                        row_has_green = True
                     elif types:
                         item.setBackground(QBrush(QColor(255, 242, 204)))
+                        row_has_sand = True
                     else:
                         item.setBackground(QBrush(QColor(255, 199, 206)))
+                        row_has_red = True
                 self.report_table.setItem(row_index, col_offset, item)
+            if row_has_green:
+                row_code_item.setBackground(QBrush(QColor(84, 130, 53)))
+                row_code_item.setForeground(QBrush(QColor(255, 255, 255)))
+            elif row_has_sand:
+                row_code_item.setBackground(QBrush(QColor(191, 143, 0)))
+                row_code_item.setForeground(QBrush(QColor(255, 255, 255)))
+            elif row_has_red:
+                row_code_item.setBackground(QBrush(QColor(192, 0, 0)))
+                row_code_item.setForeground(QBrush(QColor(255, 255, 255)))
+            self.report_table.setItem(row_index, 0, row_code_item)
 
         for idx, info in enumerate(lessons):
             tooltip = f"{info['discipline'].name} | {info['topic'].title} | {info['lesson'].title}"
@@ -1078,6 +1103,16 @@ class MainWindow(QMainWindow):
                 row_item.setToolTip(tooltip)
         self.report_table.resizeRowsToContents()
         self.report_table.resizeColumnsToContents()
+
+    def _format_report_teacher_header(self, teacher) -> str:  # noqa: ANN001
+        full_name = (teacher.full_name or "").strip()
+        parts = [p for p in full_name.split() if p]
+        if len(parts) >= 2:
+            name_block = f"{parts[0]}\n{' '.join(parts[1:])}"
+        else:
+            name_block = full_name
+        rank = (teacher.military_rank or "").strip()
+        return f"{rank}\n{name_block}" if rank else name_block
 
     def _on_report_selection_changed(self) -> None:
         item = self.report_table.currentItem()
@@ -1098,6 +1133,11 @@ class MainWindow(QMainWindow):
         details = self.controller.get_entity_details("lesson", lesson.id)
         self._show_details(details)
         self._load_materials("lesson", lesson.id)
+
+    def _on_report_include_all_teachers_toggled(self, checked: bool) -> None:
+        self.settings.setValue("ui/report_include_all_teachers", bool(checked))
+        if self.last_program_id:
+            self._refresh_report(self.last_program_id)
 
     def _material_copy_name_parts(self, material) -> Tuple[str, str]:
         original = material.original_filename or ""
@@ -1161,6 +1201,9 @@ class MainWindow(QMainWindow):
             if idx >= 0:
                 self.font_combo.setCurrentIndex(idx)
 
+        include_all_teachers = self.settings.value("ui/report_include_all_teachers", False, type=bool)
+        self.report_include_all_teachers.setChecked(bool(include_all_teachers))
+
     def closeEvent(self, event) -> None:
         self.settings.setValue("ui/main_geometry", self.saveGeometry())
         self.settings.setValue("ui/main_splitter", self.main_splitter.saveState())
@@ -1212,6 +1255,7 @@ class MainWindow(QMainWindow):
         self.search_results_label.setText(self.tr("Search Results"))
         self.details_label.setText(self.tr("Details"))
         self.materials_label.setText(self.tr("Methodical Materials"))
+        self.report_include_all_teachers.setText(self.tr("Include all teachers"))
         self.open_material_button.setText(self.tr("Open Selected File"))
         self.show_material_button.setText(self.tr("Show in folder"))
         self.copy_material_button.setText(self.tr("Copy file as..."))

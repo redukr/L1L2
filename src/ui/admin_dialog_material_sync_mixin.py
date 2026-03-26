@@ -6,22 +6,26 @@ from pathlib import Path
 import sqlite3
 
 from ..models.entities import MaterialType, MethodicalMaterial, Teacher
+from ..services.teacher_sorting import teacher_sort_key
 
 
 class AdminDialogMaterialSyncMixin:
     """Material sync behavior for AdminDialog."""
 
-    def _material_author_names(self, controller, material: MethodicalMaterial) -> set[str]:  # noqa: ANN001
-        if material.teachers:
-            return {t.full_name for t in material.teachers if t.full_name}
-        if hasattr(controller, "material_repo"):
+    def _material_author_labels(self, controller, material: MethodicalMaterial) -> tuple[str, ...]:  # noqa: ANN001
+        teachers = list(material.teachers or [])
+        if not teachers and hasattr(controller, "material_repo"):
             try:
                 teachers = controller.material_repo.get_material_teachers(material.id)
-                return {t.full_name for t in teachers if t.full_name}
             except (ValueError, RuntimeError, TypeError, sqlite3.Error) as exc:
                 self._log_action("sync_material_author_lookup_failed", str(exc))
-                return set()
-        return set()
+                teachers = []
+        teachers = [t for t in teachers if t and t.full_name]
+        teachers.sort(key=teacher_sort_key)
+        return tuple(t.full_name for t in teachers)
+
+    def _material_author_names(self, controller, material: MethodicalMaterial) -> set[str]:  # noqa: ANN001
+        return set(self._material_author_labels(controller, material))
 
     def _safe_sync_material_path(self, path_value: str) -> Path | None:
         raw = (path_value or "").strip()

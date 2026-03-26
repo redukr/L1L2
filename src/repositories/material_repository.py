@@ -416,12 +416,15 @@ class MaterialRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT t.id, t.full_name, t.military_rank, t.position, t.department, 
+                SELECT t.id, t.full_name, t.order_index, t.military_rank, t.position, t.department, 
                        t.email, t.phone, t.created_at, t.updated_at
                 FROM teachers t
                 JOIN teacher_materials tm ON t.id = tm.teacher_id
                 WHERE tm.material_id = ?
-                ORDER BY t.full_name
+                ORDER BY
+                    CASE WHEN COALESCE(t.order_index, 0) > 0 THEN 0 ELSE 1 END,
+                    COALESCE(t.order_index, 0),
+                    t.full_name
             """, (material_id,))
 
             teacher_repo = TeacherRepository(self.db)

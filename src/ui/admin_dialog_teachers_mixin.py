@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem, QMessageBox, QDialog, QTableWidgetItem
 
+from ..services.teacher_sorting import teacher_sort_key
 from .dialogs import TeacherDialog
 
 
@@ -20,11 +21,12 @@ class AdminDialogTeachersMixin:
             row = self.teachers_table.rowCount()
             self.teachers_table.insertRow(row)
             self.teachers_table.setItem(row, 0, QTableWidgetItem(teacher.full_name))
-            self.teachers_table.setItem(row, 1, QTableWidgetItem(teacher.military_rank or ""))
-            self.teachers_table.setItem(row, 2, QTableWidgetItem(teacher.position or ""))
-            self.teachers_table.setItem(row, 3, QTableWidgetItem(teacher.department or ""))
-            self.teachers_table.setItem(row, 4, QTableWidgetItem(teacher.email or ""))
-            self.teachers_table.setItem(row, 5, QTableWidgetItem(teacher.phone or ""))
+            self.teachers_table.setItem(row, 1, QTableWidgetItem(str(teacher.order_index or 0)))
+            self.teachers_table.setItem(row, 2, QTableWidgetItem(teacher.military_rank or ""))
+            self.teachers_table.setItem(row, 3, QTableWidgetItem(teacher.position or ""))
+            self.teachers_table.setItem(row, 4, QTableWidgetItem(teacher.department or ""))
+            self.teachers_table.setItem(row, 5, QTableWidgetItem(teacher.email or ""))
+            self.teachers_table.setItem(row, 6, QTableWidgetItem(teacher.phone or ""))
             self.teachers_table.item(row, 0).setData(Qt.UserRole, teacher)
         self._teachers_updating = False
         self._refresh_teacher_disciplines()
@@ -43,14 +45,25 @@ class AdminDialogTeachersMixin:
         if item.column() == 0:
             teacher.full_name = value
         elif item.column() == 1:
-            teacher.military_rank = value or None
+            try:
+                teacher.order_index = max(0, int(value)) if value else 0
+            except ValueError:
+                self._teachers_updating = True
+                try:
+                    item.setText(str(teacher.order_index or 0))
+                finally:
+                    self._teachers_updating = False
+                QMessageBox.warning(self, self.tr("Validation"), self.tr("Order index must be a number."))
+                return
         elif item.column() == 2:
-            teacher.position = value or None
+            teacher.military_rank = value or None
         elif item.column() == 3:
-            teacher.department = value or None
+            teacher.position = value or None
         elif item.column() == 4:
-            teacher.email = value or None
+            teacher.department = value or None
         elif item.column() == 5:
+            teacher.email = value or None
+        elif item.column() == 6:
             teacher.phone = value or None
         else:
             return
@@ -62,54 +75,7 @@ class AdminDialogTeachersMixin:
             self._teachers_updating = False
 
     def _teacher_sort_key(self, teacher) -> tuple:
-        position = (teacher.position or "").lower()
-        department = (teacher.department or "").lower()
-        rank = (teacher.military_rank or "").strip()
-        rank_lower = rank.lower()
-        has_rank = bool(rank)
-
-        is_head = "начальник кафедри" in position
-        is_deputy = "заступник начальника кафедри" in position
-        is_docent = "доцент" in position
-        is_senior = "старший викладач" in position
-        is_teacher = "викладач" in position
-        is_zsu = ("зсу" in position) or ("зсу" in department)
-
-        rank_order = [
-            "полковник",
-            "підполковник",
-            "майор",
-            "капітан",
-            "старший лейтенант",
-            "лейтенант",
-            "молодший лейтенант",
-        ]
-        rank_index = len(rank_order)
-        for idx, token in enumerate(rank_order):
-            if token in rank_lower:
-                rank_index = idx
-                break
-
-        if is_zsu:
-            group = 6
-        elif is_head:
-            group = 1
-        elif is_deputy:
-            group = 2
-        elif is_docent and has_rank:
-            group = 3
-        elif is_senior and has_rank:
-            group = 4
-        elif is_teacher and has_rank:
-            group = 5
-        else:
-            group = 7
-
-        sub = 0
-        if group == 6:
-            sub = 0 if is_docent else 1
-
-        return (group, sub, rank_index, teacher.full_name.lower())
+        return teacher_sort_key(teacher)
 
     def _refresh_teacher_disciplines(self) -> None:
         if not hasattr(self, "teacher_disciplines_available"):

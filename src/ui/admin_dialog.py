@@ -177,10 +177,11 @@ class AdminDialog(
     def _build_teachers_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.teachers_table = QTableWidget(0, 6)
+        self.teachers_table = QTableWidget(0, 7)
         self.teachers_table.setHorizontalHeaderLabels(
             [
                 self.tr("Full name"),
+                self.tr("Order (number)"),
                 self.tr("Military rank"),
                 self.tr("Position"),
                 self.tr("Department"),

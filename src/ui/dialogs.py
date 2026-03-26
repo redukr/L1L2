@@ -165,12 +165,17 @@ class TeacherDialog(QDialog):
         self._teacher = teacher
         layout = QFormLayout(self)
         self.full_name = QLineEdit(teacher.full_name if teacher else "")
+        self.order_index = QSpinBox()
+        self.order_index.setRange(0, 9999)
+        if teacher:
+            self.order_index.setValue(teacher.order_index or 0)
         self.military_rank = QLineEdit(teacher.military_rank if teacher else "")
         self.position = QLineEdit(teacher.position if teacher else "")
         self.department = QLineEdit(teacher.department if teacher else "")
         self.email = QLineEdit(teacher.email if teacher else "")
         self.phone = QLineEdit(teacher.phone if teacher else "")
         layout.addRow(self.tr("Full name"), self.full_name)
+        layout.addRow(self.tr("Order (number)"), self.order_index)
         layout.addRow(self.tr("Military rank"), self.military_rank)
         layout.addRow(self.tr("Position"), self.position)
         layout.addRow(self.tr("Department"), self.department)
@@ -184,6 +189,7 @@ class TeacherDialog(QDialog):
     def get_teacher(self) -> Teacher:
         teacher = self._teacher or Teacher()
         teacher.full_name = self.full_name.text().strip()
+        teacher.order_index = self.order_index.value()
         teacher.military_rank = self.military_rank.text().strip() or None
         teacher.position = self.position.text().strip() or None
         teacher.department = self.department.text().strip() or None
@@ -724,9 +730,9 @@ class MaterialDialog(QDialog):
                 label = f"{teacher.military_rank} {label}"
             item = QListWidgetItem(label)
             item.setData(Qt.UserRole, teacher)
+            self.teacher_list.addItem(item)
             if teacher.id in selected_ids:
                 item.setSelected(True)
-            self.teacher_list.addItem(item)
 
     def _on_teacher_sort_changed(self) -> None:
         self._populate_teacher_list(preserve_selection=True)

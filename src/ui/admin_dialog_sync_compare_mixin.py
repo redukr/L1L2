@@ -110,7 +110,7 @@ class AdminDialogSyncCompareMixin:
         sig = []
         for material in materials:
             crc = self._material_crc(material, files_root)
-            authors = tuple(sorted(self._material_author_names(controller, material)))
+            authors = self._material_author_labels(controller, material)
             sig.append((material.title, material.material_type, crc, authors))
         return sorted(sig)
 
@@ -224,8 +224,8 @@ class AdminDialogSyncCompareMixin:
         for material in materials:
             title = material.title or ""
             label = f"• {title}"
-            author_names = self._material_author_names(controller, material)
-            teachers = ", ".join(sorted(author_names)) if author_names else ""
+            author_names = self._material_author_labels(controller, material)
+            teachers = ", ".join(author_names) if author_names else ""
             if teachers:
                 label += f" | {self.tr('Teachers')}: {teachers}"
             item = QTreeWidgetItem([label])

@@ -102,6 +102,7 @@ class AdminDialogI18nMixin:
         self.teachers_table.setHorizontalHeaderLabels(
             [
                 self.tr("Full name"),
+                self.tr("Order (number)"),
                 self.tr("Military rank"),
                 self.tr("Position"),
                 self.tr("Department"),

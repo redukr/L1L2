@@ -28,6 +28,7 @@ MYSQL_SYNC_SCHEMA_DDL = [
     CREATE TABLE IF NOT EXISTS teachers (
         id INT AUTO_INCREMENT PRIMARY KEY,
         full_name TEXT NOT NULL,
+        order_index INT DEFAULT 0,
         military_rank TEXT NULL,
         position TEXT NULL,
         department TEXT NULL,

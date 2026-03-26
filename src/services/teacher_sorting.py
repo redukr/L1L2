@@ -38,6 +38,10 @@ def _rank_index(rank: str | None) -> int:
 
 
 def teacher_sort_key(teacher: Teacher) -> tuple:
+    order_index = teacher.order_index or 0
+    if order_index > 0:
+        return (0, order_index, (teacher.full_name or "").strip().casefold(), teacher.id or 0)
+
     position = (teacher.position or "").strip().casefold()
     department = (teacher.department or "").strip().casefold()
     rank = (teacher.military_rank or "").strip().casefold()
@@ -68,5 +72,5 @@ def teacher_sort_key(teacher: Teacher) -> tuple:
         group = 6
 
     if group in {3, 4}:
-        return (group, rank_idx, surname, full_name, teacher.id or 0)
-    return (group, surname, full_name, teacher.id or 0)
+        return (1, group, rank_idx, surname, full_name, teacher.id or 0)
+    return (1, group, surname, full_name, teacher.id or 0)

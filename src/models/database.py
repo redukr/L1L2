@@ -239,6 +239,14 @@ class Database:
             FROM teachers
         """)
 
+    def _migrate_to_teacher_order_index(self, cursor) -> None:
+        """Add explicit teacher ordering column used by UI sort rules."""
+        cursor.execute("PRAGMA table_info(teachers)")
+        columns = {row["name"] for row in cursor.fetchall()}
+        if "order_index" not in columns:
+            cursor.execute("ALTER TABLE teachers ADD COLUMN order_index INTEGER DEFAULT 0")
+        cursor.execute("UPDATE teachers SET order_index = 0 WHERE order_index IS NULL")
+
     def _migrate_to_material_storage(self, cursor) -> None:
         """Add storage metadata fields to methodical materials."""
         cursor.execute("PRAGMA table_info(methodical_materials)")

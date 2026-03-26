@@ -11,6 +11,7 @@ SCHEMA_MIGRATIONS = (
     (9, "_migrate_to_program_year"),
     (10, "_migrate_to_lesson_type_synonyms"),
     (11, "_rebuild_all_fts"),
+    (12, "_migrate_to_teacher_order_index"),
 )
 
 CORE_TABLE_STATEMENTS = (
@@ -18,6 +19,7 @@ CORE_TABLE_STATEMENTS = (
     CREATE TABLE IF NOT EXISTS teachers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         full_name TEXT NOT NULL,
+        order_index INTEGER DEFAULT 0,
         military_rank TEXT,
         position TEXT,
         department TEXT,

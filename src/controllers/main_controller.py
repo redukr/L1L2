@@ -1,7 +1,16 @@
 """Main controller for user-mode interactions."""
 from typing import Dict, List, Optional, Tuple
 from ..models.database import Database
-from ..models.entities import EducationalProgram, Discipline, Topic, Lesson, Question, MethodicalMaterial, SearchResult
+from ..models.entities import (
+    EducationalProgram,
+    Discipline,
+    Topic,
+    Lesson,
+    Question,
+    MethodicalMaterial,
+    SearchResult,
+    Teacher,
+)
 from ..repositories.program_repository import ProgramRepository
 from ..repositories.discipline_repository import DisciplineRepository
 from ..repositories.topic_repository import TopicRepository
@@ -139,6 +148,9 @@ class MainController:
 
     def get_teachers_for_disciplines(self, discipline_ids: List[int]):
         return self.teacher_repo.get_teachers_for_disciplines(discipline_ids)
+
+    def get_teachers(self) -> List[Teacher]:
+        return self.teacher_repo.get_all()
 
     def search(self, keyword: str) -> List[SearchResult]:
         return self.search_service.search_all(keyword)

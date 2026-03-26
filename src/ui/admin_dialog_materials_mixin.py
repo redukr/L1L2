@@ -50,6 +50,7 @@ class AdminDialogMaterialsMixin:
             return
         entity_type, entity = target
         teachers = self._filtered_teachers_for_target(entity_type, entity)
+        teachers = sorted(teachers, key=self._teacher_sort_key)
         dialog = MaterialDialog(
             parent=self,
             material_types=self.controller.get_material_types(),
@@ -92,6 +93,7 @@ class AdminDialogMaterialsMixin:
             extra_teachers = [t for t in material.teachers if t.id not in filtered_ids]
             if extra_teachers:
                 teachers = teachers + extra_teachers
+        teachers = sorted(teachers, key=self._teacher_sort_key)
         dialog = MaterialDialog(
             material,
             material_types=self.controller.get_material_types(),

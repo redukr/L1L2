@@ -31,10 +31,11 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO teachers (full_name, military_rank, position, department, email, phone)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO teachers (full_name, order_index, military_rank, position, department, email, phone)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 teacher.full_name,
+                teacher.order_index or 0,
                 teacher.military_rank,
                 teacher.position,
                 teacher.department,
@@ -58,11 +59,12 @@ class TeacherRepository:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE teachers
-                SET full_name = ?, military_rank = ?, position = ?, department = ?, 
+                SET full_name = ?, order_index = ?, military_rank = ?, position = ?, department = ?, 
                     email = ?, phone = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (
                 teacher.full_name,
+                teacher.order_index or 0,
                 teacher.military_rank,
                 teacher.position,
                 teacher.department,
@@ -100,7 +102,7 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, full_name, military_rank, position, department, email, phone, 
+                SELECT id, full_name, order_index, military_rank, position, department, email, phone, 
                        created_at, updated_at
                 FROM teachers WHERE id = ?
             """, (teacher_id,))
@@ -120,9 +122,13 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, full_name, military_rank, position, department, email, phone, 
+                SELECT id, full_name, order_index, military_rank, position, department, email, phone, 
                        created_at, updated_at
-                FROM teachers ORDER BY full_name
+                FROM teachers
+                ORDER BY
+                    CASE WHEN COALESCE(order_index, 0) > 0 THEN 0 ELSE 1 END,
+                    COALESCE(order_index, 0),
+                    full_name
             """)
             return [self._row_to_teacher(row) for row in cursor.fetchall()]
 
@@ -139,11 +145,14 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, full_name, military_rank, position, department, email, phone, 
+                SELECT id, full_name, order_index, military_rank, position, department, email, phone, 
                        created_at, updated_at
                 FROM teachers
                 WHERE full_name LIKE ? OR military_rank LIKE ? OR position LIKE ? OR department LIKE ? OR email LIKE ?
-                ORDER BY full_name
+                ORDER BY
+                    CASE WHEN COALESCE(order_index, 0) > 0 THEN 0 ELSE 1 END,
+                    COALESCE(order_index, 0),
+                    full_name
             """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
             return [self._row_to_teacher(row) for row in cursor.fetchall()]
 
@@ -188,12 +197,15 @@ class TeacherRepository:
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f"""
-                SELECT DISTINCT t.id, t.full_name, t.military_rank, t.position, t.department,
+                SELECT DISTINCT t.id, t.full_name, t.order_index, t.military_rank, t.position, t.department,
                                 t.email, t.phone, t.created_at, t.updated_at
                 FROM teachers t
                 JOIN teacher_disciplines td ON t.id = td.teacher_id
                 WHERE td.discipline_id IN ({placeholders})
-                ORDER BY t.full_name
+                ORDER BY
+                    CASE WHEN COALESCE(t.order_index, 0) > 0 THEN 0 ELSE 1 END,
+                    COALESCE(t.order_index, 0),
+                    t.full_name
             """, discipline_ids)
             return [self._row_to_teacher(row) for row in cursor.fetchall()]
 
@@ -210,6 +222,7 @@ class TeacherRepository:
         return Teacher(
             id=row['id'],
             full_name=row['full_name'],
+            order_index=row['order_index'] if 'order_index' in row.keys() and row['order_index'] is not None else 0,
             military_rank=row['military_rank'],
             position=row['position'],
             department=row['department'],
