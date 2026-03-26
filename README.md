@@ -8,7 +8,6 @@ Offline desktop application for managing educational programs, topics, lessons, 
 - Methodical material tracking with file attachments
 - Report tab that shows lesson coverage by teacher/material type with color status
 - Admin mode for CRUD and relationship management
-- V2 UI hierarchy with clearer main navigation, grouped admin sections, and helper text across core workflows
 - Local SQLite database with FTS5 support
 - Designed for offline use and portable packaging
 
@@ -31,30 +30,13 @@ On first run, the app creates:
 Demo data is inserted automatically when the database is empty.
 
 ## Admin Mode
-On first access, the app asks you to create a local admin password.
-
-If you need to reset it, delete `settings/admin_credentials.json` and create a new one on next access.
-
-Curriculum import supports a preview step before writing changes to the database.
-Batch curriculum import also shows a confirmation summary based on filenames before data is written.
-
-## UI / UX V2
-The current UI includes the V2 layout update:
-- Main window uses a clearer top bar: search, active teacher, settings, and administration.
-- Admin mode is grouped into `Main`, `Import & Sync`, and `System`.
-- Core sections include short helper text so users can understand each workflow without guessing.
-- Report, import preview, synchronization, and system screens now use more explicit labels and guidance.
+On first admin login, the app asks you to create an admin password.
+Editor password can be configured in Admin Mode -> Settings.
 
 ## Build Portable EXE (PyInstaller)
 Use the provided build script (Windows):
 ```bat
 build.bat
-```
-
-Build scripts automatically sync the app version from the latest Git commit message.
-Use this format in the last commit message before building:
-```text
-v=0.0.0.27
 ```
 
 Manual build from the repository root:
@@ -68,7 +50,6 @@ The EXE will be in `dist/`. The app will create a `data/` folder next to the EXE
 On startup, the app checks the schema version and migrates existing data.
 - Existing Program -> Topic links are migrated into Program -> Discipline -> Topic.
 - A discipline is created per program using the program name (e.g., "Discipline for <Program Name>").
-- Before schema migrations run on an existing database, the app creates a backup in `settings/schema_backups/`.
 
 ## Translations (UA/EN)
 Translation sources are in `translations/` as `.ts` files. The app loads `.qm` if present and falls back to `.ts`.
@@ -86,5 +67,3 @@ pyinstaller --onefile --windowed --name "EducationalProgramManager" ^
 
 ## Data Storage
 All data is stored locally in a single SQLite file at `database/education.db`. Attached files are stored under `files/` (default root) and referenced by the database.
-- Cleanup operations create a backup bundle in `settings/cleanup_backups/` before deleting orphaned data.
-- Attaching an existing file is blocked when that physical file already belongs to another material record.

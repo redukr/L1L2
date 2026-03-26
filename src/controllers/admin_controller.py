@@ -1,11 +1,6 @@
 """Admin controller for managing data and relationships."""
-import sqlite3
-import shutil
-import tempfile
-import json
-from pathlib import Path
-from datetime import datetime
 from typing import List, Tuple
+import sqlite3
 from ..models.database import Database
 from ..models.entities import (
     Teacher,
@@ -27,10 +22,8 @@ from ..repositories.lesson_type_repository import LessonTypeRepository
 from ..repositories.question_repository import QuestionRepository
 from ..repositories.material_repository import MaterialRepository
 from ..repositories.material_type_repository import MaterialTypeRepository
-from ..services.file_storage import FileStorageManager
+from ..services.file_storage import FileStorageManager, StorageScopeError
 from ..services.auth_service import AuthService
-from ..services.app_paths import get_settings_dir
-from ..services.copy_tree_service import CopyTreeService
 
 
 class AdminController:
@@ -49,7 +42,6 @@ class AdminController:
         self.material_type_repo = MaterialTypeRepository(database)
         self.file_storage = FileStorageManager()
         self.auth_service = AuthService()
-        self.copy_tree_service = CopyTreeService(self)
 
     def verify_password(self, password: str) -> bool:
         return self.auth_service.verify_password(password)
@@ -170,24 +162,6 @@ class AdminController:
 
     def get_primary_parent_ids(self, entity_type: str, entity_id: int) -> Tuple[int | None, int | None]:
         return self._resolve_program_discipline_for_entity(entity_type, entity_id)
-
-    def resolve_program_discipline_for_entity(self, entity_type: str, entity_id: int) -> Tuple[int | None, int | None]:
-        return self._resolve_program_discipline_for_entity(entity_type, entity_id)
-
-    def get_next_order_index(self, table: str, parent_field: str, parent_id: int) -> int:
-        return self._get_next_order_index(table, parent_field, parent_id)
-
-    def get_topic_lessons_with_order(self, topic_id: int):
-        return self._get_topic_lessons_with_order(topic_id)
-
-    def get_lesson_questions_with_order(self, lesson_id: int):
-        return self._get_lesson_questions_with_order(lesson_id)
-
-    def copy_name(self, value: str) -> str:
-        return self._copy_name(value)
-
-    def resolve_material_storage_path(self, relative_path: str) -> Path:
-        return self.file_storage._resolve_path(relative_path)
 
     def move_discipline_to_program(self, discipline_id: int, from_program_id: int, to_program_id: int) -> None:
         if not from_program_id or not to_program_id or from_program_id == to_program_id:
@@ -341,10 +315,9 @@ class AdminController:
 
     def delete_material(self, material_id: int) -> bool:
         material = self.material_repo.get_by_id(material_id)
-        deleted = self.material_repo.delete(material_id)
-        if deleted and material and self._should_delete_material_file(material.relative_path, material.id):
+        if material and material.relative_path:
             self.file_storage.delete_file(material.relative_path)
-        return deleted
+        return self.material_repo.delete(material_id)
 
     # Material types
     def get_material_types(self) -> List[MaterialType]:
@@ -373,123 +346,147 @@ class AdminController:
     def attach_material_file_with_context(
         self, material: MethodicalMaterial, source_path: str, program_id: int, discipline_id: int
     ) -> MethodicalMaterial:
-        previous_relative_path = material.relative_path
-        backup_path = None
-        relative_path = None
-        try:
-            _, relative_path = self.file_storage.build_material_path(
-                program_id,
-                discipline_id,
-                material.id,
-                Path(source_path).suffix.lower(),
-            )
-            backup_path = self._backup_material_file_if_overwriting(previous_relative_path, relative_path)
-            original_filename, stored_filename, relative_path, file_type = self.file_storage.store_material_file(
-                source_path, program_id, discipline_id, material.id
-            )
-            material.original_filename = original_filename
-            material.stored_filename = stored_filename
-            material.relative_path = relative_path
-            material.file_type = file_type
-            material.file_name = original_filename
-            material.file_path = relative_path
-            updated = self.material_repo.update(material)
-        except (OSError, sqlite3.Error, RuntimeError, ValueError):
-            if backup_path and previous_relative_path:
-                self._restore_material_backup(previous_relative_path, backup_path)
-            elif relative_path and relative_path != previous_relative_path:
-                self.file_storage.delete_file(relative_path)
-            raise
-        finally:
-            if backup_path:
-                backup_path.unlink(missing_ok=True)
-        if self._should_delete_material_file(previous_relative_path, material.id, replacement_relative_path=relative_path):
-            self.file_storage.delete_file(previous_relative_path)
-        return updated
-
-    def attach_existing_material_file(self, material: MethodicalMaterial, source_path: str) -> MethodicalMaterial:
-        previous_relative_path = material.relative_path
-        original_filename, stored_filename, relative_path, file_type = self.file_storage.attach_existing_file(
-            source_path
+        original_filename, stored_filename, relative_path, file_type = self.file_storage.store_material_file(
+            source_path, program_id, discipline_id, material.id
         )
-        if self.material_repo.count_by_relative_path(relative_path, exclude_material_id=material.id) > 0:
-            raise ValueError("Selected file is already linked to another material. Attach a separate copy instead.")
+        if material.relative_path and material.relative_path != relative_path:
+            self.file_storage.delete_file(material.relative_path)
         material.original_filename = original_filename
         material.stored_filename = stored_filename
         material.relative_path = relative_path
         material.file_type = file_type
         material.file_name = original_filename
         material.file_path = relative_path
-        updated = self.material_repo.update(material)
-        if self._should_delete_material_file(previous_relative_path, material.id, replacement_relative_path=relative_path):
-            self.file_storage.delete_file(previous_relative_path)
-        return updated
+        try:
+            return self.material_repo.update(material)
+        except (sqlite3.Error, OSError, RuntimeError, ValueError, TypeError):
+            self.file_storage.delete_file(relative_path)
+            raise
 
-    def _backup_material_file_if_overwriting(
-        self, previous_relative_path: str | None, new_relative_path: str | None
-    ) -> Path | None:
-        if not previous_relative_path or previous_relative_path != new_relative_path:
-            return None
-        original_path = self.file_storage._resolve_path(previous_relative_path)
-        if not original_path.exists():
-            return None
-        with tempfile.NamedTemporaryFile(
-            prefix="material_backup_",
-            suffix=original_path.suffix,
-            dir=original_path.parent,
-            delete=False,
-        ) as temp_file:
-            backup_path = Path(temp_file.name)
-        shutil.copy2(original_path, backup_path)
-        return backup_path
-
-    def _restore_material_backup(self, relative_path: str, backup_path: Path) -> None:
-        target_path = self.file_storage._resolve_path(relative_path)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(backup_path, target_path)
-
-    def _should_delete_material_file(
-        self,
-        relative_path: str | None,
-        material_id: int | None,
-        replacement_relative_path: str | None = None,
-    ) -> bool:
-        if not relative_path:
-            return False
-        if replacement_relative_path == relative_path:
-            return False
-        other_refs = self.material_repo.count_by_relative_path(relative_path, exclude_material_id=material_id)
-        return other_refs == 0
+    def attach_existing_material_file(self, material: MethodicalMaterial, source_path: str) -> MethodicalMaterial:
+        try:
+            original_filename, stored_filename, relative_path, file_type = self.file_storage.attach_existing_file(
+                source_path
+            )
+        except StorageScopeError:
+            # UX allows selecting from any folder; outside-storage files are copied into managed storage.
+            return self.attach_material_file(material, source_path)
+        if material.relative_path and material.relative_path != relative_path:
+            self.file_storage.delete_file(material.relative_path)
+        material.original_filename = original_filename
+        material.stored_filename = stored_filename
+        material.relative_path = relative_path
+        material.file_type = file_type
+        material.file_name = original_filename
+        material.file_path = relative_path
+        return self.material_repo.update(material)
 
     def duplicate_program(self, program_id: int) -> EducationalProgram:
-        return self.copy_tree_service.duplicate_program(program_id)
+        program = self.program_repo.get_by_id(program_id)
+        if not program:
+            raise ValueError("Program not found.")
+        new_program = EducationalProgram(
+            name=self._copy_name(program.name),
+            description=program.description,
+            level=program.level,
+            year=program.year,
+            duration_hours=program.duration_hours,
+        )
+        new_program = self.program_repo.add(new_program)
+        for discipline in self.program_repo.get_program_disciplines(program_id):
+            order_index = self._get_next_order_index("program_disciplines", "program_id", new_program.id)
+            self.program_repo.add_discipline_to_program(new_program.id, discipline.id, order_index)
+        for material in self.material_repo.get_materials_for_entity("program", program_id):
+            self.material_repo.add_material_to_entity(material.id, "program", new_program.id)
+        return new_program
 
     def copy_program(self, program_id: int) -> EducationalProgram:
-        return self.copy_tree_service.copy_program(program_id)
+        program = self.program_repo.get_by_id(program_id)
+        if not program:
+            raise ValueError("Program not found.")
+        new_program = EducationalProgram(
+            name=self._copy_name(program.name),
+            description=program.description,
+            level=program.level,
+            year=program.year,
+            duration_hours=program.duration_hours,
+        )
+        new_program = self.program_repo.add(new_program)
+        material_map: dict[int, MethodicalMaterial] = {}
+        discipline_map: dict[int, Discipline] = {}
+        for discipline in self.program_repo.get_program_disciplines(program_id):
+            new_discipline = self._copy_discipline_tree(
+                discipline, new_program.id, material_map, discipline.order_index
+            )
+            discipline_map[discipline.id] = new_discipline
+        for material in self.material_repo.get_materials_for_entity("program", program_id):
+            discipline_id = next(iter(discipline_map.values())).id if discipline_map else None
+            if discipline_id is None:
+                continue
+            new_material = self._copy_material(material, new_program.id, discipline_id, material_map)
+            self.material_repo.add_material_to_entity(new_material.id, "program", new_program.id)
+        return new_program
 
     def duplicate_discipline(self, discipline_id: int, program_id: int) -> Discipline:
-        return self.copy_tree_service.duplicate_discipline(discipline_id, program_id)
+        discipline = self.discipline_repo.get_by_id(discipline_id)
+        if not discipline:
+            raise ValueError("Discipline not found.")
+        new_discipline = self._clone_discipline_links(discipline_id, rename=True)
+        order_index = self._get_next_order_index("program_disciplines", "program_id", program_id)
+        self.program_repo.add_discipline_to_program(program_id, new_discipline.id, order_index)
+        return new_discipline
 
     def copy_discipline(self, discipline_id: int, program_id: int) -> Discipline:
-        return self.copy_tree_service.copy_discipline(discipline_id, program_id)
+        discipline = self.discipline_repo.get_by_id(discipline_id)
+        if not discipline:
+            raise ValueError("Discipline not found.")
+        material_map: dict[int, MethodicalMaterial] = {}
+        return self._copy_discipline_tree(discipline, program_id, material_map)
 
     def duplicate_topic(self, topic_id: int, discipline_id: int) -> Topic:
-        return self.copy_tree_service.duplicate_topic(topic_id, discipline_id)
+        new_topic = self._clone_topic_links(topic_id, rename=True)
+        order_index = self._get_next_order_index("discipline_topics", "discipline_id", discipline_id)
+        self.discipline_repo.add_topic_to_discipline(discipline_id, new_topic.id, order_index)
+        return new_topic
 
     def copy_topic(self, topic_id: int, discipline_id: int) -> Topic:
-        return self.copy_tree_service.copy_topic(topic_id, discipline_id)
+        material_map: dict[int, MethodicalMaterial] = {}
+        topic = self.topic_repo.get_by_id(topic_id)
+        if not topic:
+            raise ValueError("Topic not found.")
+        program_id, _ = self._resolve_program_discipline_for_entity("discipline", discipline_id)
+        return self._copy_topic_tree(topic, program_id, discipline_id, material_map)
 
     def duplicate_lesson(self, lesson_id: int, topic_id: int) -> Lesson:
-        return self.copy_tree_service.duplicate_lesson(lesson_id, topic_id)
+        new_lesson = self._clone_lesson_links(lesson_id, rename=True)
+        order_index = self._get_next_order_index("topic_lessons", "topic_id", topic_id)
+        self.topic_repo.add_lesson_to_topic(topic_id, new_lesson.id, order_index)
+        return new_lesson
 
     def copy_lesson(self, lesson_id: int, topic_id: int) -> Lesson:
-        return self.copy_tree_service.copy_lesson(lesson_id, topic_id)
+        material_map: dict[int, MethodicalMaterial] = {}
+        lesson = self.lesson_repo.get_by_id(lesson_id)
+        if not lesson:
+            raise ValueError("Lesson not found.")
+        program_id, discipline_id = self._resolve_program_discipline_for_entity("topic", topic_id)
+        return self._copy_lesson_tree(lesson, topic_id, program_id, discipline_id, material_map)
 
     def duplicate_question(self, question_id: int, lesson_id: int) -> Question:
-        return self.copy_tree_service.duplicate_question(question_id, lesson_id)
+        question = self.question_repo.get_by_id(question_id)
+        if not question:
+            raise ValueError("Question not found.")
+        new_question = Question(
+            content=question.content,
+            answer=question.answer,
+            order_index=question.order_index,
+        )
+        new_question = self.question_repo.add(new_question)
+        order_index = self._get_next_order_index("lesson_questions", "lesson_id", lesson_id)
+        self.lesson_repo.add_question_to_lesson(lesson_id, new_question.id, order_index)
+        return new_question
 
     def copy_question(self, question_id: int, lesson_id: int) -> Question:
-        return self.copy_tree_service.copy_question(question_id, lesson_id)
+        return self.duplicate_question(question_id, lesson_id)
 
     def ensure_discipline_for_edit(self, discipline_id: int, program_id: int) -> Discipline:
         if not self._is_shared("program_disciplines", "discipline_id", discipline_id):
@@ -497,7 +494,7 @@ class AdminController:
         order_index = self._get_assoc_order_index(
             "program_disciplines", "program_id", "discipline_id", program_id, discipline_id
         )
-        new_discipline = self.copy_tree_service.clone_discipline_links(discipline_id, rename=False)
+        new_discipline = self._clone_discipline_links(discipline_id, rename=False)
         self._replace_assoc(
             "program_disciplines", "program_id", "discipline_id", program_id, discipline_id, new_discipline.id, order_index
         )
@@ -509,7 +506,7 @@ class AdminController:
         order_index = self._get_assoc_order_index(
             "discipline_topics", "discipline_id", "topic_id", discipline_id, topic_id
         )
-        new_topic = self.copy_tree_service.clone_topic_links(topic_id, rename=False)
+        new_topic = self._clone_topic_links(topic_id, rename=False)
         self._replace_assoc(
             "discipline_topics", "discipline_id", "topic_id", discipline_id, topic_id, new_topic.id, order_index
         )
@@ -521,7 +518,7 @@ class AdminController:
         order_index = self._get_assoc_order_index(
             "topic_lessons", "topic_id", "lesson_id", topic_id, lesson_id
         )
-        new_lesson = self.copy_tree_service.clone_lesson_links(lesson_id, rename=False)
+        new_lesson = self._clone_lesson_links(lesson_id, rename=False)
         self._replace_assoc(
             "topic_lessons", "topic_id", "lesson_id", topic_id, lesson_id, new_lesson.id, order_index
         )
@@ -566,6 +563,167 @@ class AdminController:
         self.material_repo.add_material_to_entity(new_material.id, entity_type, entity_id)
         self.material_repo.remove_material_from_entity(material.id, entity_type, entity_id)
         return new_material
+
+    def _copy_discipline_tree(
+        self,
+        discipline: Discipline,
+        program_id: int,
+        material_map: dict[int, MethodicalMaterial],
+        order_index: int | None = None,
+    ) -> Discipline:
+        new_discipline = Discipline(
+            name=self._copy_name(discipline.name),
+            description=discipline.description,
+            order_index=discipline.order_index,
+        )
+        new_discipline = self.discipline_repo.add(new_discipline)
+        order_index = order_index if order_index is not None else self._get_next_order_index(
+            "program_disciplines", "program_id", program_id
+        )
+        self.program_repo.add_discipline_to_program(program_id, new_discipline.id, order_index)
+        for teacher in self.teacher_repo.get_teachers_for_disciplines([discipline.id]):
+            self.teacher_repo.add_discipline(teacher.id, new_discipline.id)
+        for topic in self.discipline_repo.get_discipline_topics(discipline.id):
+            self._copy_topic_tree(topic, program_id, new_discipline.id, material_map, topic.order_index)
+        for material in self.material_repo.get_materials_for_entity("discipline", discipline.id):
+            new_material = self._copy_material(material, program_id, new_discipline.id, material_map)
+            self.material_repo.add_material_to_entity(new_material.id, "discipline", new_discipline.id)
+        return new_discipline
+
+    def _copy_topic_tree(
+        self,
+        topic: Topic,
+        program_id: int,
+        discipline_id: int,
+        material_map: dict[int, MethodicalMaterial],
+        order_index: int | None = None,
+    ) -> Topic:
+        new_topic = Topic(
+            title=self._copy_name(topic.title),
+            description=topic.description,
+            order_index=topic.order_index,
+        )
+        new_topic = self.topic_repo.add(new_topic)
+        order_index = order_index if order_index is not None else self._get_next_order_index(
+            "discipline_topics", "discipline_id", discipline_id
+        )
+        self.discipline_repo.add_topic_to_discipline(discipline_id, new_topic.id, order_index)
+        for lesson, order in self._get_topic_lessons_with_order(topic.id):
+            self._copy_lesson_tree(lesson, new_topic.id, program_id, discipline_id, material_map, order)
+        for material in self.material_repo.get_materials_for_entity("topic", topic.id):
+            new_material = self._copy_material(material, program_id, discipline_id, material_map)
+            self.material_repo.add_material_to_entity(new_material.id, "topic", new_topic.id)
+        return new_topic
+
+    def _copy_lesson_tree(
+        self,
+        lesson: Lesson,
+        topic_id: int,
+        program_id: int,
+        discipline_id: int,
+        material_map: dict[int, MethodicalMaterial],
+        order_index: int | None = None,
+    ) -> Lesson:
+        new_lesson = Lesson(
+            title=self._copy_name(lesson.title),
+            description=lesson.description,
+            duration_hours=lesson.duration_hours,
+            lesson_type_id=lesson.lesson_type_id,
+            classroom_hours=lesson.classroom_hours,
+            self_study_hours=lesson.self_study_hours,
+            order_index=lesson.order_index,
+        )
+        new_lesson = self.lesson_repo.add(new_lesson)
+        order_index = order_index if order_index is not None else self._get_next_order_index("topic_lessons", "topic_id", topic_id)
+        self.topic_repo.add_lesson_to_topic(topic_id, new_lesson.id, order_index)
+        for question, q_order in self._get_lesson_questions_with_order(lesson.id):
+            new_question = Question(
+                content=question.content,
+                answer=question.answer,
+                order_index=question.order_index,
+            )
+            new_question = self.question_repo.add(new_question)
+            self.lesson_repo.add_question_to_lesson(new_lesson.id, new_question.id, q_order)
+        for material in self.material_repo.get_materials_for_entity("lesson", lesson.id):
+            new_material = self._copy_material(material, program_id, discipline_id, material_map)
+            self.material_repo.add_material_to_entity(new_material.id, "lesson", new_lesson.id)
+        return new_lesson
+
+    def _copy_material(
+        self,
+        material: MethodicalMaterial,
+        program_id: int,
+        discipline_id: int,
+        material_map: dict[int, MethodicalMaterial],
+    ) -> MethodicalMaterial:
+        if material.id in material_map:
+            return material_map[material.id]
+        new_material = MethodicalMaterial(
+            title=material.title,
+            material_type=material.material_type,
+            description=material.description,
+        )
+        new_material = self.material_repo.add(new_material)
+        for teacher in self.material_repo.get_material_teachers(material.id):
+            self.material_repo.add_teacher_to_material(teacher.id, new_material.id)
+        if material.relative_path and program_id and discipline_id:
+            source_path = str(self.file_storage._resolve_path(material.relative_path))
+            self.attach_material_file_with_context(new_material, source_path, program_id, discipline_id)
+        material_map[material.id] = new_material
+        return new_material
+
+    def _clone_discipline_links(self, discipline_id: int, rename: bool = True) -> Discipline:
+        discipline = self.discipline_repo.get_by_id(discipline_id)
+        name = self._copy_name(discipline.name) if rename else discipline.name
+        new_discipline = Discipline(
+            name=name,
+            description=discipline.description,
+            order_index=discipline.order_index,
+        )
+        new_discipline = self.discipline_repo.add(new_discipline)
+        for discipline_topic in self.discipline_repo.get_discipline_topics(discipline_id):
+            self.discipline_repo.add_topic_to_discipline(
+                new_discipline.id, discipline_topic.id, discipline_topic.order_index
+            )
+        for material in self.material_repo.get_materials_for_entity("discipline", discipline_id):
+            self.material_repo.add_material_to_entity(material.id, "discipline", new_discipline.id)
+        for teacher in self.teacher_repo.get_teachers_for_disciplines([discipline_id]):
+            self.teacher_repo.add_discipline(teacher.id, new_discipline.id)
+        return new_discipline
+
+    def _clone_topic_links(self, topic_id: int, rename: bool = True) -> Topic:
+        topic = self.topic_repo.get_by_id(topic_id)
+        title = self._copy_name(topic.title) if rename else topic.title
+        new_topic = Topic(
+            title=title,
+            description=topic.description,
+            order_index=topic.order_index,
+        )
+        new_topic = self.topic_repo.add(new_topic)
+        for lesson, order in self._get_topic_lessons_with_order(topic_id):
+            self.topic_repo.add_lesson_to_topic(new_topic.id, lesson.id, order)
+        for material in self.material_repo.get_materials_for_entity("topic", topic_id):
+            self.material_repo.add_material_to_entity(material.id, "topic", new_topic.id)
+        return new_topic
+
+    def _clone_lesson_links(self, lesson_id: int, rename: bool = True) -> Lesson:
+        lesson = self.lesson_repo.get_by_id(lesson_id)
+        title = self._copy_name(lesson.title) if rename else lesson.title
+        new_lesson = Lesson(
+            title=title,
+            description=lesson.description,
+            duration_hours=lesson.duration_hours,
+            lesson_type_id=lesson.lesson_type_id,
+            classroom_hours=lesson.classroom_hours,
+            self_study_hours=lesson.self_study_hours,
+            order_index=lesson.order_index,
+        )
+        new_lesson = self.lesson_repo.add(new_lesson)
+        for question, q_order in self._get_lesson_questions_with_order(lesson_id):
+            self.lesson_repo.add_question_to_lesson(new_lesson.id, question.id, q_order)
+        for material in self.material_repo.get_materials_for_entity("lesson", lesson_id):
+            self.material_repo.add_material_to_entity(material.id, "lesson", new_lesson.id)
+        return new_lesson
 
     def _get_topic_lessons_with_order(self, topic_id: int) -> List[Tuple[Lesson, int]]:
         with self.db.get_connection() as conn:
@@ -779,16 +937,6 @@ class AdminController:
     def cleanup_unused_data(self) -> dict:
         counts = self.get_unused_data_counts()
         with self.db.get_connection() as conn:
-            orphan_materials = conn.execute(
-                """
-                SELECT m.id, m.relative_path FROM methodical_materials m
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM material_associations ma WHERE ma.material_id = m.id
-                )
-                """
-            ).fetchall()
-        backup_path = self._create_cleanup_backup(orphan_materials)
-        with self.db.get_connection() as conn:
             conn.execute(
                 """
                 DELETE FROM educational_programs
@@ -835,43 +983,17 @@ class AdminController:
                 )
                 """
             )
+            orphan_materials = conn.execute(
+                """
+                SELECT m.id FROM methodical_materials m
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM material_associations ma WHERE ma.material_id = m.id
+                )
+                """
+            ).fetchall()
         for row in orphan_materials:
             self.delete_material(row[0])
-        return {"counts": counts, "backup_path": backup_path}
-
-    def _create_cleanup_backup(self, orphan_materials) -> str | None:
-        backup_root = get_settings_dir() / "cleanup_backups" / datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_root.mkdir(parents=True, exist_ok=True)
-        manifest = {
-            "created_at": datetime.now().isoformat(timespec="seconds"),
-            "database_backup": None,
-            "material_files": [],
-        }
-        if self.db.db_path and self.db.db_path != ":memory:":
-            db_backup_path = backup_root / "education_backup.db"
-            with self.db.get_connection() as source_conn:
-                import sqlite3
-
-                with sqlite3.connect(str(db_backup_path)) as backup_conn:
-                    source_conn.backup(backup_conn)
-            manifest["database_backup"] = str(db_backup_path)
-        files_backup_root = backup_root / "files"
-        for row in orphan_materials:
-            relative_path = row["relative_path"]
-            if not relative_path:
-                continue
-            try:
-                absolute_path = self.file_storage._resolve_path(relative_path)
-            except ValueError:
-                continue
-            if not absolute_path.exists():
-                continue
-            target_path = files_backup_root / Path(relative_path)
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(absolute_path, target_path)
-            manifest["material_files"].append(relative_path)
-        (backup_root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        return str(backup_root)
+        return counts
 
     def _resolve_program_discipline(self, associations: List[Tuple[str, int]]) -> Tuple[int, int]:
         entity_type, entity_id = associations[0]

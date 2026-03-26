@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from collections import deque
 from pathlib import Path
 
 from .app_paths import get_settings_dir
@@ -32,20 +33,29 @@ class ActivityLogService:
         with self._path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
-    def read_all(self) -> list[dict]:
+    def read_all(self, limit: int | None = None) -> list[dict]:
         rows: list[dict] = []
         if not self._path.exists():
             return rows
-        for line in self._path.read_text(encoding="utf-8").splitlines():
+        try:
+            if limit is not None and limit > 0:
+                lines = deque(maxlen=limit)
+                with self._path.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        lines.append(line)
+            else:
+                lines = self._path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            return rows
+        for line in lines:
             line = line.strip()
             if not line:
                 continue
             try:
                 rows.append(json.loads(line))
-            except Exception:
+            except json.JSONDecodeError:
                 continue
         return rows
 
     def clear(self) -> None:
         self._path.write_text("", encoding="utf-8")
-

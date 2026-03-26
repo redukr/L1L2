@@ -12,6 +12,10 @@ from .storage_settings import get_materials_root, set_materials_root
 MAX_PATH_WINDOWS = 260
 
 
+class StorageScopeError(ValueError):
+    """Raised when a selected file is outside the configured storage root."""
+
+
 class FileStorageManager:
     """Controls file storage lifecycle under files root."""
 
@@ -89,7 +93,7 @@ class FileStorageManager:
         try:
             source.relative_to(files_root)
         except ValueError as exc:
-            raise ValueError("Selected file must be inside the storage folder.") from exc
+            raise StorageScopeError("Selected file must be inside the storage folder.") from exc
         if not source.exists():
             raise ValueError("Selected file does not exist.")
         relative_path = str(source.relative_to(files_root).as_posix())

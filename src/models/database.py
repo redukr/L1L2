@@ -47,9 +47,9 @@ class Database:
         try:
             yield conn
             conn.commit()
-        except Exception as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError, TypeError):
             conn.rollback()
-            raise e
+            raise
         finally:
             conn.close()
 

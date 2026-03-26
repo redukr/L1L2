@@ -1,5 +1,5 @@
 """Admin management dialog."""
-from PySide6.QtCore import Qt, QSettings, QByteArray, QSize, QRect
+from PySide6.QtCore import Qt, QSettings, QSize, QRect
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QMenuBar,
     QAbstractItemView,
     QLineEdit,
-    QDialog,
     QTreeWidget,
     QTreeWidgetItem,
     QHeaderView,
@@ -28,22 +27,16 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QStyle,
     QAbstractScrollArea,
-    QMenu,
     QGroupBox,
-    QApplication,
     QCheckBox,
     QInputDialog,
     QSizePolicy,
     QFormLayout,
 )
 import json
-import zlib
-from PySide6.QtCore import QProcess
-import sys
 import sqlite3
-from PySide6.QtGui import QTextDocument, QBrush, QColor
+from PySide6.QtGui import QTextDocument
 from pathlib import Path
-from datetime import datetime
 from ..controllers.admin_controller import AdminController
 from ..controllers.main_controller import MainController
 from ..models.database import Database
@@ -54,55 +47,69 @@ from ..models.entities import (
     Lesson,
     Question,
     Teacher,
-    MethodicalMaterial,
     MaterialType,
     LessonType,
 )
 from ..services.i18n import I18nManager
 from ..services.app_paths import (
-    get_settings_dir,
     get_translations_dir,
     get_app_base_dir,
     resolve_app_path,
-    make_relative_to_app,
 )
 from ..ui.dialogs import (
     PasswordDialog,
-    PasswordSetupDialog,
-    TeacherDialog,
     ProgramDialog,
     DisciplineDialog,
     TopicDialog,
     LessonDialog,
     LessonTypeDialog,
-    MaterialTypeDialog,
+    ImportCurriculumDialog,
     QuestionDialog,
-    MaterialDialog,
+)
+from ..services.import_service import (
+    import_curriculum_structure,
+    import_curriculum_structure_by_names,
+    import_teachers_from_docx,
 )
 from ..services.file_storage import FileStorageManager
 from ..services.activity_log import ActivityLogService
-from ..services.internet_sync_service import InternetSyncService
-from ..services.teacher_sorting import teacher_sort_key
-from ..ui.admin_dialog_import_ops import run_import_curriculum, run_import_teachers
-from ..ui.admin_dialog_material_ops import (
-    add_material as add_material_op,
-    attach_existing_material_file as attach_existing_material_file_op,
-    attach_material_file as attach_material_file_op,
-    check_database as check_database_op,
-    cleanup_unused_data as cleanup_unused_data_op,
-    database_diagnostics as database_diagnostics_op,
-    edit_material as edit_material_op,
-    prompt_material_location as prompt_material_location_op,
-)
-from ..ui.admin_dialog_sync_ops import (
-    connect_internet_database as connect_internet_database_op,
-    resolve_sync_conflict as resolve_sync_conflict_op,
-    synchronize_internet_database as synchronize_internet_database_op,
-)
+from .admin_dialog_auth_sync_mixin import AdminDialogAuthSyncMixin
+from .admin_dialog_database_mixin import AdminDialogDatabaseMixin
+from .admin_dialog_curriculum_mixin import AdminDialogCurriculumMixin
+from .admin_dialog_material_sync_mixin import AdminDialogMaterialSyncMixin
+from .admin_dialog_materials_mixin import AdminDialogMaterialsMixin
+from .admin_dialog_common_ui_mixin import AdminDialogCommonUiMixin
+from .admin_dialog_internet_settings_mixin import AdminDialogInternetSettingsMixin
+from .admin_dialog_internet_sync_mixin import AdminDialogInternetSyncMixin
+from .admin_dialog_i18n_mixin import AdminDialogI18nMixin
+from .admin_dialog_log_internet_ui_mixin import AdminDialogLogInternetUiMixin
+from .admin_dialog_settings_mixin import AdminDialogSettingsMixin
+from .admin_dialog_sync_compare_mixin import AdminDialogSyncCompareMixin
+from .admin_dialog_structure_mixin import AdminDialogStructureMixin
+from .admin_dialog_teachers_mixin import AdminDialogTeachersMixin
 
 
-class AdminDialog(QDialog):
+class AdminDialog(
+    AdminDialogI18nMixin,
+    AdminDialogLogInternetUiMixin,
+    AdminDialogCommonUiMixin,
+    AdminDialogInternetSettingsMixin,
+    AdminDialogInternetSyncMixin,
+    AdminDialogSyncCompareMixin,
+    AdminDialogSettingsMixin,
+    AdminDialogAuthSyncMixin,
+    AdminDialogMaterialSyncMixin,
+    AdminDialogMaterialsMixin,
+    AdminDialogCurriculumMixin,
+    AdminDialogTeachersMixin,
+    AdminDialogStructureMixin,
+    AdminDialogDatabaseMixin,
+    QDialog,
+):
     """Admin dialog with CRUD and association management."""
+    AUTH_MAX_ATTEMPTS = 5
+    AUTH_COOLDOWN_SECONDS = 30
+    _auth_blocked_until_monotonic = 0.0
 
     def __init__(
         self,
@@ -123,7 +130,6 @@ class AdminDialog(QDialog):
         self.activity_log = ActivityLogService()
         self.bootstrap_settings = QSettings()
         self.file_storage = FileStorageManager()
-        self.internet_sync_service = InternetSyncService()
         desired_db_path = self.bootstrap_settings.value("app/db_path", "")
         if desired_db_path:
             resolved = resolve_app_path(desired_db_path)
@@ -146,52 +152,6 @@ class AdminDialog(QDialog):
             mode = f"user.{mode}"
         self.activity_log.log(self.actor_name, mode, action, details)
 
-    def _tr_or_fallback(self, source: str, fallback: str) -> str:
-        text = self.tr(source)
-        stripped = (text or "").strip()
-        normalized = "".join(ch for ch in stripped if ch not in " \t\r\n.,:;!?-()[]{}<>/\\\"'")
-        if (not stripped) or stripped == source or (normalized and set(normalized) == {"?"}):
-            return fallback
-        return text
-
-    def _authorize(self) -> bool:
-        if not self._ensure_admin_password():
-            return False
-        while True:
-            dialog = PasswordDialog(
-                self,
-                title=self._tr_or_fallback("Admin Access", "Доступ адміністратора"),
-                label=self._tr_or_fallback("Enter admin password:", "Введіть пароль адміністратора:"),
-            )
-            if dialog.exec() != QDialog.Accepted:
-                return False
-            if self.controller.verify_password(dialog.get_password()):
-                return True
-            QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid admin password."))
-
-    def _ensure_admin_password(self) -> bool:
-        if self.controller.auth_service.has_admin_password():
-            return True
-        dialog = PasswordSetupDialog(
-            self,
-            title=self._tr_or_fallback("Create admin password", "Створення пароля адміністратора"),
-            label=self._tr_or_fallback("Create a local admin password.", "Створіть локальний пароль адміністратора."),
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return False
-        password = dialog.get_password()
-        confirm_password = dialog.get_confirm_password()
-        if password != confirm_password:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Passwords do not match."))
-            return False
-        try:
-            self.controller.auth_service.set_admin_password(password)
-        except ValueError as exc:
-            QMessageBox.warning(self, self.tr("Validation"), str(exc))
-            return False
-        QMessageBox.information(self, self.tr("Password created"), self.tr("Admin password has been saved."))
-        return True
-
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
         menu_bar = QMenuBar()
@@ -205,77 +165,18 @@ class AdminDialog(QDialog):
         layout.addWidget(menu_bar)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
-
-        self.main_tabs = QTabWidget()
-        self.main_tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
-        self.main_tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
-        self.main_tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
-
-        self.sync_tabs = QTabWidget()
-        self.sync_tabs.addTab(self._build_sync_tab(), self.tr("Synchronization"))
-        self.sync_tabs.addTab(self._build_internet_tab(), self.tr("Internet"))
-
-        self.system_tabs = QTabWidget()
-        self.system_tabs.addTab(self._build_log_tab(), self.tr("Log"))
-        self.system_tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
-
-        self.tabs.addTab(self.main_tabs, self.tr("Main"))
-        self.tabs.addTab(self.sync_tabs, self.tr("Import & Sync"))
-        self.tabs.addTab(self.system_tabs, self.tr("System"))
+        self.tabs.addTab(self._build_structure_tab(), self.tr("Structure"))
+        self.tabs.addTab(self._build_materials_tab(), self.tr("Materials"))
+        self.tabs.addTab(self._build_teachers_tab(), self.tr("Teachers"))
+        self.tabs.addTab(self._build_sync_tab(), self.tr("Synchronization"))
+        self.tabs.addTab(self._build_internet_tab(), self.tr("Internet"))
+        self.tabs.addTab(self._build_log_tab(), self.tr("Log"))
+        self.tabs.addTab(self._build_settings_tab(), self.tr("Settings"))
         self._apply_word_wrap()
-
-    def _create_material_dialog(self, material=None, teachers=None, selected_teacher_ids=None) -> MaterialDialog:
-        return MaterialDialog(
-            material,
-            material_types=self.controller.get_material_types(),
-            teachers=teachers or [],
-            selected_teacher_ids=selected_teacher_ids,
-            parent=self,
-        )
-
-    def _compact_action_buttons(self, *buttons: QPushButton) -> None:
-        for button in buttons:
-            button.setMinimumHeight(28)
-            button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-
-    def _style_hint_label(self, label: QLabel) -> None:
-        label.setWordWrap(True)
-        label.setContentsMargins(0, 0, 0, 4)
-        label.setStyleSheet("color: #444444;")
-
-    def _compact_group_box(self, group_box: QGroupBox) -> None:
-        layout = group_box.layout()
-        if layout is not None:
-            layout.setContentsMargins(8, 10, 8, 8)
-            layout.setSpacing(6)
 
     def _build_teachers_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.teachers_hint = QLabel(
-            self.tr(
-                "Use this section to manage teachers. Select a teacher in the table, then assign disciplines below."
-            )
-        )
-        self._style_hint_label(self.teachers_hint)
-        layout.addWidget(self.teachers_hint)
-        btn_layout = QHBoxLayout()
-        self.teacher_add = QPushButton(self.tr("Add"))
-        self.teacher_edit = QPushButton(self.tr("Edit"))
-        self.teacher_delete = QPushButton(self.tr("Delete"))
-        self.teacher_import = QPushButton(self.tr("Import teachers from DOCX"))
-        self._compact_action_buttons(
-            self.teacher_add,
-            self.teacher_edit,
-            self.teacher_delete,
-            self.teacher_import,
-        )
-        btn_layout.addWidget(self.teacher_add)
-        btn_layout.addWidget(self.teacher_edit)
-        btn_layout.addWidget(self.teacher_delete)
-        btn_layout.addWidget(self.teacher_import)
-        btn_layout.addStretch(1)
-        layout.addLayout(btn_layout)
         self.teachers_table = QTableWidget(0, 6)
         self.teachers_table.setHorizontalHeaderLabels(
             [
@@ -296,12 +197,21 @@ class AdminDialog(QDialog):
         )
         self.teachers_table.itemChanged.connect(self._on_teacher_item_changed)
         layout.addWidget(self.teachers_table)
+        btn_layout = QHBoxLayout()
+        self.teacher_add = QPushButton(self.tr("Add"))
+        self.teacher_edit = QPushButton(self.tr("Edit"))
+        self.teacher_delete = QPushButton(self.tr("Delete"))
+        self.teacher_import = QPushButton(self.tr("Import teachers from DOCX"))
+        btn_layout.addWidget(self.teacher_add)
+        btn_layout.addWidget(self.teacher_edit)
+        btn_layout.addWidget(self.teacher_delete)
+        btn_layout.addWidget(self.teacher_import)
+        btn_layout.addStretch(1)
+        layout.addLayout(btn_layout)
 
-        disciplines_group = QGroupBox(self.tr("Teacher discipline assignment"))
+        disciplines_group = QWidget()
         disciplines_layout = QHBoxLayout(disciplines_group)
-        self.teacher_disciplines_label = QLabel(
-            self.tr("Available disciplines on the left, assigned disciplines on the right")
-        )
+        self.teacher_disciplines_label = QLabel(self.tr("Assigned disciplines"))
         disciplines_layout.addWidget(self.teacher_disciplines_label)
         self.teacher_disciplines_available = QListWidget()
         self.teacher_disciplines_assigned = QListWidget()
@@ -315,7 +225,6 @@ class AdminDialog(QDialog):
         disciplines_layout.addWidget(self.teacher_disciplines_available)
         disciplines_layout.addLayout(mid_layout)
         disciplines_layout.addWidget(self.teacher_disciplines_assigned)
-        self._compact_group_box(disciplines_group)
         layout.addWidget(disciplines_group)
 
         self.teacher_add.clicked.connect(self._add_teacher)
@@ -435,68 +344,6 @@ class AdminDialog(QDialog):
 
     def _build_structure_tab(self) -> QWidget:
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-
-        self.structure_hint = QLabel(
-            self._tr_or_fallback(
-                "Use the tree on the left to choose a program element. "
-                "Use the action bar above to add, edit, copy, or import structure items.",
-                "\u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u0434\u0435\u0440\u0435\u0432\u043e \u043b\u0456\u0432\u043e\u0440\u0443\u0447, \u0449\u043e\u0431 \u0432\u0438\u0431\u0440\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438. \u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u043f\u0430\u043d\u0435\u043b\u044c \u0434\u0456\u0439 \u0443\u0433\u043e\u0440\u0456, \u0449\u043e\u0431 \u0434\u043e\u0434\u0430\u0432\u0430\u0442\u0438, \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438, \u043a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438 \u0430\u0431\u043e \u0456\u043c\u043f\u043e\u0440\u0442\u0443\u0432\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0438 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438.",
-            )
-        )
-        self._style_hint_label(self.structure_hint)
-        layout.addWidget(self.structure_hint)
-
-        action_row = QHBoxLayout()
-        self.structure_add_program = QPushButton(
-            self._tr_or_fallback("Add program", "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0443")
-        )
-        self.structure_add_discipline = QPushButton(self.tr("Add discipline"))
-        self.structure_add_topic = QPushButton(self.tr("Add topic"))
-        self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
-        self.structure_add_question = QPushButton(self.tr("Add question"))
-        self.structure_import = QPushButton(
-            self._tr_or_fallback(
-                "Import curriculum structure",
-                "\u0406\u043c\u043f\u043e\u0440\u0442 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438 \u043d\u0430\u0432\u0447\u0430\u043b\u044c\u043d\u043e\u0457 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438",
-            )
-        )
-        self.structure_refresh = QPushButton(self.tr("Refresh"))
-        self.structure_edit = QPushButton(self.tr("Edit"))
-        self.structure_delete = QPushButton(self.tr("Delete"))
-        self.structure_duplicate = QPushButton(
-            self._tr_or_fallback("Duplicate", "\u0414\u0443\u0431\u043b\u044e\u0432\u0430\u0442\u0438")
-        )
-        self.structure_copy = QPushButton(
-            self._tr_or_fallback("Copy", "\u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438")
-        )
-        self._compact_action_buttons(
-            self.structure_add_program,
-            self.structure_add_discipline,
-            self.structure_add_topic,
-            self.structure_add_lesson,
-            self.structure_add_question,
-            self.structure_import,
-            self.structure_refresh,
-            self.structure_edit,
-            self.structure_delete,
-            self.structure_duplicate,
-            self.structure_copy,
-        )
-        action_row.addWidget(self.structure_add_program)
-        action_row.addWidget(self.structure_add_discipline)
-        action_row.addWidget(self.structure_add_topic)
-        action_row.addWidget(self.structure_add_lesson)
-        action_row.addWidget(self.structure_add_question)
-        action_row.addWidget(self.structure_import)
-        action_row.addWidget(self.structure_refresh)
-        action_row.addWidget(self.structure_edit)
-        action_row.addWidget(self.structure_delete)
-        action_row.addWidget(self.structure_duplicate)
-        action_row.addWidget(self.structure_copy)
-        action_row.addStretch(1)
-        layout.addLayout(action_row)
-
         splitter = QSplitter(Qt.Horizontal)
 
         self.structure_tree = QTreeWidget()
@@ -513,48 +360,40 @@ class AdminDialog(QDialog):
 
         details = QWidget()
         details_layout = QVBoxLayout(details)
-        self.structure_title = QLabel(
-            self._tr_or_fallback("Select an item", "\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0435\u043b\u0435\u043c\u0435\u043d\u0442")
-        )
+        self.structure_title = QLabel(self.tr("Select an item"))
         self.structure_details = QLabel("")
         self.structure_details.setWordWrap(True)
         details_layout.addWidget(self.structure_title)
         details_layout.addWidget(self.structure_details)
 
-        self.structure_materials_hint = QLabel(
-            self._tr_or_fallback(
-                "Materials below belong to the currently selected program element.",
-                "\u041c\u0430\u0442\u0435\u0440\u0456\u0430\u043b\u0438 \u043d\u0438\u0436\u0447\u0435 \u043d\u0430\u043b\u0435\u0436\u0430\u0442\u044c \u0434\u043e \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u0433\u043e \u0432\u0438\u0431\u0440\u0430\u043d\u043e\u0433\u043e \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0430 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438.",
-            )
-        )
-        self._style_hint_label(self.structure_materials_hint)
-        details_layout.addWidget(self.structure_materials_hint)
+        btn_row = QHBoxLayout()
+        self.structure_add_program = QPushButton(self.tr("Add program"))
+        self.structure_add_discipline = QPushButton(self.tr("Add discipline"))
+        self.structure_add_topic = QPushButton(self.tr("Add topic"))
+        self.structure_add_lesson = QPushButton(self.tr("Add lesson"))
+        self.structure_add_question = QPushButton(self.tr("Add question"))
+        self.structure_import = QPushButton(self.tr("Import curriculum structure"))
+        self.structure_refresh = QPushButton(self.tr("Refresh"))
+        self.structure_edit = QPushButton(self.tr("Edit"))
+        self.structure_delete = QPushButton(self.tr("Delete"))
+        self.structure_duplicate = QPushButton(self.tr("Duplicate"))
+        self.structure_copy = QPushButton(self.tr("Copy"))
+        btn_row.addWidget(self.structure_add_program)
+        btn_row.addWidget(self.structure_add_discipline)
+        btn_row.addWidget(self.structure_add_topic)
+        btn_row.addWidget(self.structure_add_lesson)
+        btn_row.addWidget(self.structure_add_question)
+        btn_row.addWidget(self.structure_import)
+        btn_row.addWidget(self.structure_refresh)
+        btn_row.addWidget(self.structure_edit)
+        btn_row.addWidget(self.structure_delete)
+        btn_row.addWidget(self.structure_duplicate)
+        btn_row.addWidget(self.structure_copy)
+        btn_row.addStretch(1)
+        details_layout.addLayout(btn_row)
 
         materials_group = QWidget()
         materials_layout = QVBoxLayout(materials_group)
-        materials_btns = QHBoxLayout()
-        self.material_add = QPushButton(self.tr("Add"))
-        self.material_edit = QPushButton(self.tr("Edit"))
-        self.material_delete = QPushButton(self.tr("Delete"))
-        self.material_open = QPushButton(self.tr("Open file"))
-        self.material_show = QPushButton(self.tr("Show folder"))
-        self.material_copy = QPushButton(self.tr("Save copy"))
-        self._compact_action_buttons(
-            self.material_add,
-            self.material_edit,
-            self.material_delete,
-            self.material_open,
-            self.material_show,
-            self.material_copy,
-        )
-        materials_btns.addWidget(self.material_add)
-        materials_btns.addWidget(self.material_edit)
-        materials_btns.addWidget(self.material_delete)
-        materials_btns.addWidget(self.material_open)
-        materials_btns.addWidget(self.material_show)
-        materials_btns.addWidget(self.material_copy)
-        materials_btns.addStretch(1)
-        materials_layout.addLayout(materials_btns)
         self.materials_table = QTableWidget(0, 4)
         self.materials_table.setHorizontalHeaderLabels(
             [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
@@ -570,6 +409,22 @@ class AdminDialog(QDialog):
         )
         materials_layout.addWidget(self.materials_table)
 
+        materials_btns = QHBoxLayout()
+        self.material_add = QPushButton(self.tr("Add"))
+        self.material_edit = QPushButton(self.tr("Edit"))
+        self.material_delete = QPushButton(self.tr("Delete"))
+        self.material_open = QPushButton(self.tr("Open file"))
+        self.material_show = QPushButton(self.tr("Show in folder"))
+        self.material_copy = QPushButton(self.tr("Copy file as..."))
+        materials_btns.addWidget(self.material_add)
+        materials_btns.addWidget(self.material_edit)
+        materials_btns.addWidget(self.material_delete)
+        materials_btns.addWidget(self.material_open)
+        materials_btns.addWidget(self.material_show)
+        materials_btns.addWidget(self.material_copy)
+        materials_btns.addStretch(1)
+        materials_layout.addLayout(materials_btns)
+
         details_layout.addWidget(QLabel(self.tr("Materials")))
         details_layout.addWidget(materials_group)
         details_layout.addStretch(1)
@@ -577,6 +432,7 @@ class AdminDialog(QDialog):
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 3)
 
+        layout = QVBoxLayout(tab)
         layout.addWidget(splitter)
 
         self.structure_add_program.clicked.connect(self._add_structure_program)
@@ -600,14 +456,6 @@ class AdminDialog(QDialog):
 
     def _build_programs_tab(self) -> QWidget:
         tab = QWidget()
-        wrapper = QVBoxLayout(tab)
-        self.programs_hint = QLabel(
-            self.tr(
-                "Select a program in the table, then manage its discipline links below."
-            )
-        )
-        self._style_hint_label(self.programs_hint)
-        wrapper.addWidget(self.programs_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -621,7 +469,6 @@ class AdminDialog(QDialog):
         self.program_add = QPushButton(self.tr("Add"))
         self.program_edit = QPushButton(self.tr("Edit"))
         self.program_delete = QPushButton(self.tr("Delete"))
-        self._compact_action_buttons(self.program_add, self.program_edit, self.program_delete)
         btn_layout.addWidget(self.program_add)
         btn_layout.addWidget(self.program_edit)
         btn_layout.addWidget(self.program_delete)
@@ -646,6 +493,8 @@ class AdminDialog(QDialog):
         bottom_layout.addLayout(mid_layout)
         bottom_layout.addWidget(self.program_disciplines_assigned)
         splitter.addWidget(bottom)
+
+        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
 
         self.program_add.clicked.connect(self._add_program)
@@ -658,14 +507,6 @@ class AdminDialog(QDialog):
 
     def _build_disciplines_tab(self) -> QWidget:
         tab = QWidget()
-        wrapper = QVBoxLayout(tab)
-        self.disciplines_hint = QLabel(
-            self.tr(
-                "Select a discipline in the table, then manage its topic links below."
-            )
-        )
-        self._style_hint_label(self.disciplines_hint)
-        wrapper.addWidget(self.disciplines_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -679,7 +520,6 @@ class AdminDialog(QDialog):
         self.discipline_add = QPushButton(self.tr("Add"))
         self.discipline_edit = QPushButton(self.tr("Edit"))
         self.discipline_delete = QPushButton(self.tr("Delete"))
-        self._compact_action_buttons(self.discipline_add, self.discipline_edit, self.discipline_delete)
         btn_layout.addWidget(self.discipline_add)
         btn_layout.addWidget(self.discipline_edit)
         btn_layout.addWidget(self.discipline_delete)
@@ -704,6 +544,8 @@ class AdminDialog(QDialog):
         bottom_layout.addLayout(mid_layout)
         bottom_layout.addWidget(self.discipline_topics_assigned)
         splitter.addWidget(bottom)
+
+        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
 
         self.discipline_add.clicked.connect(self._add_discipline)
@@ -716,14 +558,6 @@ class AdminDialog(QDialog):
 
     def _build_topics_tab(self) -> QWidget:
         tab = QWidget()
-        wrapper = QVBoxLayout(tab)
-        self.topics_hint = QLabel(
-            self.tr(
-                "Select a topic in the table, then manage linked lessons and topic materials below."
-            )
-        )
-        self._style_hint_label(self.topics_hint)
-        wrapper.addWidget(self.topics_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -737,7 +571,6 @@ class AdminDialog(QDialog):
         self.topic_add = QPushButton(self.tr("Add"))
         self.topic_edit = QPushButton(self.tr("Edit"))
         self.topic_delete = QPushButton(self.tr("Delete"))
-        self._compact_action_buttons(self.topic_add, self.topic_edit, self.topic_delete)
         btn_layout.addWidget(self.topic_add)
         btn_layout.addWidget(self.topic_edit)
         btn_layout.addWidget(self.topic_delete)
@@ -780,6 +613,7 @@ class AdminDialog(QDialog):
         materials_layout.addLayout(materials_mid)
         materials_layout.addWidget(self.topic_materials_assigned)
 
+        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
         wrapper.addWidget(materials_group)
 
@@ -795,14 +629,6 @@ class AdminDialog(QDialog):
 
     def _build_lessons_tab(self) -> QWidget:
         tab = QWidget()
-        wrapper = QVBoxLayout(tab)
-        self.lessons_hint = QLabel(
-            self.tr(
-                "Select a lesson in the table, then manage linked questions and lesson materials below."
-            )
-        )
-        self._style_hint_label(self.lessons_hint)
-        wrapper.addWidget(self.lessons_hint)
         splitter = QSplitter(Qt.Vertical)
         top = QWidget()
         top_layout = QVBoxLayout(top)
@@ -818,7 +644,6 @@ class AdminDialog(QDialog):
         self.lesson_add = QPushButton(self.tr("Add"))
         self.lesson_edit = QPushButton(self.tr("Edit"))
         self.lesson_delete = QPushButton(self.tr("Delete"))
-        self._compact_action_buttons(self.lesson_add, self.lesson_edit, self.lesson_delete)
         btn_layout.addWidget(self.lesson_add)
         btn_layout.addWidget(self.lesson_edit)
         btn_layout.addWidget(self.lesson_delete)
@@ -861,6 +686,7 @@ class AdminDialog(QDialog):
         materials_layout.addLayout(materials_mid)
         materials_layout.addWidget(self.lesson_materials_assigned)
 
+        wrapper = QVBoxLayout(tab)
         wrapper.addWidget(splitter)
         wrapper.addWidget(materials_group)
 
@@ -877,11 +703,6 @@ class AdminDialog(QDialog):
     def _build_questions_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.questions_hint = QLabel(
-            self.tr("Use this section to manage standalone question records.")
-        )
-        self._style_hint_label(self.questions_hint)
-        layout.addWidget(self.questions_hint)
         self.questions_table = QTableWidget(0, 1)
         self.questions_table.setHorizontalHeaderLabels([self.tr("Question")])
         self.questions_table.horizontalHeader().setStretchLastSection(True)
@@ -892,7 +713,6 @@ class AdminDialog(QDialog):
         self.question_add = QPushButton(self.tr("Add"))
         self.question_edit = QPushButton(self.tr("Edit"))
         self.question_delete = QPushButton(self.tr("Delete"))
-        self._compact_action_buttons(self.question_add, self.question_edit, self.question_delete)
         btn_layout.addWidget(self.question_add)
         btn_layout.addWidget(self.question_edit)
         btn_layout.addWidget(self.question_delete)
@@ -907,30 +727,11 @@ class AdminDialog(QDialog):
     def _build_materials_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        self.material_types_hint = QLabel(
-            self.tr(
-                "Manage reference lists for material types and lesson types here. "
-                "These values are used across the whole database."
-            )
-        )
-        self._style_hint_label(self.material_types_hint)
-        layout.addWidget(self.material_types_hint)
-
         splitter = QSplitter(Qt.Vertical)
         layout.addWidget(splitter)
 
-        self.materials_group = QGroupBox(self.tr("Material types"))
+        self.materials_group = QGroupBox(self.tr("Materials"))
         materials_layout = QVBoxLayout(self.materials_group)
-        btn_layout = QHBoxLayout()
-        self.material_type_add = QPushButton(self.tr("Add"))
-        self.material_type_edit = QPushButton(self.tr("Edit"))
-        self.material_type_delete = QPushButton(self.tr("Delete"))
-        self._compact_action_buttons(self.material_type_add, self.material_type_edit, self.material_type_delete)
-        btn_layout.addWidget(self.material_type_add)
-        btn_layout.addWidget(self.material_type_edit)
-        btn_layout.addWidget(self.material_type_delete)
-        btn_layout.addStretch(1)
-        materials_layout.addLayout(btn_layout)
         self.material_types_table = QTableWidget(0, 1)
         self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
         self.material_types_table.horizontalHeader().setStretchLastSection(True)
@@ -943,21 +744,19 @@ class AdminDialog(QDialog):
             )
         )
         materials_layout.addWidget(self.material_types_table)
-        self._compact_group_box(self.materials_group)
+        btn_layout = QHBoxLayout()
+        self.material_type_add = QPushButton(self.tr("Add"))
+        self.material_type_edit = QPushButton(self.tr("Edit"))
+        self.material_type_delete = QPushButton(self.tr("Delete"))
+        btn_layout.addWidget(self.material_type_add)
+        btn_layout.addWidget(self.material_type_edit)
+        btn_layout.addWidget(self.material_type_delete)
+        btn_layout.addStretch(1)
+        materials_layout.addLayout(btn_layout)
         splitter.addWidget(self.materials_group)
 
         self.lesson_types_group = QGroupBox(self.tr("Lesson types"))
         lesson_types_layout = QVBoxLayout(self.lesson_types_group)
-        btn_layout = QHBoxLayout()
-        self.lesson_type_add = QPushButton(self.tr("Add"))
-        self.lesson_type_edit = QPushButton(self.tr("Edit"))
-        self.lesson_type_delete = QPushButton(self.tr("Delete"))
-        self._compact_action_buttons(self.lesson_type_add, self.lesson_type_edit, self.lesson_type_delete)
-        btn_layout.addWidget(self.lesson_type_add)
-        btn_layout.addWidget(self.lesson_type_edit)
-        btn_layout.addWidget(self.lesson_type_delete)
-        btn_layout.addStretch(1)
-        lesson_types_layout.addLayout(btn_layout)
         self.lesson_types_table = QTableWidget(0, 2)
         self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
         self.lesson_types_table.horizontalHeader().setStretchLastSection(True)
@@ -970,7 +769,15 @@ class AdminDialog(QDialog):
             )
         )
         lesson_types_layout.addWidget(self.lesson_types_table)
-        self._compact_group_box(self.lesson_types_group)
+        btn_layout = QHBoxLayout()
+        self.lesson_type_add = QPushButton(self.tr("Add"))
+        self.lesson_type_edit = QPushButton(self.tr("Edit"))
+        self.lesson_type_delete = QPushButton(self.tr("Delete"))
+        btn_layout.addWidget(self.lesson_type_add)
+        btn_layout.addWidget(self.lesson_type_edit)
+        btn_layout.addWidget(self.lesson_type_delete)
+        btn_layout.addStretch(1)
+        lesson_types_layout.addLayout(btn_layout)
         splitter.addWidget(self.lesson_types_group)
 
         self.material_type_add.clicked.connect(self._add_material_type)
@@ -987,24 +794,6 @@ class AdminDialog(QDialog):
     def _build_sync_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-
-        self.sync_hint = QLabel(
-            self.tr(
-                "Use this section to compare the current database with another local source "
-                "before applying synchronization."
-            )
-        )
-        self._style_hint_label(self.sync_hint)
-        layout.addWidget(self.sync_hint)
-
-        self.sync_steps_hint = QLabel(
-            self.tr(
-                "Recommended order: 1) choose synchronization mode, 2) choose programs, "
-                "3) review differences, 4) apply changes."
-            )
-        )
-        self._style_hint_label(self.sync_steps_hint)
-        layout.addWidget(self.sync_steps_hint)
 
         self.sync_mode_panel = QWidget()
         mode_layout = QHBoxLayout(self.sync_mode_panel)
@@ -1052,14 +841,6 @@ class AdminDialog(QDialog):
         self.sync_panel = QWidget()
         panel_layout = QVBoxLayout(self.sync_panel)
 
-        self.sync_mapping_hint = QLabel(
-            self.tr(
-                "Choose the current local program on the left and the source program to compare on the right."
-            )
-        )
-        self._style_hint_label(self.sync_mapping_hint)
-        panel_layout.addWidget(self.sync_mapping_hint)
-
         mapping_row = QHBoxLayout()
         self.sync_target_label = QLabel(self.tr("Target program:"))
         self.sync_target_program_combo = QComboBox()
@@ -1094,14 +875,6 @@ class AdminDialog(QDialog):
 
         self.sync_hide_identical = QCheckBox(self.tr("Hide identical elements"))
         panel_layout.addWidget(self.sync_hide_identical)
-        self.sync_compare_hint = QLabel(
-            self.tr(
-                "Left side shows the current local structure. Right side shows the source structure "
-                "that will be imported or used for synchronization."
-            )
-        )
-        self._style_hint_label(self.sync_compare_hint)
-        panel_layout.addWidget(self.sync_compare_hint)
 
         splitter = QSplitter(Qt.Horizontal)
         self.sync_left_tree = QTreeWidget()
@@ -1145,14 +918,6 @@ class AdminDialog(QDialog):
     def _build_settings_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-
-        self.settings_hint = QLabel(
-            self.tr(
-                "Use this section to manage file locations, database maintenance, and user settings backups."
-            )
-        )
-        self._style_hint_label(self.settings_hint)
-        layout.addWidget(self.settings_hint)
 
         info_group = QWidget()
         info_layout = QVBoxLayout(info_group)
@@ -1198,20 +963,13 @@ class AdminDialog(QDialog):
         storage_layout.addWidget(self.materials_location_browse)
         layout.addWidget(storage_group)
 
-        db_group = QGroupBox(self.tr("Database maintenance"))
+        db_group = QWidget()
         db_layout = QHBoxLayout(db_group)
-        self.db_export = QPushButton(self.tr("Export DB copy"))
-        self.db_import = QPushButton(self.tr("Import DB file"))
-        self.db_check = QPushButton(self.tr("Check DB"))
+        self.db_export = QPushButton(self.tr("Export database"))
+        self.db_import = QPushButton(self.tr("Import database"))
+        self.db_check = QPushButton(self.tr("Check database"))
         self.db_cleanup = QPushButton(self.tr("Cleanup unused data"))
-        self.db_repair = QPushButton(self.tr("Repair DB"))
-        self._compact_action_buttons(
-            self.db_export,
-            self.db_import,
-            self.db_check,
-            self.db_cleanup,
-            self.db_repair,
-        )
+        self.db_repair = QPushButton(self.tr("Repair database"))
         db_layout.addWidget(self.db_export)
         db_layout.addWidget(self.db_import)
         db_layout.addWidget(self.db_check)
@@ -1219,24 +977,28 @@ class AdminDialog(QDialog):
         db_layout.addWidget(self.db_repair)
         db_layout.addStretch(1)
         layout.addWidget(db_group)
-        self._compact_group_box(db_group)
 
-        user_settings_group = QGroupBox(self.tr("User settings backup"))
+        user_settings_group = QWidget()
         user_settings_layout = QHBoxLayout(user_settings_group)
-        self.user_settings_export = QPushButton(self.tr("Export settings copy"))
-        self.user_settings_import = QPushButton(self.tr("Import settings file"))
-        self.user_settings_save = QPushButton(self.tr("Save current settings"))
-        self._compact_action_buttons(
-            self.user_settings_export,
-            self.user_settings_import,
-            self.user_settings_save,
-        )
+        self.user_settings_export = QPushButton(self.tr("Export user settings"))
+        self.user_settings_import = QPushButton(self.tr("Import user settings"))
+        self.user_settings_save = QPushButton(self.tr("Save user settings"))
         user_settings_layout.addWidget(self.user_settings_export)
         user_settings_layout.addWidget(self.user_settings_import)
         user_settings_layout.addWidget(self.user_settings_save)
         user_settings_layout.addStretch(1)
         layout.addWidget(user_settings_group)
-        self._compact_group_box(user_settings_group)
+
+        password_group = QWidget()
+        password_layout = QHBoxLayout(password_group)
+        self.passwords_label = QLabel(self.tr("Access passwords"))
+        self.change_admin_password_btn = QPushButton(self.tr("Change admin password"))
+        self.change_editor_password_btn = QPushButton(self.tr("Change editor password"))
+        password_layout.addWidget(self.passwords_label)
+        password_layout.addWidget(self.change_admin_password_btn)
+        password_layout.addWidget(self.change_editor_password_btn)
+        password_layout.addStretch(1)
+        layout.addWidget(password_group)
         layout.addStretch(1)
 
         self.materials_location_browse.clicked.connect(self._change_materials_location)
@@ -1251,133 +1013,10 @@ class AdminDialog(QDialog):
         self.user_settings_export.clicked.connect(self._export_user_settings)
         self.user_settings_import.clicked.connect(self._import_user_settings)
         self.user_settings_save.clicked.connect(self._save_user_settings)
+        self.change_admin_password_btn.clicked.connect(self._change_admin_password)
+        self.change_editor_password_btn.clicked.connect(self._change_editor_password)
 
         self._refresh_settings()
-        return tab
-
-    def _build_log_tab(self) -> QWidget:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-
-        self.log_hint = QLabel(
-            self.tr("Use the log to review user actions and recent administrative changes.")
-        )
-        self._style_hint_label(self.log_hint)
-        layout.addWidget(self.log_hint)
-
-        self.log_table = QTableWidget(0, 5)
-        self.log_table.setHorizontalHeaderLabels(
-            [
-                self.tr("Time"),
-                self.tr("User"),
-                self.tr("Mode"),
-                self.tr("Action"),
-                self.tr("Details"),
-            ]
-        )
-        self.log_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.log_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.log_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.log_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        self.log_table.horizontalHeader().setStretchLastSection(True)
-        self.log_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.log_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.log_table.setAlternatingRowColors(True)
-        layout.addWidget(self.log_table)
-
-        btn_row = QHBoxLayout()
-        self.log_refresh_btn = QPushButton(self.tr("Refresh log"))
-        self.log_clear_btn = QPushButton(self.tr("Clear log entries"))
-        self._compact_action_buttons(self.log_refresh_btn, self.log_clear_btn)
-        btn_row.addWidget(self.log_refresh_btn)
-        btn_row.addWidget(self.log_clear_btn)
-        btn_row.addStretch(1)
-        layout.addLayout(btn_row)
-
-        self.log_refresh_btn.clicked.connect(self._refresh_log_tab)
-        self.log_clear_btn.clicked.connect(self._clear_log_tab)
-        self._refresh_log_tab()
-        return tab
-
-    def _build_internet_tab(self) -> QWidget:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-
-        self.internet_sync_hint = QLabel(
-            self.tr(
-                "Use this section to connect to the Internet database and synchronize data safely."
-            )
-        )
-        self._style_hint_label(self.internet_sync_hint)
-        layout.addWidget(self.internet_sync_hint)
-
-        self.internet_sync_steps_hint = QLabel(
-            self.tr(
-                "Recommended order: 1) enter connection settings, 2) connect, "
-                "3) choose synchronization direction, 4) review conflicts, 5) apply changes."
-            )
-        )
-        self._style_hint_label(self.internet_sync_steps_hint)
-        layout.addWidget(self.internet_sync_steps_hint)
-
-        self.internet_db_group = QGroupBox(self.tr("Internet database connection"))
-        form_layout = QFormLayout(self.internet_db_group)
-
-        self.internet_db_host = QLineEdit()
-        self.internet_db_port = QLineEdit()
-        self.internet_db_name = QLineEdit()
-        self.internet_db_user = QLineEdit()
-        self.internet_db_password = QLineEdit()
-        self.internet_db_password.setEchoMode(QLineEdit.Password)
-
-        self.internet_db_host_label = QLabel(self.tr("Host"))
-        self.internet_db_port_label = QLabel(self.tr("Port"))
-        self.internet_db_name_label = QLabel(self.tr("Database"))
-        self.internet_db_user_label = QLabel(self.tr("Login"))
-        self.internet_db_password_label = QLabel(self.tr("Password"))
-
-        form_layout.addRow(self.internet_db_host_label, self.internet_db_host)
-        form_layout.addRow(self.internet_db_port_label, self.internet_db_port)
-        form_layout.addRow(self.internet_db_name_label, self.internet_db_name)
-        form_layout.addRow(self.internet_db_user_label, self.internet_db_user)
-        form_layout.addRow(self.internet_db_password_label, self.internet_db_password)
-        layout.addWidget(self.internet_db_group)
-
-        actions_layout = QHBoxLayout()
-        self.internet_db_indicator = QLabel()
-        self.internet_db_indicator.setFixedSize(10, 10)
-        self.internet_db_save = QPushButton(self.tr("Save"))
-        self.internet_db_connect = QPushButton(self.tr("Connect to Internet DB"))
-        self.internet_db_status = QLabel(self.tr("Not connected"))
-        self._compact_action_buttons(self.internet_db_save, self.internet_db_connect)
-        actions_layout.addWidget(self.internet_db_indicator)
-        actions_layout.addWidget(self.internet_db_save)
-        actions_layout.addWidget(self.internet_db_connect)
-        actions_layout.addWidget(self.internet_db_status, 1)
-        layout.addLayout(actions_layout)
-
-        self.internet_direction_hint = QLabel(
-            self.tr("Choose where the changes should go before starting synchronization.")
-        )
-        self._style_hint_label(self.internet_direction_hint)
-        layout.addWidget(self.internet_direction_hint)
-
-        sync_layout = QHBoxLayout()
-        self.internet_sync_direction = QComboBox()
-        self.internet_sync_direction.addItem(self.tr("Upload local changes to Internet DB"), "push")
-        self.internet_sync_direction.addItem(self.tr("Download Internet DB changes to local database"), "pull")
-        self.internet_db_sync = QPushButton(self.tr("Start synchronization"))
-        self._compact_action_buttons(self.internet_db_sync)
-        sync_layout.addWidget(self.internet_sync_direction)
-        sync_layout.addWidget(self.internet_db_sync)
-        sync_layout.addStretch(1)
-        layout.addLayout(sync_layout)
-        layout.addStretch(1)
-
-        self.internet_db_save.clicked.connect(self._save_internet_db_settings)
-        self.internet_db_connect.clicked.connect(self._connect_internet_database)
-        self.internet_db_sync.clicked.connect(self._synchronize_internet_database)
-        self._load_internet_db_settings()
         return tab
 
     def _refresh_all(self) -> None:
@@ -1385,1611 +1024,6 @@ class AdminDialog(QDialog):
         self._refresh_lesson_types()
         self._refresh_material_types()
         self._refresh_structure_tree()
-
-    # Teachers
-    def _refresh_teachers(self) -> None:
-        self._teachers_updating = True
-        self.teachers_table.setRowCount(0)
-        teachers = list(self.controller.get_teachers())
-        teachers.sort(key=self._teacher_sort_key)
-        for teacher in teachers:
-            row = self.teachers_table.rowCount()
-            self.teachers_table.insertRow(row)
-            self.teachers_table.setItem(row, 0, QTableWidgetItem(teacher.full_name))
-            self.teachers_table.setItem(row, 1, QTableWidgetItem(teacher.military_rank or ""))
-            self.teachers_table.setItem(row, 2, QTableWidgetItem(teacher.position or ""))
-            self.teachers_table.setItem(row, 3, QTableWidgetItem(teacher.department or ""))
-            self.teachers_table.setItem(row, 4, QTableWidgetItem(teacher.email or ""))
-            self.teachers_table.setItem(row, 5, QTableWidgetItem(teacher.phone or ""))
-            self.teachers_table.item(row, 0).setData(Qt.UserRole, teacher)
-        self._teachers_updating = False
-        self._refresh_teacher_disciplines()
-
-    def _on_teacher_item_changed(self, item: QTableWidgetItem) -> None:
-        if getattr(self, "_teachers_updating", False):
-            return
-        row = item.row()
-        teacher_item = self.teachers_table.item(row, 0)
-        if not teacher_item:
-            return
-        teacher = teacher_item.data(Qt.UserRole)
-        if not teacher or teacher.id is None:
-            return
-        value = (item.text() or "").strip()
-        if item.column() == 0:
-            teacher.full_name = value
-        elif item.column() == 1:
-            teacher.military_rank = value or None
-        elif item.column() == 2:
-            teacher.position = value or None
-        elif item.column() == 3:
-            teacher.department = value or None
-        elif item.column() == 4:
-            teacher.email = value or None
-        elif item.column() == 5:
-            teacher.phone = value or None
-        else:
-            return
-        self.controller.update_teacher(teacher)
-        self._teachers_updating = True
-        try:
-            teacher_item.setData(Qt.UserRole, teacher)
-        finally:
-            self._teachers_updating = False
-
-    def _teacher_sort_key(self, teacher) -> tuple:
-        position = (teacher.position or "").lower()
-        department = (teacher.department or "").lower()
-        rank = (teacher.military_rank or "").strip()
-        rank_lower = rank.lower()
-        has_rank = bool(rank)
-
-        is_head = "начальник кафедри" in position
-        is_deputy = "заступник начальника кафедри" in position
-        is_docent = "доцент" in position
-        is_senior = "старший викладач" in position
-        is_teacher = "викладач" in position
-        is_zsu = ("зсу" in position) or ("зсу" in department)
-
-        rank_order = [
-            "полковник",
-            "підполковник",
-            "майор",
-            "капітан",
-            "старший лейтенант",
-            "лейтенант",
-            "молодший лейтенант",
-        ]
-        rank_index = len(rank_order)
-        for idx, token in enumerate(rank_order):
-            if token in rank_lower:
-                rank_index = idx
-                break
-
-        if is_zsu:
-            group = 6
-        elif is_head:
-            group = 1
-        elif is_deputy:
-            group = 2
-        elif is_docent and has_rank:
-            group = 3
-        elif is_senior and has_rank:
-            group = 4
-        elif is_teacher and has_rank:
-            group = 5
-        else:
-            group = 7
-
-        sub = 0
-        if group == 6:
-            sub = 0 if is_docent else 1
-
-        return (group, sub, rank_index, teacher.full_name.lower())
-
-    def _refresh_teacher_disciplines(self) -> None:
-        if not hasattr(self, "teacher_disciplines_available"):
-            return
-        self.teacher_disciplines_available.clear()
-        self.teacher_disciplines_assigned.clear()
-        teacher = self._current_entity(self.teachers_table)
-        if not teacher:
-            return
-        assigned = {d.id for d in self.controller.get_teacher_disciplines(teacher.id)}
-        discipline_programs = {}
-        for program in self.controller.get_programs():
-            for discipline in self.controller.get_program_disciplines(program.id):
-                discipline_programs.setdefault(discipline.id, []).append(program.name)
-        for discipline in self.controller.get_disciplines():
-            programs = discipline_programs.get(discipline.id, [])
-            if programs:
-                label = "\n".join(f"{program} | {discipline.name}" for program in programs)
-            else:
-                label = discipline.name
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, discipline)
-            if discipline.id in assigned:
-                self.teacher_disciplines_assigned.addItem(item)
-            else:
-                self.teacher_disciplines_available.addItem(item)
-
-    def _add_discipline_to_teacher(self) -> None:
-        teacher = self._current_entity(self.teachers_table)
-        item = self.teacher_disciplines_available.currentItem()
-        if not teacher or not item:
-            return
-        discipline = item.data(Qt.UserRole)
-        self.controller.add_discipline_to_teacher(teacher.id, discipline.id)
-        self._refresh_teacher_disciplines()
-
-    def _remove_discipline_from_teacher(self) -> None:
-        teacher = self._current_entity(self.teachers_table)
-        item = self.teacher_disciplines_assigned.currentItem()
-        if not teacher or not item:
-            return
-        discipline = item.data(Qt.UserRole)
-        self.controller.remove_discipline_from_teacher(teacher.id, discipline.id)
-        self._refresh_teacher_disciplines()
-
-    def _add_teacher(self) -> None:
-        dialog = TeacherDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        teacher = dialog.get_teacher()
-        if not teacher.full_name:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Full name is required."))
-            return
-        self.controller.add_teacher(teacher)
-        self._log_action("add_teacher", teacher.full_name or "")
-        self._refresh_teachers()
-
-    def _edit_teacher(self) -> None:
-        teacher = self._current_entity(self.teachers_table)
-        if not teacher:
-            return
-        dialog = TeacherDialog(teacher, self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        updated = dialog.get_teacher()
-        if updated.id is None:
-            updated.id = teacher.id
-        self.controller.update_teacher(updated)
-        self._log_action("edit_teacher", updated.full_name or "")
-        self._refresh_teachers()
-
-    def _delete_teacher(self) -> None:
-        teachers = self._selected_entities(self.teachers_table)
-        if not teachers:
-            return
-        confirm_text = (
-            self.tr("Delete selected teacher?")
-            if len(teachers) == 1
-            else self.tr("Delete selected teacher?") + f" ({len(teachers)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for teacher in teachers:
-            self.controller.delete_teacher(teacher.id)
-            self._log_action("delete_teacher", teacher.full_name or "")
-        self._refresh_teachers()
-
-    # Structure
-    def _refresh_structure_tree(self) -> None:
-        expanded_keys = self._structure_expanded_keys()
-        selected_key = self._structure_selected_key()
-        self.structure_tree.clear()
-        item_index = {}
-        for program in self.controller.get_programs():
-            program_item = QTreeWidgetItem([program.name])
-            program_item.setData(0, Qt.UserRole, program)
-            program_item.setData(0, Qt.UserRole + 1, "program")
-            self.structure_tree.addTopLevelItem(program_item)
-            item_index[("program", program.id)] = program_item
-            for discipline in self.controller.get_program_disciplines(program.id):
-                discipline_item = QTreeWidgetItem([discipline.name])
-                discipline_item.setData(0, Qt.UserRole, discipline)
-                discipline_item.setData(0, Qt.UserRole + 1, "discipline")
-                program_item.addChild(discipline_item)
-                item_index[("discipline", discipline.id)] = discipline_item
-                for topic in self.controller.get_discipline_topics(discipline.id):
-                    topic_item = QTreeWidgetItem([topic.title])
-                    topic_item.setData(0, Qt.UserRole, topic)
-                    topic_item.setData(0, Qt.UserRole + 1, "topic")
-                    discipline_item.addChild(topic_item)
-                    item_index[("topic", topic.id)] = topic_item
-                    for lesson in self.controller.get_topic_lessons(topic.id):
-                        lesson_item = QTreeWidgetItem([lesson.title])
-                        lesson_item.setData(0, Qt.UserRole, lesson)
-                        lesson_item.setData(0, Qt.UserRole + 1, "lesson")
-                        topic_item.addChild(lesson_item)
-                        item_index[("lesson", lesson.id)] = lesson_item
-                        for question in self.controller.get_lesson_questions(lesson.id):
-                            question_item = QTreeWidgetItem([question.content])
-                            question_item.setData(0, Qt.UserRole, question)
-                            question_item.setData(0, Qt.UserRole + 1, "question")
-                            lesson_item.addChild(question_item)
-                            item_index[("question", question.id)] = question_item
-
-        for key in expanded_keys:
-            item = item_index.get(key)
-            if item:
-                item.setExpanded(True)
-        if selected_key and selected_key in item_index:
-            self.structure_tree.setCurrentItem(item_index[selected_key])
-        self._resize_structure_tree()
-
-    def _refresh_structure_with_reorder(self) -> None:
-        selection = self._current_structure_entity()
-        if not selection:
-            self._refresh_structure_tree()
-            return
-        entity_type, entity = selection
-        if entity_type == "lesson":
-            self.controller.normalize_lesson_question_order(entity.id)
-        elif entity_type == "topic":
-            self.controller.normalize_topic_lesson_order(entity.id)
-            for lesson in self.controller.get_topic_lessons(entity.id):
-                self.controller.normalize_lesson_question_order(lesson.id)
-        elif entity_type == "discipline":
-            for topic in self.controller.get_discipline_topics(entity.id):
-                self.controller.normalize_topic_lesson_order(topic.id)
-                for lesson in self.controller.get_topic_lessons(topic.id):
-                    self.controller.normalize_lesson_question_order(lesson.id)
-        elif entity_type == "program":
-            for discipline in self.controller.get_program_disciplines(entity.id):
-                for topic in self.controller.get_discipline_topics(discipline.id):
-                    self.controller.normalize_topic_lesson_order(topic.id)
-                    for lesson in self.controller.get_topic_lessons(topic.id):
-                        self.controller.normalize_lesson_question_order(lesson.id)
-        self._refresh_structure_tree()
-
-    def _structure_selected_key(self):
-        selection = self._current_structure_entity()
-        if not selection:
-            return None
-        entity_type, entity = selection
-        if not getattr(entity, "id", None):
-            return None
-        return (entity_type, entity.id)
-
-    def _structure_expanded_keys(self) -> set:
-        expanded = set()
-        root_count = self.structure_tree.topLevelItemCount()
-        for i in range(root_count):
-            self._collect_expanded(self.structure_tree.topLevelItem(i), expanded)
-        return expanded
-
-    def _collect_expanded(self, item: QTreeWidgetItem, expanded: set) -> None:
-        entity_type = item.data(0, Qt.UserRole + 1)
-        entity = item.data(0, Qt.UserRole)
-        if entity_type and entity and getattr(entity, "id", None) and item.isExpanded():
-            expanded.add((entity_type, entity.id))
-        for idx in range(item.childCount()):
-            self._collect_expanded(item.child(idx), expanded)
-
-    def _on_structure_selection_changed(self) -> None:
-        entity = self._current_structure_entity()
-        if not entity:
-            self.structure_title.setText(self.tr("Select an item"))
-            self.structure_details.setText("")
-            self._set_structure_buttons(enabled_program=True)
-            return
-        entity_type, obj = entity
-        title = self._structure_title(entity_type, obj)
-        details = self._structure_details(entity_type, obj)
-        self.structure_title.setText(title)
-        self.structure_details.setText(details)
-        self._set_structure_buttons_for_type(entity_type)
-        self._refresh_materials()
-        self._resize_structure_tree()
-
-    def _resize_structure_tree(self) -> None:
-        self.structure_tree.doItemsLayout()
-
-    def _set_structure_buttons(self, enabled_program: bool) -> None:
-        self.structure_add_program.setEnabled(enabled_program)
-        self.structure_add_discipline.setEnabled(False)
-        self.structure_add_topic.setEnabled(False)
-        self.structure_add_lesson.setEnabled(False)
-        self.structure_add_question.setEnabled(False)
-        self.structure_edit.setEnabled(False)
-        self.structure_delete.setEnabled(False)
-        self.structure_duplicate.setEnabled(False)
-        self.structure_copy.setEnabled(False)
-
-    def _set_structure_buttons_for_type(self, entity_type: str) -> None:
-        self.structure_add_program.setEnabled(True)
-        self.structure_add_discipline.setEnabled(entity_type in ("program", "discipline", "topic", "lesson", "question"))
-        self.structure_add_topic.setEnabled(entity_type in ("discipline", "topic", "lesson", "question"))
-        self.structure_add_lesson.setEnabled(entity_type in ("topic", "lesson", "question"))
-        self.structure_add_question.setEnabled(entity_type in ("lesson", "question"))
-        self.structure_edit.setEnabled(True)
-        self.structure_delete.setEnabled(True)
-        self.structure_duplicate.setEnabled(True)
-        self.structure_copy.setEnabled(True)
-
-    def _current_structure_entity(self):
-        item = self.structure_tree.currentItem()
-        if not item:
-            return None
-        entity = item.data(0, Qt.UserRole)
-        entity_type = item.data(0, Qt.UserRole + 1)
-        if not entity or not entity_type:
-            return None
-        return entity_type, entity
-
-    def _current_structure_lesson(self):
-        selection = self._current_structure_entity()
-        if not selection:
-            return None
-        entity_type, entity = selection
-        return entity if entity_type == "lesson" else None
-
-    def _current_structure_material_target(self):
-        selection = self._current_structure_entity()
-        if not selection:
-            return None
-        entity_type, entity = selection
-        if entity_type in {"program", "discipline", "lesson"}:
-            return entity_type, entity
-        return None
-
-    def _select_structure_entity(self, entity_type: str, entity_id: int) -> None:
-        root_count = self.structure_tree.topLevelItemCount()
-        for i in range(root_count):
-            item = self._find_structure_item(self.structure_tree.topLevelItem(i), entity_type, entity_id)
-            if item:
-                self.structure_tree.setCurrentItem(item)
-                return
-
-    def _find_structure_item(self, item: QTreeWidgetItem, entity_type: str, entity_id: int):
-        if item.data(0, Qt.UserRole + 1) == entity_type:
-            entity = item.data(0, Qt.UserRole)
-            if entity and getattr(entity, "id", None) == entity_id:
-                return item
-        for idx in range(item.childCount()):
-            found = self._find_structure_item(item.child(idx), entity_type, entity_id)
-            if found:
-                return found
-        return None
-
-    def _filtered_teachers_for_target(self, entity_type: str, entity):
-        if entity_type == "lesson":
-            disciplines = self.controller.discipline_repo.get_disciplines_for_lesson(entity.id)
-        elif entity_type == "discipline":
-            disciplines = [entity]
-        elif entity_type == "program":
-            disciplines = self.controller.get_program_disciplines(entity.id)
-        else:
-            disciplines = []
-        discipline_ids = [d.id for d in disciplines if d and d.id is not None]
-        if not discipline_ids:
-            return self.controller.get_teachers()
-        teachers = self.controller.get_teachers_for_disciplines(discipline_ids)
-        return teachers if teachers else self.controller.get_teachers()
-
-    def _set_material_buttons_enabled(self, enabled: bool) -> None:
-        for button in [
-            self.material_add,
-            self.material_edit,
-            self.material_delete,
-            self.material_open,
-            self.material_show,
-            self.material_copy,
-        ]:
-            button.setEnabled(enabled)
-
-    def _structure_title(self, entity_type: str, entity) -> str:
-        if entity_type == "program":
-            return f"{self.tr('Program')}: {entity.name}"
-        if entity_type == "discipline":
-            return f"{self.tr('Discipline')}: {entity.name}"
-        if entity_type == "topic":
-            return f"{self.tr('Topic')}: {entity.title}"
-        if entity_type == "lesson":
-            return f"{self.tr('Lesson')}: {entity.title}"
-        if entity_type == "question":
-            return f"{self.tr('Question')}"
-        return self.tr("Select an item")
-
-    def _structure_details(self, entity_type: str, entity) -> str:
-        if entity_type == "program":
-            return (
-                f"{self.tr('Level')}: {entity.level or ''}\n"
-                f"{self.tr('Year')}: {entity.year or ''}\n"
-                f"{self.tr('Duration')}: {entity.duration_hours or ''}"
-            )
-        if entity_type == "discipline":
-            return entity.description or ""
-        if entity_type == "topic":
-            return entity.description or ""
-        if entity_type == "lesson":
-            parts = []
-            if entity.lesson_type_name:
-                parts.append(f"{self.tr('Type')}: {entity.lesson_type_name}")
-            if entity.duration_hours is not None:
-                parts.append(f"{self.tr('Total hours')}: {entity.duration_hours}")
-            if entity.classroom_hours is not None:
-                parts.append(f"{self.tr('Classroom hours')}: {entity.classroom_hours}")
-            if entity.self_study_hours is not None:
-                parts.append(f"{self.tr('Self-study hours')}: {entity.self_study_hours}")
-            return "\n".join(parts)
-        if entity_type == "question":
-            return entity.content or ""
-        return ""
-
-    def _find_parent_entity(self, item: QTreeWidgetItem, entity_type: str):
-        current = item
-        while current:
-            if current.data(0, Qt.UserRole + 1) == entity_type:
-                return current.data(0, Qt.UserRole)
-            current = current.parent()
-        return None
-
-    def _add_structure_program(self) -> None:
-        dialog = ProgramDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        program = dialog.get_program()
-        if not program.name:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Program name is required."))
-            return
-        self.controller.add_program(program)
-        self._log_action("add_program", program.name or "")
-        self._refresh_structure_tree()
-
-    def _add_structure_discipline(self) -> None:
-        item = self.structure_tree.currentItem()
-        program = None
-        if item:
-            program = self._find_parent_entity(item, "program")
-        if not program:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program first."))
-            return
-        dialog = DisciplineDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        discipline = dialog.get_discipline()
-        if not discipline.name:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Discipline name is required."))
-            return
-        self.controller.add_discipline(discipline)
-        self.controller.add_discipline_to_program(program.id, discipline.id, discipline.order_index)
-        self._log_action("add_discipline", discipline.name or "")
-        self._refresh_structure_tree()
-
-    def _add_structure_topic(self) -> None:
-        item = self.structure_tree.currentItem()
-        discipline = None
-        if item:
-            discipline = self._find_parent_entity(item, "discipline")
-        if not discipline:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a discipline first."))
-            return
-        dialog = TopicDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        topic = dialog.get_topic()
-        if not topic.title:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Topic title is required."))
-            return
-        self.controller.add_topic(topic)
-        self.controller.add_topic_to_discipline(discipline.id, topic.id, topic.order_index)
-        self._log_action("add_topic", topic.title or "")
-        self._refresh_structure_tree()
-
-    def _add_structure_lesson(self) -> None:
-        item = self.structure_tree.currentItem()
-        topic = None
-        if item:
-            topic = self._find_parent_entity(item, "topic")
-        if not topic:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a topic first."))
-            return
-        dialog = LessonDialog(
-            lesson_types=self.controller.get_lesson_types(),
-            parent=self,
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return
-        lesson = dialog.get_lesson()
-        if not lesson.title:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Lesson title is required."))
-            return
-        self.controller.add_lesson(lesson)
-        self.controller.add_lesson_to_topic(topic.id, lesson.id, lesson.order_index)
-        self._log_action("add_lesson", lesson.title or "")
-        self._attach_new_questions_to_lesson(lesson.id, dialog.get_new_questions())
-        self._refresh_structure_tree()
-
-    def _add_structure_question(self) -> None:
-        item = self.structure_tree.currentItem()
-        lesson = None
-        if item:
-            lesson = self._find_parent_entity(item, "lesson")
-        if not lesson:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a lesson first."))
-            return
-        dialog = QuestionDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        question = dialog.get_question()
-        if not question.content:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Question text is required."))
-            return
-        if question.order_index <= 0:
-            question.order_index = self.controller.get_next_lesson_question_order(lesson.id)
-        self.controller.add_question(question)
-        self.controller.add_question_to_lesson(lesson.id, question.id, question.order_index)
-        self._log_action("add_question", (question.content or "")[:120])
-        self._refresh_structure_tree()
-
-    def _edit_structure_selected(self) -> None:
-        selection = self._current_structure_entity()
-        if not selection:
-            return
-        entity_type, entity = selection
-        item = self.structure_tree.currentItem()
-        if entity_type == "program":
-            dialog = ProgramDialog(entity, self)
-            if dialog.exec() != QDialog.Accepted:
-                return
-            self.controller.update_program(dialog.get_program())
-            self._refresh_structure_tree()
-            self._select_structure_entity(entity_type, entity.id)
-            return
-        if entity_type == "discipline":
-            program = self._find_parent_entity(item, "program")
-            if program:
-                entity = self.controller.ensure_discipline_for_edit(entity.id, program.id)
-            programs = [program] if program else self.controller.get_programs()
-            disciplines = (
-                self.controller.get_program_disciplines(program.id)
-                if program
-                else self.controller.get_disciplines()
-            )
-            dialog = DisciplineDialog(
-                entity,
-                self,
-                enable_type_switch=True,
-                programs=programs,
-                disciplines=disciplines,
-                initial_parent_type="program" if program else None,
-                initial_parent_id=program.id if program else None,
-            )
-            if dialog.exec() != QDialog.Accepted:
-                return
-            updated = dialog.get_discipline()
-            new_type, parent_type, parent_id = dialog.get_type_payload()
-            if new_type == "discipline":
-                self.controller.update_discipline(updated)
-                if program and parent_type == "program" and parent_id and parent_id != program.id:
-                    self.controller.move_discipline_to_program(updated.id, program.id, parent_id)
-                self._refresh_structure_tree()
-                self._select_structure_entity("discipline", updated.id)
-            else:
-                if not parent_id:
-                    QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a discipline first."))
-                    return
-                if program:
-                    program_disciplines = {d.id for d in self.controller.get_program_disciplines(program.id)}
-                    if parent_id not in program_disciplines:
-                        QMessageBox.warning(
-                            self, self.tr("Validation"), self.tr("Select a discipline from the same program.")
-                        )
-                        return
-                try:
-                    new_topic = self.controller.convert_discipline_to_topic(updated, program.id if program else 0, parent_id)
-                except Exception as exc:
-                    QMessageBox.warning(self, self.tr("Validation"), str(exc))
-                    return
-                self._refresh_structure_tree()
-                self._select_structure_entity("topic", new_topic.id)
-            return
-        if entity_type == "topic":
-            discipline = self._find_parent_entity(item, "discipline")
-            if discipline:
-                entity = self.controller.ensure_topic_for_edit(entity.id, discipline.id)
-            program_id, _ = self.controller.get_primary_parent_ids("topic", entity.id)
-            programs = (
-                [p for p in self.controller.get_programs() if p.id == program_id]
-                if program_id
-                else self.controller.get_programs()
-            )
-            disciplines = (
-                self.controller.get_program_disciplines(program_id)
-                if program_id
-                else self.controller.get_disciplines()
-            )
-            dialog = TopicDialog(
-                entity,
-                self,
-                enable_type_switch=True,
-                programs=programs,
-                disciplines=disciplines,
-                initial_parent_type="discipline" if discipline else None,
-                initial_parent_id=discipline.id if discipline else None,
-            )
-            if dialog.exec() != QDialog.Accepted:
-                return
-            updated = dialog.get_topic()
-            new_type, parent_type, parent_id = dialog.get_type_payload()
-            if new_type == "topic":
-                self.controller.update_topic(updated)
-                if discipline and parent_type == "discipline" and parent_id and parent_id != discipline.id:
-                    self.controller.move_topic_to_discipline(updated.id, discipline.id, parent_id)
-                self._refresh_structure_tree()
-                self._select_structure_entity("topic", updated.id)
-            else:
-                if not parent_id:
-                    QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program first."))
-                    return
-                try:
-                    new_discipline = self.controller.convert_topic_to_discipline(
-                        updated, discipline.id if discipline else 0, parent_id
-                    )
-                except Exception as exc:
-                    QMessageBox.warning(self, self.tr("Validation"), str(exc))
-                    return
-                self._refresh_structure_tree()
-                self._select_structure_entity("discipline", new_discipline.id)
-            return
-        if entity_type == "lesson":
-            topic = self._find_parent_entity(item, "topic")
-            if topic:
-                entity = self.controller.ensure_lesson_for_edit(entity.id, topic.id)
-            dialog = LessonDialog(entity, self.controller.get_lesson_types(), self)
-            if dialog.exec() != QDialog.Accepted:
-                return
-            updated = dialog.get_lesson()
-            self.controller.update_lesson(updated)
-            if topic and updated.order_index > 0:
-                self.controller.update_topic_lesson_order(topic.id, updated.id, updated.order_index)
-            self._refresh_structure_tree()
-            self._select_structure_entity(entity_type, entity.id)
-            return
-        if entity_type == "question":
-            lesson = self._find_parent_entity(item, "lesson")
-            if lesson:
-                entity = self.controller.ensure_question_for_edit(entity.id, lesson.id)
-            dialog = QuestionDialog(entity, self)
-            if dialog.exec() != QDialog.Accepted:
-                return
-            updated = dialog.get_question()
-            self.controller.update_question(updated)
-            if lesson and updated.order_index > 0:
-                self.controller.update_lesson_question_order(lesson.id, updated.id, updated.order_index)
-            self._refresh_structure_tree()
-            self._select_structure_entity(entity_type, entity.id)
-
-    def _delete_structure_selected(self) -> None:
-        selection = self._current_structure_entity()
-        if not selection:
-            return
-        entity_type, entity = selection
-        confirm = self.tr("Delete selected item?")
-        if QMessageBox.question(self, self.tr("Confirm"), confirm) != QMessageBox.Yes:
-            return
-        if entity_type == "program":
-            self.controller.delete_program(entity.id)
-            self._log_action("delete_program", entity.name or "")
-        elif entity_type == "discipline":
-            self.controller.delete_discipline(entity.id)
-            self._log_action("delete_discipline", entity.name or "")
-        elif entity_type == "topic":
-            self.controller.delete_topic(entity.id)
-            self._log_action("delete_topic", entity.title or "")
-        elif entity_type == "lesson":
-            self.controller.delete_lesson(entity.id)
-            self._log_action("delete_lesson", entity.title or "")
-        elif entity_type == "question":
-            self.controller.delete_question(entity.id)
-            self._log_action("delete_question", (entity.content or "")[:120])
-        self._refresh_structure_tree()
-
-    def _duplicate_structure_selected(self) -> None:
-        selection = self._current_structure_entity()
-        item = self.structure_tree.currentItem()
-        if not selection or not item:
-            return
-        entity_type, entity = selection
-        new_entity = None
-        if entity_type == "program":
-            new_entity = self.controller.duplicate_program(entity.id)
-        elif entity_type == "discipline":
-            program = self._find_parent_entity(item, "program")
-            if program:
-                new_entity = self.controller.duplicate_discipline(entity.id, program.id)
-        elif entity_type == "topic":
-            discipline = self._find_parent_entity(item, "discipline")
-            if discipline:
-                new_entity = self.controller.duplicate_topic(entity.id, discipline.id)
-        elif entity_type == "lesson":
-            topic = self._find_parent_entity(item, "topic")
-            if topic:
-                new_entity = self.controller.duplicate_lesson(entity.id, topic.id)
-        elif entity_type == "question":
-            lesson = self._find_parent_entity(item, "lesson")
-            if lesson:
-                new_entity = self.controller.duplicate_question(entity.id, lesson.id)
-        if new_entity:
-            self._refresh_structure_tree()
-            self._select_structure_entity(entity_type, new_entity.id)
-
-    def _copy_structure_selected(self) -> None:
-        selection = self._current_structure_entity()
-        item = self.structure_tree.currentItem()
-        if not selection or not item:
-            return
-        entity_type, entity = selection
-        new_entity = None
-        if entity_type == "program":
-            new_entity = self.controller.copy_program(entity.id)
-        elif entity_type == "discipline":
-            program = self._find_parent_entity(item, "program")
-            if program:
-                new_entity = self.controller.copy_discipline(entity.id, program.id)
-        elif entity_type == "topic":
-            discipline = self._find_parent_entity(item, "discipline")
-            if discipline:
-                new_entity = self.controller.copy_topic(entity.id, discipline.id)
-        elif entity_type == "lesson":
-            topic = self._find_parent_entity(item, "topic")
-            if topic:
-                new_entity = self.controller.copy_lesson(entity.id, topic.id)
-        elif entity_type == "question":
-            lesson = self._find_parent_entity(item, "lesson")
-            if lesson:
-                new_entity = self.controller.copy_question(entity.id, lesson.id)
-        if new_entity:
-            self._refresh_structure_tree()
-            self._select_structure_entity(entity_type, new_entity.id)
-
-    # Programs
-    def _refresh_programs(self) -> None:
-        self.programs_table.setRowCount(0)
-        for program in self.controller.get_programs():
-            row = self.programs_table.rowCount()
-            self.programs_table.insertRow(row)
-            self.programs_table.setItem(row, 0, QTableWidgetItem(program.name))
-            self.programs_table.setItem(row, 1, QTableWidgetItem(program.level or ""))
-            self.programs_table.setItem(row, 2, QTableWidgetItem(str(program.duration_hours or "")))
-            self.programs_table.item(row, 0).setData(Qt.UserRole, program)
-        self._refresh_program_disciplines()
-
-    def _on_program_selection_changed(self) -> None:
-        self._refresh_program_disciplines()
-        self._refresh_disciplines()
-        self._refresh_topics()
-        self._refresh_lessons()
-        self._refresh_questions()
-
-    def _add_program(self) -> None:
-        dialog = ProgramDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        program = dialog.get_program()
-        if not program.name:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Program name is required."))
-            return
-        self.controller.add_program(program)
-        self._refresh_programs()
-
-    def _edit_program(self) -> None:
-        program = self._current_entity(self.programs_table)
-        if not program:
-            return
-        dialog = ProgramDialog(program, self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        self.controller.update_program(dialog.get_program())
-        self._refresh_programs()
-
-    def _delete_program(self) -> None:
-        programs = self._selected_entities(self.programs_table)
-        if not programs:
-            return
-        confirm_text = (
-            self.tr("Delete selected program?")
-            if len(programs) == 1
-            else self.tr("Delete selected program?") + f" ({len(programs)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for program in programs:
-            self.controller.delete_program(program.id)
-        self._refresh_programs()
-
-    def _refresh_program_disciplines(self) -> None:
-        self.program_disciplines_assigned.clear()
-        self.program_disciplines_available.clear()
-        program = self._current_entity(self.programs_table)
-        disciplines = self.controller.get_disciplines()
-        assigned = []
-        if program:
-            assigned = self.controller.get_program_disciplines(program.id)
-        assigned_ids = {d.id for d in assigned}
-        for discipline in disciplines:
-            item = QListWidgetItem(discipline.name)
-            item.setData(Qt.UserRole, discipline)
-            if discipline.id in assigned_ids:
-                self.program_disciplines_assigned.addItem(item)
-            else:
-                self.program_disciplines_available.addItem(item)
-
-    def _add_discipline_to_program(self) -> None:
-        program = self._current_entity(self.programs_table)
-        item = self.program_disciplines_available.currentItem()
-        if not program or not item:
-            return
-        discipline = item.data(Qt.UserRole)
-        self.controller.add_discipline_to_program(program.id, discipline.id, discipline.order_index)
-        self._refresh_program_disciplines()
-
-    def _remove_discipline_from_program(self) -> None:
-        program = self._current_entity(self.programs_table)
-        item = self.program_disciplines_assigned.currentItem()
-        if not program or not item:
-            return
-        discipline = item.data(Qt.UserRole)
-        self.controller.remove_discipline_from_program(program.id, discipline.id)
-        self._refresh_program_disciplines()
-
-    # Disciplines
-    def _refresh_disciplines(self) -> None:
-        self.disciplines_table.setRowCount(0)
-        for discipline in self.controller.get_disciplines():
-            row = self.disciplines_table.rowCount()
-            self.disciplines_table.insertRow(row)
-            self.disciplines_table.setItem(row, 0, QTableWidgetItem(discipline.name))
-            self.disciplines_table.setItem(row, 1, QTableWidgetItem(str(discipline.order_index)))
-            self.disciplines_table.item(row, 0).setData(Qt.UserRole, discipline)
-        self._refresh_discipline_topics()
-
-    def _on_discipline_selection_changed(self) -> None:
-        self._refresh_discipline_topics()
-        self._refresh_topics()
-        self._refresh_lessons()
-        self._refresh_questions()
-
-    def _add_discipline(self) -> None:
-        dialog = DisciplineDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        discipline = dialog.get_discipline()
-        if not discipline.name:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Discipline name is required."))
-            return
-        self.controller.add_discipline(discipline)
-        self._refresh_disciplines()
-
-    def _edit_discipline(self) -> None:
-        discipline = self._current_entity(self.disciplines_table)
-        if not discipline:
-            return
-        program_id, _ = self.controller.get_primary_parent_ids("discipline", discipline.id)
-        if program_id:
-            discipline = self.controller.ensure_discipline_for_edit(discipline.id, program_id)
-        programs = (
-            [p for p in self.controller.get_programs() if p.id == program_id]
-            if program_id
-            else self.controller.get_programs()
-        )
-        disciplines = (
-            self.controller.get_program_disciplines(program_id)
-            if program_id
-            else self.controller.get_disciplines()
-        )
-        dialog = DisciplineDialog(
-            discipline,
-            self,
-            enable_type_switch=True,
-            programs=programs,
-            disciplines=disciplines,
-            initial_parent_type="program" if program_id else None,
-            initial_parent_id=program_id,
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return
-        updated = dialog.get_discipline()
-        new_type, parent_type, parent_id = dialog.get_type_payload()
-        if new_type == "discipline":
-            self.controller.update_discipline(updated)
-            if program_id and parent_type == "program" and parent_id and parent_id != program_id:
-                self.controller.move_discipline_to_program(updated.id, program_id, parent_id)
-            self._refresh_disciplines()
-        else:
-            if not parent_id:
-                QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a discipline first."))
-                return
-            if not program_id:
-                QMessageBox.warning(
-                    self, self.tr("Validation"), self.tr("Discipline is not linked to any program.")
-                )
-                return
-            program_disciplines = {d.id for d in self.controller.get_program_disciplines(program_id)}
-            if parent_id not in program_disciplines:
-                QMessageBox.warning(
-                    self, self.tr("Validation"), self.tr("Select a discipline from the same program.")
-                )
-                return
-            try:
-                self.controller.convert_discipline_to_topic(updated, program_id or 0, parent_id)
-            except Exception as exc:
-                QMessageBox.warning(self, self.tr("Validation"), str(exc))
-                return
-            self._refresh_disciplines()
-            self._refresh_topics()
-
-    def _delete_discipline(self) -> None:
-        disciplines = self._selected_entities(self.disciplines_table)
-        if not disciplines:
-            return
-        confirm_text = (
-            self.tr("Delete selected discipline?")
-            if len(disciplines) == 1
-            else self.tr("Delete selected discipline?") + f" ({len(disciplines)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for discipline in disciplines:
-            self.controller.delete_discipline(discipline.id)
-        self._refresh_disciplines()
-
-    def _refresh_discipline_topics(self) -> None:
-        self.discipline_topics_assigned.clear()
-        self.discipline_topics_available.clear()
-        discipline = self._current_entity(self.disciplines_table)
-        topics = self.controller.get_topics()
-        assigned = []
-        if discipline:
-            assigned = self.controller.get_discipline_topics(discipline.id)
-        assigned_ids = {t.id for t in assigned}
-        for topic in topics:
-            item = QListWidgetItem(topic.title)
-            item.setData(Qt.UserRole, topic)
-            if topic.id in assigned_ids:
-                self.discipline_topics_assigned.addItem(item)
-            else:
-                self.discipline_topics_available.addItem(item)
-
-    def _add_topic_to_discipline(self) -> None:
-        discipline = self._current_entity(self.disciplines_table)
-        item = self.discipline_topics_available.currentItem()
-        if not discipline or not item:
-            return
-        topic = item.data(Qt.UserRole)
-        self.controller.add_topic_to_discipline(discipline.id, topic.id, topic.order_index)
-        self._refresh_discipline_topics()
-
-    def _remove_topic_from_discipline(self) -> None:
-        discipline = self._current_entity(self.disciplines_table)
-        item = self.discipline_topics_assigned.currentItem()
-        if not discipline or not item:
-            return
-        topic = item.data(Qt.UserRole)
-        self.controller.remove_topic_from_discipline(discipline.id, topic.id)
-        self._refresh_discipline_topics()
-
-    # Topics
-    def _refresh_topics(self) -> None:
-        self.topics_table.setRowCount(0)
-        for topic in self._filtered_topics():
-            row = self.topics_table.rowCount()
-            self.topics_table.insertRow(row)
-            self.topics_table.setItem(row, 0, QTableWidgetItem(topic.title))
-            self.topics_table.setItem(row, 1, QTableWidgetItem(str(topic.order_index)))
-            self.topics_table.item(row, 0).setData(Qt.UserRole, topic)
-        self._refresh_topic_lessons()
-        self._refresh_topic_materials()
-
-    def _on_topic_selection_changed(self) -> None:
-        self._refresh_topic_lessons()
-        self._refresh_topic_materials()
-        self._refresh_lessons()
-        self._refresh_questions()
-
-    def _add_topic(self) -> None:
-        dialog = TopicDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        topic = dialog.get_topic()
-        if not topic.title:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Topic title is required."))
-            return
-        self.controller.add_topic(topic)
-        self._refresh_topics()
-
-    def _edit_topic(self) -> None:
-        topic = self._current_entity(self.topics_table)
-        if not topic:
-            return
-        _, discipline_id = self.controller.get_primary_parent_ids("topic", topic.id)
-        if discipline_id:
-            topic = self.controller.ensure_topic_for_edit(topic.id, discipline_id)
-        program_id, _ = self.controller.get_primary_parent_ids("topic", topic.id)
-        programs = (
-            [p for p in self.controller.get_programs() if p.id == program_id]
-            if program_id
-            else self.controller.get_programs()
-        )
-        disciplines = (
-            self.controller.get_program_disciplines(program_id)
-            if program_id
-            else self.controller.get_disciplines()
-        )
-        dialog = TopicDialog(
-            topic,
-            self,
-            enable_type_switch=True,
-            programs=programs,
-            disciplines=disciplines,
-            initial_parent_type="discipline" if discipline_id else None,
-            initial_parent_id=discipline_id,
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return
-        updated = dialog.get_topic()
-        new_type, parent_type, parent_id = dialog.get_type_payload()
-        if new_type == "topic":
-            self.controller.update_topic(updated)
-            if discipline_id and parent_type == "discipline" and parent_id and parent_id != discipline_id:
-                self.controller.move_topic_to_discipline(updated.id, discipline_id, parent_id)
-            self._refresh_topics()
-        else:
-            if not parent_id:
-                QMessageBox.warning(self, self.tr("Validation"), self.tr("Select a program first."))
-                return
-            if not discipline_id:
-                QMessageBox.warning(
-                    self, self.tr("Validation"), self.tr("Topic is not linked to any discipline.")
-                )
-                return
-            try:
-                self.controller.convert_topic_to_discipline(updated, discipline_id or 0, parent_id)
-            except Exception as exc:
-                QMessageBox.warning(self, self.tr("Validation"), str(exc))
-                return
-            self._refresh_topics()
-            self._refresh_disciplines()
-
-    def _delete_topic(self) -> None:
-        topics = self._selected_entities(self.topics_table)
-        if not topics:
-            return
-        confirm_text = (
-            self.tr("Delete selected topic?")
-            if len(topics) == 1
-            else self.tr("Delete selected topic?") + f" ({len(topics)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for topic in topics:
-            self.controller.delete_topic(topic.id)
-        self._refresh_topics()
-
-    def _refresh_topic_lessons(self) -> None:
-        self.topic_lessons_assigned.clear()
-        self.topic_lessons_available.clear()
-        topic = self._current_entity(self.topics_table)
-        lessons = self.controller.get_lessons()
-        assigned = []
-        if topic:
-            assigned = self.controller.get_topic_lessons(topic.id)
-        assigned_ids = {l.id for l in assigned}
-        for lesson in lessons:
-            item = QListWidgetItem(lesson.title)
-            item.setData(Qt.UserRole, lesson)
-            if lesson.id in assigned_ids:
-                self.topic_lessons_assigned.addItem(item)
-            else:
-                self.topic_lessons_available.addItem(item)
-        self._refresh_topic_materials()
-
-    def _add_lesson_to_topic(self) -> None:
-        topic = self._current_entity(self.topics_table)
-        item = self.topic_lessons_available.currentItem()
-        if not topic or not item:
-            return
-        lesson = item.data(Qt.UserRole)
-        self.controller.add_lesson_to_topic(topic.id, lesson.id, lesson.order_index)
-        self._refresh_topic_lessons()
-
-    def _remove_lesson_from_topic(self) -> None:
-        topic = self._current_entity(self.topics_table)
-        item = self.topic_lessons_assigned.currentItem()
-        if not topic or not item:
-            return
-        lesson = item.data(Qt.UserRole)
-        self.controller.remove_lesson_from_topic(topic.id, lesson.id)
-        self._refresh_topic_lessons()
-
-    def _refresh_topic_materials(self) -> None:
-        self.topic_materials_assigned.clear()
-        self.topic_materials_available.clear()
-        topic = self._current_entity(self.topics_table)
-        if not topic:
-            return
-        materials = self.controller.get_materials()
-        assigned = self.controller.get_materials_for_entity("topic", topic.id)
-        assigned_ids = {m.id for m in assigned}
-        for material in materials:
-            label = material.title
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, material)
-            if material.id in assigned_ids:
-                self.topic_materials_assigned.addItem(item)
-            else:
-                self.topic_materials_available.addItem(item)
-
-    def _add_material_to_topic(self) -> None:
-        topic = self._current_entity(self.topics_table)
-        item = self.topic_materials_available.currentItem()
-        if not topic or not item:
-            return
-        material = item.data(Qt.UserRole)
-        self.controller.add_material_to_entity(material.id, "topic", topic.id)
-        self._refresh_topic_materials()
-
-    def _remove_material_from_topic(self) -> None:
-        topic = self._current_entity(self.topics_table)
-        item = self.topic_materials_assigned.currentItem()
-        if not topic or not item:
-            return
-        material = item.data(Qt.UserRole)
-        self.controller.remove_material_from_entity(material.id, "topic", topic.id)
-        self._refresh_topic_materials()
-
-    # Lessons
-    def _refresh_lessons(self) -> None:
-        self.lessons_table.setRowCount(0)
-        for lesson in self._filtered_lessons():
-            row = self.lessons_table.rowCount()
-            self.lessons_table.insertRow(row)
-            self.lessons_table.setItem(row, 0, QTableWidgetItem(lesson.title))
-            self.lessons_table.setItem(row, 1, QTableWidgetItem(str(lesson.duration_hours)))
-            self.lessons_table.setItem(row, 2, QTableWidgetItem(lesson.lesson_type_name or ""))
-            self.lessons_table.setItem(row, 3, QTableWidgetItem(str(lesson.order_index)))
-            self.lessons_table.item(row, 0).setData(Qt.UserRole, lesson)
-        self._refresh_lesson_questions()
-        self._refresh_lesson_materials()
-
-    def _on_lesson_selection_changed(self) -> None:
-        self._refresh_lesson_questions()
-        self._refresh_lesson_materials()
-        self._refresh_questions()
-
-    def _add_lesson(self) -> None:
-        dialog = LessonDialog(
-            lesson_types=self.controller.get_lesson_types(),
-            parent=self,
-        )
-        if dialog.exec() != QDialog.Accepted:
-            return
-        lesson = dialog.get_lesson()
-        if not lesson.title:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Lesson title is required."))
-            return
-        self.controller.add_lesson(lesson)
-        self._attach_new_questions_to_lesson(lesson.id, dialog.get_new_questions())
-        self._refresh_lessons()
-
-    def _edit_lesson(self) -> None:
-        lesson = self._current_entity(self.lessons_table)
-        if not lesson:
-            return
-        dialog = LessonDialog(lesson, self.controller.get_lesson_types(), self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        updated = dialog.get_lesson()
-        self.controller.update_lesson(updated)
-        topic = self._current_entity(self.topics_table) if hasattr(self, "topics_table") else None
-        if topic and updated.order_index > 0:
-            self.controller.update_topic_lesson_order(topic.id, updated.id, updated.order_index)
-        self._refresh_lessons()
-
-    def _delete_lesson(self) -> None:
-        lessons = self._selected_entities(self.lessons_table)
-        if not lessons:
-            return
-        confirm_text = (
-            self.tr("Delete selected lesson?")
-            if len(lessons) == 1
-            else self.tr("Delete selected lesson?") + f" ({len(lessons)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for lesson in lessons:
-            self.controller.delete_lesson(lesson.id)
-        self._refresh_lessons()
-
-    def _refresh_lesson_questions(self) -> None:
-        self.lesson_questions_assigned.clear()
-        self.lesson_questions_available.clear()
-        lesson = self._current_entity(self.lessons_table)
-        questions = self.controller.get_questions()
-        assigned = []
-        if lesson:
-            assigned = self.controller.get_lesson_questions(lesson.id)
-        assigned_ids = {q.id for q in assigned}
-        for question in questions:
-            title = question.content if len(question.content) <= 60 else f"{question.content[:60]}..."
-            item = QListWidgetItem(title)
-            item.setData(Qt.UserRole, question)
-            if question.id in assigned_ids:
-                self.lesson_questions_assigned.addItem(item)
-            else:
-                self.lesson_questions_available.addItem(item)
-        self._refresh_lesson_materials()
-
-    def _add_question_to_lesson(self) -> None:
-        lesson = self._current_entity(self.lessons_table)
-        item = self.lesson_questions_available.currentItem()
-        if not lesson or not item:
-            return
-        question = item.data(Qt.UserRole)
-        order_index = question.order_index or self.controller.get_next_lesson_question_order(lesson.id)
-        self.controller.add_question_to_lesson(lesson.id, question.id, order_index)
-        self._refresh_lesson_questions()
-
-    def _remove_question_from_lesson(self) -> None:
-        lesson = self._current_entity(self.lessons_table)
-        item = self.lesson_questions_assigned.currentItem()
-        if not lesson or not item:
-            return
-        question = item.data(Qt.UserRole)
-        self.controller.remove_question_from_lesson(lesson.id, question.id)
-        self._refresh_lesson_questions()
-
-    def _refresh_lesson_materials(self) -> None:
-        self.lesson_materials_assigned.clear()
-        self.lesson_materials_available.clear()
-        lesson = self._current_entity(self.lessons_table)
-        if not lesson:
-            return
-        materials = self.controller.get_materials()
-        assigned = self.controller.get_materials_for_entity("lesson", lesson.id)
-        assigned_ids = {m.id for m in assigned}
-        for material in materials:
-            label = material.title
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, material)
-            if material.id in assigned_ids:
-                self.lesson_materials_assigned.addItem(item)
-            else:
-                self.lesson_materials_available.addItem(item)
-
-    def _add_material_to_lesson(self) -> None:
-        lesson = self._current_entity(self.lessons_table)
-        item = self.lesson_materials_available.currentItem()
-        if not lesson or not item:
-            return
-        material = item.data(Qt.UserRole)
-        self.controller.add_material_to_entity(material.id, "lesson", lesson.id)
-        self._refresh_lesson_materials()
-
-    def _remove_material_from_lesson(self) -> None:
-        lesson = self._current_entity(self.lessons_table)
-        item = self.lesson_materials_assigned.currentItem()
-        if not lesson or not item:
-            return
-        material = item.data(Qt.UserRole)
-        self.controller.remove_material_from_entity(material.id, "lesson", lesson.id)
-        self._refresh_lesson_materials()
-
-    def _attach_new_questions_to_lesson(self, lesson_id: int, questions: list) -> None:
-        if not questions:
-            return
-        order_index = self.controller.get_next_lesson_question_order(lesson_id)
-        for question in questions:
-            if not getattr(question, "content", None):
-                continue
-            if question.order_index <= 0:
-                question.order_index = order_index
-            self.controller.add_question(question)
-            self.controller.add_question_to_lesson(lesson_id, question.id, question.order_index)
-            order_index = max(order_index + 1, question.order_index + 1)
-
-    # Lesson types
-    def _refresh_lesson_types(self) -> None:
-        self.lesson_types_table.setRowCount(0)
-        for lesson_type in self.controller.get_lesson_types():
-            row = self.lesson_types_table.rowCount()
-            self.lesson_types_table.insertRow(row)
-            self.lesson_types_table.setItem(row, 0, QTableWidgetItem(lesson_type.name))
-            self.lesson_types_table.setItem(row, 1, QTableWidgetItem(lesson_type.synonyms or ""))
-            self.lesson_types_table.item(row, 0).setData(Qt.UserRole, lesson_type)
-
-    def _add_lesson_type(self) -> None:
-        dialog = LessonTypeDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        lesson_type = dialog.get_lesson_type()
-        if not lesson_type.name:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Name is required."))
-            return
-        self.controller.add_lesson_type(lesson_type)
-        self._refresh_lesson_types()
-        self._refresh_lessons()
-
-    def _edit_lesson_type(self) -> None:
-        lesson_type = self._current_entity(self.lesson_types_table)
-        if not lesson_type:
-            return
-        dialog = LessonTypeDialog(lesson_type, self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        self.controller.update_lesson_type(dialog.get_lesson_type())
-        self._refresh_lesson_types()
-        self._refresh_lessons()
-
-    def _delete_lesson_type(self) -> None:
-        lesson_types = self._selected_entities(self.lesson_types_table)
-        if not lesson_types:
-            return
-        confirm_text = (
-            self.tr("Delete selected lesson type?")
-            if len(lesson_types) == 1
-            else self.tr("Delete selected lesson type?") + f" ({len(lesson_types)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for lesson_type in lesson_types:
-            self.controller.delete_lesson_type(lesson_type.id)
-        self._refresh_lesson_types()
-        self._refresh_lessons()
-
-    # Questions
-    def _refresh_questions(self) -> None:
-        self.questions_table.setRowCount(0)
-        for question in self._filtered_questions():
-            row = self.questions_table.rowCount()
-            self.questions_table.insertRow(row)
-            title = question.content if len(question.content) <= 80 else f"{question.content[:80]}..."
-            self.questions_table.setItem(row, 0, QTableWidgetItem(title))
-            self.questions_table.item(row, 0).setData(Qt.UserRole, question)
-
-    def _filtered_disciplines(self):
-        return self.controller.get_disciplines()
-
-    def _filtered_topics(self):
-        return self.controller.get_topics()
-
-    def _filtered_lessons(self):
-        return self.controller.get_lessons()
-
-    def _filtered_questions(self):
-        return self.controller.get_questions()
-
-    def _lessons_for_topics(self, topics):
-        lessons = []
-        seen = set()
-        for topic in topics:
-            for lesson in self.controller.get_topic_lessons(topic.id):
-                if lesson.id in seen:
-                    continue
-                seen.add(lesson.id)
-                lessons.append(lesson)
-        return lessons
-
-    def _questions_for_lessons(self, lessons):
-        questions = []
-        seen = set()
-        for lesson in lessons:
-            for question in self.controller.get_lesson_questions(lesson.id):
-                if question.id in seen:
-                    continue
-                seen.add(question.id)
-                questions.append(question)
-        return questions
-
-    def _add_question(self) -> None:
-        dialog = QuestionDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        question = dialog.get_question()
-        if not question.content:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Question text is required."))
-            return
-        self.controller.add_question(question)
-        self._refresh_questions()
-
-    def _edit_question(self) -> None:
-        question = self._current_entity(self.questions_table)
-        if not question:
-            return
-        dialog = QuestionDialog(question, self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        self.controller.update_question(dialog.get_question())
-        self._refresh_questions()
-
-    def _delete_question(self) -> None:
-        questions = self._selected_entities(self.questions_table)
-        if not questions:
-            return
-        confirm_text = (
-            self.tr("Delete selected question?")
-            if len(questions) == 1
-            else self.tr("Delete selected question?") + f" ({len(questions)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for question in questions:
-            self.controller.delete_question(question.id)
-        self._refresh_questions()
-
-    # Materials
-    def _refresh_materials(self) -> None:
-        self.materials_table.setRowCount(0)
-        target = self._current_structure_material_target()
-        self._set_material_buttons_enabled(bool(target))
-        if not target:
-            return
-        entity_type, entity = target
-        for material in self.controller.get_materials_for_entity(entity_type, entity.id):
-            row = self.materials_table.rowCount()
-            self.materials_table.insertRow(row)
-            self.materials_table.setItem(row, 0, QTableWidgetItem(material.title))
-            self.materials_table.setItem(row, 1, QTableWidgetItem(self._translate_material_type(material.material_type)))
-            filename = material.original_filename or material.file_name or ""
-            self.materials_table.setItem(row, 2, QTableWidgetItem(filename))
-            authors = ", ".join(t.full_name for t in material.teachers) if material.teachers else ""
-            self.materials_table.setItem(row, 3, QTableWidgetItem(authors))
-            self.materials_table.item(row, 0).setData(Qt.UserRole, material)
-
-    def _add_material(self) -> None:
-        add_material_op(self)
-
-    def _edit_material(self) -> None:
-        edit_material_op(self)
-
-    def _delete_material(self) -> None:
-        materials = self._selected_entities(self.materials_table)
-        if not materials:
-            return
-        confirm_text = (
-            self.tr("Delete selected material?")
-            if len(materials) == 1
-            else self.tr("Delete selected material?") + f" ({len(materials)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for material in materials:
-            self.controller.delete_material(material.id)
-        self._refresh_materials()
-
-    def _refresh_material_types(self) -> None:
-        if not hasattr(self, "material_types_table"):
-            return
-        self.material_types_table.setRowCount(0)
-        for material_type in self.controller.get_material_types():
-            row = self.material_types_table.rowCount()
-            self.material_types_table.insertRow(row)
-            self.material_types_table.setItem(row, 0, QTableWidgetItem(material_type.name))
-            self.material_types_table.item(row, 0).setData(Qt.UserRole, material_type)
-
-    def _add_material_type(self) -> None:
-        dialog = MaterialTypeDialog(parent=self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        material_type = dialog.get_material_type()
-        if not material_type.name:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Name is required."))
-            return
-        self.controller.add_material_type(material_type)
-        self._refresh_material_types()
-
-    def _edit_material_type(self) -> None:
-        material_type = self._current_entity(self.material_types_table)
-        if not material_type:
-            return
-        dialog = MaterialTypeDialog(material_type, self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        self.controller.update_material_type(dialog.get_material_type())
-        self._refresh_material_types()
-        self._refresh_materials()
-
-    def _delete_material_type(self) -> None:
-        material_types = self._selected_entities(self.material_types_table)
-        if not material_types:
-            return
-        confirm_text = (
-            self.tr("Delete selected material type?")
-            if len(material_types) == 1
-            else self.tr("Delete selected material type?") + f" ({len(material_types)})"
-        )
-        if QMessageBox.question(self, self.tr("Confirm"), confirm_text) != QMessageBox.Yes:
-            return
-        for material_type in material_types:
-            self.controller.delete_material_type(material_type.id)
-        self._refresh_material_types()
-
-    def _attach_material_file(self) -> None:
-        attach_material_file_op(self)
-
-    def _attach_existing_material_file(self) -> None:
-        attach_existing_material_file_op(self)
-
-    def _prompt_material_location(self):
-        return prompt_material_location_op(self)
-
-    def _open_material_file(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
-            return
-        if not material.relative_path:
-            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
-            return
-        if not self.file_storage.open_file(material.relative_path):
-            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
-
-    def _show_material_folder(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
-            return
-        if not material.relative_path:
-            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
-            return
-        if not self.file_storage.show_in_folder(material.relative_path):
-            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
-
-    def _copy_material_file(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
-            return
-        if not material.relative_path:
-            QMessageBox.information(self, self.tr("No File"), self.tr("This material has no attached file."))
-            return
-        default_name = material.title
-        ext = f".{material.file_type}" if material.file_type else ""
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Copy file as..."),
-            f"{default_name}{ext}",
-            self.tr("All files (*)"),
-        )
-        if not path:
-            return
-        if not self.file_storage.copy_file_as(material.relative_path, path):
-            QMessageBox.warning(self, self.tr("No File"), self.tr("File is missing in storage."))
-
-    def _database_diagnostics(self) -> str:
-        return database_diagnostics_op(self)
-
-    def _check_database(self) -> None:
-        check_database_op(self)
-
-    def _cleanup_unused_data(self) -> None:
-        cleanup_unused_data_op(self)
-
-    def _refresh_material_assignments(self) -> None:
-        material = self._current_entity(self.materials_table)
-        self.material_teachers_available.clear()
-        self.material_teachers_assigned.clear()
-        self.material_assoc_assigned.clear()
-        self.material_assoc_available.clear()
-        if not material:
-            return
-
-        teachers = self.controller.get_teachers()
-        assigned_teachers = {t.id for t in material.teachers}
-        for teacher in teachers:
-            item = QListWidgetItem(teacher.full_name)
-            item.setData(Qt.UserRole, teacher)
-            if teacher.id in assigned_teachers:
-                self.material_teachers_assigned.addItem(item)
-            else:
-                self.material_teachers_available.addItem(item)
-
-        for entity_type, entity_id, title in self.controller.get_material_associations(material.id):
-            label = f"{self._translate_entity_type(entity_type)}: {title}"
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, (entity_type, entity_id))
-            self.material_assoc_assigned.addItem(item)
-
-        self._refresh_material_associations()
 
     def _refresh_settings(self) -> None:
         self.materials_location.setText(str(self.file_storage.files_root))
@@ -3007,254 +1041,6 @@ class AdminDialog(QDialog):
             self._load_internet_db_settings()
         if hasattr(self, "log_table"):
             self._refresh_log_tab()
-
-    def _refresh_log_tab(self) -> None:
-        rows = list(self.activity_log.read_all())
-        rows.reverse()
-        self.log_table.setRowCount(0)
-        for row_data in rows:
-            row = self.log_table.rowCount()
-            self.log_table.insertRow(row)
-            self.log_table.setItem(row, 0, QTableWidgetItem(str(row_data.get("timestamp", ""))))
-            self.log_table.setItem(row, 1, QTableWidgetItem(str(row_data.get("user", ""))))
-            self.log_table.setItem(row, 2, QTableWidgetItem(str(row_data.get("mode", ""))))
-            self.log_table.setItem(row, 3, QTableWidgetItem(str(row_data.get("action", ""))))
-            self.log_table.setItem(row, 4, QTableWidgetItem(str(row_data.get("details", ""))))
-        self.log_table.resizeRowsToContents()
-
-    def _clear_log_tab(self) -> None:
-        if QMessageBox.question(
-            self,
-            self.tr("Confirm"),
-            self.tr("Clear all log records?"),
-        ) != QMessageBox.Yes:
-            return
-        self.activity_log.clear()
-        self._refresh_log_tab()
-        self._log_action("clear_log", "Activity log was cleared")
-
-    def _default_internet_db_settings(self) -> dict:
-        return {
-            "host": "92.205.172.1",
-            "port": "3306",
-            "database": "l1l2",
-            "user": "kvl1odva",
-            "password": "",
-        }
-
-    def _load_internet_db_settings(self) -> None:
-        defaults = self._default_internet_db_settings()
-        self.internet_db_host.setText(self.bootstrap_settings.value("internet_db/host", defaults["host"]))
-        self.internet_db_port.setText(self.bootstrap_settings.value("internet_db/port", defaults["port"]))
-        self.internet_db_name.setText(self.bootstrap_settings.value("internet_db/database", defaults["database"]))
-        self.internet_db_user.setText(self.bootstrap_settings.value("internet_db/user", defaults["user"]))
-        self.internet_db_password.setText(self.bootstrap_settings.value("internet_db/password", defaults["password"]))
-        self.internet_db_status.setText(self.tr("Not connected"))
-        self.internet_db_status.setStyleSheet("")
-        self._set_internet_db_indicator("idle")
-
-    def _set_internet_db_indicator(self, state: str) -> None:
-        color = "#9aa0a6"
-        if state == "ok":
-            color = "#1b7f3b"
-        elif state == "error":
-            color = "#a11f1f"
-        self.internet_db_indicator.setStyleSheet(
-            f"background-color: {color}; border-radius: 5px;"
-        )
-
-    def _save_internet_db_settings(self, show_message: bool = True) -> None:
-        self.bootstrap_settings.setValue("internet_db/host", self.internet_db_host.text().strip())
-        self.bootstrap_settings.setValue("internet_db/port", self.internet_db_port.text().strip())
-        self.bootstrap_settings.setValue("internet_db/database", self.internet_db_name.text().strip())
-        self.bootstrap_settings.setValue("internet_db/user", self.internet_db_user.text().strip())
-        self.bootstrap_settings.setValue("internet_db/password", self.internet_db_password.text())
-        self.bootstrap_settings.sync()
-        self._log_action("save_internet_settings", self.internet_db_host.text().strip())
-        if hasattr(self, "log_table"):
-            self._refresh_log_tab()
-        if show_message:
-            QMessageBox.information(self, self.tr("Settings"), self.tr("Internet DB settings saved."))
-
-    def _connect_internet_database(self) -> None:
-        connect_internet_database_op(self)
-
-    def _resolve_sync_conflict(
-        self,
-        table: str,
-        sync_uuid: str,
-        local_row: dict,
-        remote_row: dict,
-        compare_columns: list[str],
-    ) -> str:
-        return resolve_sync_conflict_op(self, table, sync_uuid, local_row, remote_row, compare_columns)
-
-    def _synchronize_internet_database(self) -> None:
-        synchronize_internet_database_op(self)
-
-    def _change_database_path(self) -> None:
-        current = self.bootstrap_settings.value("app/db_path", "")
-        start_dir = str(resolve_app_path(current)) if current else str(self.controller.db.db_path)
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Select database file"),
-            start_dir,
-            self.tr("Database files (*.db);;All files (*)"),
-        )
-        if not path:
-            return
-        self.bootstrap_settings.setValue("app/db_path", make_relative_to_app(path))
-        self.bootstrap_settings.sync()
-        self.database_path.setText(path)
-        QMessageBox.information(
-            self,
-            self.tr("Restart required"),
-            self.tr("Database selection saved. Restart the app to apply changes."),
-        )
-
-    def _change_ui_settings_path(self) -> None:
-        current = self.bootstrap_settings.value("app/ui_settings_path", "")
-        start_dir = str(resolve_app_path(current)) if current else str(get_settings_dir() / "user_settings.ini")
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Select UI settings file"),
-            start_dir,
-            self.tr("Settings files (*.ini);;All files (*)"),
-        )
-        if not path:
-            return
-        self.bootstrap_settings.setValue("app/ui_settings_path", make_relative_to_app(path))
-        self.bootstrap_settings.sync()
-        self.ui_settings_path.setText(path)
-        QMessageBox.information(
-            self,
-            self.tr("Restart required"),
-            self.tr("Settings file selection saved. Restart the app to apply changes."),
-        )
-
-    def _change_translations_path(self) -> None:
-        current = self.bootstrap_settings.value("app/translations_path", "")
-        start_dir = str(resolve_app_path(current)) if current else str(get_translations_dir() / "app_uk.ts")
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            self.tr("Select translations file"),
-            start_dir,
-            self.tr("Translation files (*.ts *.qm);;All files (*)"),
-        )
-        if not path:
-            return
-        self.bootstrap_settings.setValue("app/translations_path", make_relative_to_app(path))
-        self.bootstrap_settings.sync()
-        self.translations_path.setText(path)
-        QMessageBox.information(
-            self,
-            self.tr("Restart required"),
-            self.tr("Translations file selection saved. Restart the app to apply changes."),
-        )
-
-    def _change_materials_location(self) -> None:
-        path = QFileDialog.getExistingDirectory(
-            self,
-            self.tr("Select materials folder"),
-            str(self.file_storage.files_root),
-        )
-        if not path:
-            return
-        new_root = Path(path)
-        try:
-            self.file_storage.move_storage(self.controller.db, new_root)
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-            return
-        self._refresh_settings()
-
-    def _export_database(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Export database"),
-            "education.db",
-            self.tr("Database (*.db);;All files (*)"),
-        )
-        if not path:
-            return
-        try:
-            from pathlib import Path as _Path
-            import shutil
-
-            shutil.copyfile(self.controller.db.db_path, _Path(path))
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-            return
-        QMessageBox.information(self, self.tr("Export database"), self.tr("Database exported."))
-
-    def _import_database(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            self.tr("Import database"),
-            "",
-            self.tr("Database (*.db);;All files (*)"),
-        )
-        if not path:
-            return
-        if QMessageBox.question(
-            self,
-            self.tr("Confirm"),
-            self.tr("Replace the current database with the selected file?"),
-        ) != QMessageBox.Yes:
-            return
-        try:
-            from pathlib import Path as _Path
-            import shutil
-
-            shutil.copyfile(_Path(path), self.controller.db.db_path)
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-            return
-        QMessageBox.information(
-            self,
-            self.tr("Import database"),
-            self.tr("Database imported. Restart the app."),
-        )
-
-    def _repair_database(self) -> None:
-        src_path = Path(self.controller.db.db_path)
-        default_path = src_path.with_name(f"{src_path.stem}_recovered.db")
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Repair database"),
-            str(default_path),
-            self.tr("Database (*.db);;All files (*)"),
-        )
-        if not path:
-            return
-        try:
-            conn = sqlite3.connect(src_path)
-            conn.text_factory = lambda b: b.decode(errors="ignore")
-            try:
-                dump_lines = list(conn.iterdump())
-            finally:
-                conn.close()
-
-            skip_tokens = ("_fts_config", "_fts_docsize", "_fts_data", "_fts_idx")
-            filtered = [line for line in dump_lines if not any(t in line.lower() for t in skip_tokens)]
-
-            out = sqlite3.connect(path)
-            try:
-                out.executescript("\n".join(filtered))
-                out.commit()
-            finally:
-                out.close()
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-            return
-        self.bootstrap_settings.setValue("app/db_path", path)
-        self.bootstrap_settings.sync()
-        self.database_path.setText(path)
-        QMessageBox.information(
-            self,
-            self.tr("Restart required"),
-            self.tr("Database repaired. Restart the app to apply changes."),
-        )
 
     def _start_sync(self) -> None:
         sync_root = get_app_base_dir() / "sync"
@@ -3387,18 +1173,6 @@ class AdminDialog(QDialog):
         self._refresh_structure_tree()
         self.sync_status.setText(self.tr("Program imported."))
 
-    def _unique_program_name(self, name: str) -> str:
-        existing = {p.name for p in self.controller.get_programs()}
-        if name not in existing:
-            return name
-        index = 1
-        while True:
-            suffix = f"_{index:02d}"
-            candidate = f"{name}{suffix}"
-            if candidate not in existing:
-                return candidate
-            index += 1
-
     def _import_full_program(self, program: EducationalProgram) -> None:
         target_name = self._unique_program_name(program.name)
         target_program = self.controller.add_program(
@@ -3430,7 +1204,7 @@ class AdminDialog(QDialog):
                     order_index=discipline.order_index,
                 )
             )
-            order_index = self.controller.get_next_order_index("program_disciplines", "program_id", target_program_id)
+            order_index = self.controller._get_next_order_index("program_disciplines", "program_id", target_program_id)
             self.controller.add_discipline_to_program(target_program_id, target_discipline.id, order_index)
             self._sync_materials_for_entity(
                 "discipline",
@@ -3448,7 +1222,7 @@ class AdminDialog(QDialog):
                         order_index=topic.order_index,
                     )
                 )
-                order_index = self.controller.get_next_order_index("discipline_topics", "discipline_id", target_discipline.id)
+                order_index = self.controller._get_next_order_index("discipline_topics", "discipline_id", target_discipline.id)
                 self.controller.add_topic_to_discipline(target_discipline.id, target_topic.id, order_index)
                 self._sync_materials_for_entity(
                     "topic",
@@ -3477,7 +1251,7 @@ class AdminDialog(QDialog):
                             order_index=lesson.order_index,
                         )
                     )
-                    order_index = self.controller.get_next_order_index("topic_lessons", "topic_id", target_topic.id)
+                    order_index = self.controller._get_next_order_index("topic_lessons", "topic_id", target_topic.id)
                     self.controller.add_lesson_to_topic(target_topic.id, target_lesson.id, order_index)
                     self._sync_materials_for_entity(
                         "lesson",
@@ -3495,27 +1269,12 @@ class AdminDialog(QDialog):
                                 order_index=question.order_index,
                             )
                         )
-                        order_index = self.controller.get_next_order_index(
+                        order_index = self.controller._get_next_order_index(
                             "lesson_questions",
                             "lesson_id",
                             target_lesson.id,
                         )
                         self.controller.add_question_to_lesson(target_lesson.id, target_question.id, order_index)
-
-    def _resolve_sync_files_root(self, sync_root: Path) -> Path:
-        settings_path = sync_root / "settings" / "storage.json"
-        if settings_path.exists():
-            try:
-                data = json.loads(settings_path.read_text(encoding="utf-8"))
-                root = data.get("materials_root")
-                if root:
-                    root_path = Path(root)
-                    if root_path.exists():
-                        return root_path
-            except (OSError, json.JSONDecodeError):
-                pass
-        files_root = sync_root / "files"
-        return files_root
 
     def _populate_sync_tree(
         self,
@@ -3958,243 +1717,6 @@ class AdminDialog(QDialog):
         finally:
             self._sync_updating_checks = False
 
-    def _set_check_state_recursive(self, item: QTreeWidgetItem, state: Qt.CheckState) -> None:
-        for i in range(item.childCount()):
-            child = item.child(i)
-            child.setCheckState(0, state)
-            self._set_check_state_recursive(child, state)
-
-    def _is_identical_entity(
-        self,
-        entity_type: str,
-        source_entity,
-        target_entity,
-        source_controller,
-        source_files_root: Path,
-        target_controller,
-        target_files_root: Path,
-    ) -> bool:  # noqa: ANN001
-        source_sig = self._entity_signature(
-            source_controller, entity_type, source_entity, source_files_root, {}
-        )
-        target_sig = self._entity_signature(
-            target_controller, entity_type, target_entity, target_files_root, {}
-        )
-        return source_sig == target_sig
-
-    def _entity_signature(
-        self,
-        controller,
-        entity_type: str,
-        entity,
-        files_root: Path,
-        cache: dict,
-    ) -> tuple:  # noqa: ANN001
-        cache_key = (entity_type, getattr(entity, "id", None), str(files_root))
-        if cache_key in cache:
-            return cache[cache_key]
-        if entity_type == "lesson":
-            questions = controller.lesson_repo.get_lesson_questions(entity.id)
-            q_sig = tuple(sorted(q.content for q in questions))
-            m_sig = tuple(self._materials_signature(controller, "lesson", entity.id, files_root))
-            sig = ("lesson", q_sig, m_sig)
-        elif entity_type == "topic":
-            lessons = controller.topic_repo.get_topic_lessons(entity.id)
-            l_sig = tuple(
-                sorted(
-                    (
-                        lesson.title,
-                        self._entity_signature(controller, "lesson", lesson, files_root, cache),
-                    )
-                    for lesson in lessons
-                )
-            )
-            m_sig = tuple(self._materials_signature(controller, "topic", entity.id, files_root))
-            sig = ("topic", l_sig, m_sig)
-        elif entity_type == "discipline":
-            topics = controller.discipline_repo.get_discipline_topics(entity.id)
-            t_sig = tuple(
-                sorted(
-                    (
-                        topic.title,
-                        self._entity_signature(controller, "topic", topic, files_root, cache),
-                    )
-                    for topic in topics
-                )
-            )
-            m_sig = tuple(self._materials_signature(controller, "discipline", entity.id, files_root))
-            sig = ("discipline", t_sig, m_sig)
-        elif entity_type == "program":
-            disciplines = controller.program_repo.get_program_disciplines(entity.id)
-            d_sig = tuple(
-                sorted(
-                    (
-                        disc.name,
-                        self._entity_signature(controller, "discipline", disc, files_root, cache),
-                    )
-                    for disc in disciplines
-                )
-            )
-            m_sig = tuple(self._materials_signature(controller, "program", entity.id, files_root))
-            sig = ("program", d_sig, m_sig)
-        else:
-            sig = (entity_type, getattr(entity, "id", None))
-        cache[cache_key] = sig
-        return sig
-
-    def _materials_signature(
-        self,
-        controller,
-        entity_type: str,
-        entity_id: int,
-        files_root: Path,
-    ) -> list[tuple]:  # noqa: ANN001
-        materials = controller.get_materials_for_entity(entity_type, entity_id)
-        sig = []
-        for material in materials:
-            crc = self._material_crc(material, files_root)
-            authors = tuple(sorted(self._material_author_names(controller, material)))
-            sig.append((material.title, material.material_type, crc, authors))
-        return sorted(sig)
-
-    def _material_crc(self, material: MethodicalMaterial, files_root: Path) -> int:
-        path = None
-        if material.relative_path:
-            path = files_root / material.relative_path
-        elif material.file_path:
-            path = Path(material.file_path)
-            if not path.is_absolute():
-                path = files_root / material.file_path
-        if not path or not path.exists():
-            return 0
-        checksum = 0
-        with open(path, "rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                checksum = zlib.crc32(chunk, checksum)
-        return checksum & 0xFFFFFFFF
-
-    def _build_sync_compare_index_for_program(self, controller, program: EducationalProgram) -> dict:  # noqa: ANN001
-        programs = {program.name: program}
-        disciplines = {program.id: {d.name: d for d in controller.get_program_disciplines(program.id)}}
-        topics = {}
-        lessons = {}
-        for discipline in disciplines[program.id].values():
-            topics[discipline.id] = {
-                t.title: t for t in controller.discipline_repo.get_discipline_topics(discipline.id)
-            }
-            for topic in topics[discipline.id].values():
-                lessons[topic.id] = {l.title: l for l in controller.topic_repo.get_topic_lessons(topic.id)}
-        return {
-            "programs": programs,
-            "selected_program": program,
-            "disciplines": disciplines,
-            "topics": topics,
-            "lessons": lessons,
-        }
-
-    def _build_sync_compare_index(self, controller) -> dict:  # noqa: ANN001
-        programs = {p.name: p for p in controller.get_programs()}
-        disciplines = {}
-        topics = {}
-        lessons = {}
-        for program in programs.values():
-            disciplines[program.id] = {d.name: d for d in controller.get_program_disciplines(program.id)}
-            for discipline in disciplines[program.id].values():
-                topics[discipline.id] = {
-                    t.title: t for t in controller.discipline_repo.get_discipline_topics(discipline.id)
-                }
-                for topic in topics[discipline.id].values():
-                    lessons[topic.id] = {l.title: l for l in controller.topic_repo.get_topic_lessons(topic.id)}
-        return {
-            "programs": programs,
-            "disciplines": disciplines,
-            "topics": topics,
-            "lessons": lessons,
-        }
-
-    def _materials_diff(self, entity_type: str, source_id: int, target_id: int | None) -> list[str]:
-        if entity_type not in {"program", "discipline", "topic", "lesson"}:
-            return []
-        source_materials = self.sync_source_admin.get_materials_for_entity(entity_type, source_id)
-        if not source_materials:
-            return []
-        if target_id is None:
-            return [m.title for m in source_materials if m.title]
-        target_materials = self.controller.get_materials_for_entity(entity_type, target_id)
-        target_map = {
-            (m.title, m.material_type): self._material_author_names(self.controller, m)
-            for m in target_materials
-        }
-        missing = []
-        for material in source_materials:
-            key = (material.title, material.material_type)
-            source_authors = self._material_author_names(self.sync_source_admin, material)
-            if key not in target_map:
-                missing.append(material.title)
-            elif source_authors != target_map.get(key, set()):
-                missing.append(material.title)
-        return missing
-
-    def _mark_materials_diff(self, item: QTreeWidgetItem, _missing: list[str]) -> None:
-        item.setBackground(0, QBrush(QColor(255, 242, 204)))
-        item.setForeground(0, QBrush(QColor(0, 0, 0)))
-
-    def _append_material_children(
-        self,
-        controller,
-        entity_type: str,
-        entity_id: int,
-        parent_item: QTreeWidgetItem,
-        target_controller=None,
-        target_entity_id: int | None = None,
-    ) -> None:  # noqa: ANN001
-        if not hasattr(controller, "get_materials_for_entity"):
-            return
-        materials = controller.get_materials_for_entity(entity_type, entity_id)
-        if not materials:
-            return
-        target_map = {}
-        if target_controller and target_entity_id is not None:
-            target_materials = target_controller.get_materials_for_entity(entity_type, target_entity_id)
-            target_map = {
-                (m.title, m.material_type): self._material_author_names(target_controller, m)
-                for m in target_materials
-            }
-        header = QTreeWidgetItem([self.tr("Materials")])
-        header.setForeground(0, QBrush(QColor(0, 128, 0)))
-        header.setBackground(0, QBrush(QColor(226, 239, 218)))
-        header.setFlags(header.flags() & ~Qt.ItemIsUserCheckable)
-        for material in materials:
-            title = material.title or ""
-            label = f"• {title}"
-            author_names = self._material_author_names(controller, material)
-            teachers = ", ".join(sorted(author_names)) if author_names else ""
-            if teachers:
-                label += f" | {self.tr('Teachers')}: {teachers}"
-            item = QTreeWidgetItem([label])
-            item.setForeground(0, QBrush(QColor(0, 128, 0)))
-            item.setBackground(0, QBrush(QColor(240, 248, 235)))
-            item.setFlags(item.flags() & ~Qt.ItemIsUserCheckable)
-            if target_map:
-                key = (material.title, material.material_type)
-                source_authors = self._material_author_names(controller, material)
-                if key in target_map and source_authors != target_map.get(key, set()):
-                    item.setBackground(0, QBrush(QColor(255, 242, 204)))
-                    item.setForeground(0, QBrush(QColor(0, 0, 0)))
-            header.addChild(item)
-        parent_item.addChild(header)
-
-    def _material_author_names(self, controller, material: MethodicalMaterial) -> set[str]:  # noqa: ANN001
-        if material.teachers:
-            return {t.full_name for t in material.teachers if t.full_name}
-        if hasattr(controller, "material_repo"):
-            try:
-                teachers = controller.material_repo.get_material_teachers(material.id)
-                return {t.full_name for t in teachers if t.full_name}
-            except sqlite3.Error:
-                return set()
-        return set()
-
     def _find_or_create_discipline(self, discipline: Discipline, program: EducationalProgram, create: bool) -> Discipline:
         existing = {d.name: d for d in self.controller.get_program_disciplines(program.id)}
         if discipline.name in existing:
@@ -4211,7 +1733,7 @@ class AdminDialog(QDialog):
                     order_index=discipline.order_index,
                 )
             )
-        order_index = self.controller.get_next_order_index("program_disciplines", "program_id", program.id)
+        order_index = self.controller._get_next_order_index("program_disciplines", "program_id", program.id)
         self.controller.add_discipline_to_program(program.id, target.id, order_index)
         return target
 
@@ -4228,7 +1750,7 @@ class AdminDialog(QDialog):
                 order_index=topic.order_index,
             )
         )
-        order_index = self.controller.get_next_order_index("discipline_topics", "discipline_id", discipline.id)
+        order_index = self.controller._get_next_order_index("discipline_topics", "discipline_id", discipline.id)
         self.controller.add_topic_to_discipline(discipline.id, target.id, order_index)
         return target
 
@@ -4255,7 +1777,7 @@ class AdminDialog(QDialog):
                 order_index=lesson.order_index,
             )
         )
-        order_index = self.controller.get_next_order_index("topic_lessons", "topic_id", topic.id)
+        order_index = self.controller._get_next_order_index("topic_lessons", "topic_id", topic.id)
         self.controller.add_lesson_to_topic(topic.id, target.id, order_index)
         return target
 
@@ -4272,7 +1794,7 @@ class AdminDialog(QDialog):
                 order_index=question.order_index,
             )
         )
-        order_index = self.controller.get_next_order_index("lesson_questions", "lesson_id", lesson.id)
+        order_index = self.controller._get_next_order_index("lesson_questions", "lesson_id", lesson.id)
         self.controller.add_question_to_lesson(lesson.id, target.id, order_index)
         return target
 
@@ -4284,263 +1806,82 @@ class AdminDialog(QDialog):
         base = program.name if program else str(program_id)
         name = f"{self.tr('Discipline for')} {base}"
         discipline = self.controller.add_discipline(Discipline(name=name))
-        order_index = self.controller.get_next_order_index("program_disciplines", "program_id", program_id)
+        order_index = self.controller._get_next_order_index("program_disciplines", "program_id", program_id)
         self.controller.add_discipline_to_program(program_id, discipline.id, order_index)
         return discipline.id
 
-    def _sync_materials_for_entity(
-        self,
-        source_entity_type: str,
-        source_entity_id: int,
-        target_entity_type: str,
-        target_entity_id: int,
-        target_program_id: int,
-        target_discipline_id: int,
-    ) -> None:
-        if source_entity_type not in {"program", "discipline", "topic", "lesson"}:
+    def _on_import_curriculum(self) -> None:
+        dialog = ImportCurriculumDialog(self.controller, self)
+        if dialog.exec() != QDialog.Accepted:
             return
-        materials = self.sync_source_admin.get_materials_for_entity(source_entity_type, source_entity_id)
-        existing_titles = {
-            m.title
-            for m in self.controller.get_materials_for_entity(target_entity_type, target_entity_id)
-        }
-        material_types = {t.name for t in self.controller.get_material_types()}
-        for material in materials:
-            if material.material_type and material.material_type not in material_types:
-                self.controller.add_material_type(MaterialType(name=material.material_type))
-                material_types.add(material.material_type)
-            title = self._unique_material_title(material.title, existing_titles)
-            existing_titles.add(title)
-            new_material = self.controller.add_material(
-                MethodicalMaterial(
-                    title=title,
-                    material_type=material.material_type,
-                    description=material.description,
-                )
-            )
-            self.controller.add_material_to_entity(new_material.id, target_entity_type, target_entity_id)
-            self._sync_material_authors(material, new_material)
-            source_path = self._resolve_source_material_path(material)
-            if source_path and source_path.exists():
+        program_id, discipline_id, new_name, raw_text, parsed_topics, file_paths = dialog.get_payload()
+
+        if file_paths:
+            totals = {"topics": 0, "lessons": 0, "questions": 0}
+            errors = []
+            from ..services.import_service import extract_text_from_file, parse_curriculum_text, program_discipline_from_filename
+
+            for path in file_paths:
                 try:
-                    self.controller.attach_material_file_with_context(
-                        new_material, str(source_path), target_program_id, target_discipline_id
+                    content = extract_text_from_file(path)
+                    topics = parse_curriculum_text(content)
+                    program_name, discipline_name = program_discipline_from_filename(path)
+                    if not discipline_name:
+                        discipline_name = program_name
+                    t_added, l_added, q_added = import_curriculum_structure_by_names(
+                        self.controller.db,
+                        program_name,
+                        discipline_name,
+                        topics,
                     )
-                except (ValueError, OSError, sqlite3.Error, RuntimeError) as exc:
-                    self._log_action("sync_material_attach_failed", str(exc))
+                    totals["topics"] += t_added
+                    totals["lessons"] += l_added
+                    totals["questions"] += q_added
+                except (OSError, ValueError, RuntimeError, sqlite3.Error, TypeError) as exc:
+                    errors.append(f"{path}: {exc}")
 
-    def _sync_material_authors(self, source_material: MethodicalMaterial, target_material: MethodicalMaterial) -> None:
-        source_teachers = source_material.teachers
-        if not source_teachers:
+            if errors:
+                QMessageBox.warning(self, self.tr("Import error"), "\n".join(errors))
+            QMessageBox.information(
+                self,
+                self.tr("Import complete"),
+                self.tr("Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}").format(
+                    totals["topics"], totals["lessons"], totals["questions"]
+                ),
+            )
+            self._refresh_all()
+            return
+
+        if not raw_text.strip():
+            QMessageBox.warning(self, self.tr("Import error"), self.tr("No input text provided."))
+            return
+        if parsed_topics is None:
             try:
-                source_teachers = self.sync_source_admin.material_repo.get_material_teachers(source_material.id)
-            except sqlite3.Error:
-                source_teachers = []
-        if not source_teachers:
-            return
-        if not hasattr(self, "_sync_teacher_cache"):
-            self._sync_teacher_cache = {t.full_name: t for t in self.controller.get_teachers() if t.full_name}
-        for teacher in source_teachers:
-            if not teacher.full_name:
-                continue
-            target_teacher = self._sync_teacher_cache.get(teacher.full_name)
-            if target_teacher is None:
-                target_teacher = self.controller.add_teacher(
-                    Teacher(
-                        full_name=teacher.full_name,
-                        military_rank=teacher.military_rank,
-                        position=teacher.position,
-                        department=teacher.department,
-                        email=teacher.email,
-                        phone=teacher.phone,
-                    )
-                )
-                self._sync_teacher_cache[teacher.full_name] = target_teacher
-            try:
-                self.controller.add_teacher_to_material(target_teacher.id, target_material.id)
-            except sqlite3.Error as exc:
-                self._log_action("sync_material_author_link_failed", str(exc))
+                from ..services.import_service import parse_curriculum_text
 
-    def _resolve_source_material_path(self, material: MethodicalMaterial) -> Path | None:
-        if material.relative_path:
-            return self.sync_source_files_root / material.relative_path
-        if material.file_path:
-            path = Path(material.file_path)
-            if path.is_absolute():
-                return path
-            return self.sync_source_files_root / material.file_path
-        return None
-
-    def _unique_material_title(self, title: str, existing: set[str]) -> str:
-        if title not in existing:
-            return title
-        index = 1
-        while True:
-            suffix = f"_{index:02d}"
-            candidate = f"{title}{suffix}"
-            if candidate not in existing:
-                return candidate
-            index += 1
-
-    def _export_user_settings(self) -> None:
-        default_path = get_settings_dir() / "user_settings.ini"
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Export user settings"),
-            str(default_path),
-            self.tr("Settings (*.ini);;All files (*)"),
-        )
-        if not path:
-            return
+                parsed_topics = parse_curriculum_text(raw_text)
+            except (ImportError, ValueError, TypeError) as exc:
+                QMessageBox.warning(self, self.tr("Import error"), str(exc))
+                return
         try:
-            export_settings = QSettings(path, QSettings.IniFormat)
-            export_settings.clear()
-            for key in self.settings.allKeys():
-                export_settings.setValue(key, self.settings.value(key))
-            export_settings.sync()
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-            return
-        QMessageBox.information(self, self.tr("Export user settings"), self.tr("User settings exported."))
-
-    def _import_user_settings(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            self.tr("Import user settings"),
-            "",
-            self.tr("Settings (*.ini);;All files (*)"),
-        )
-        if not path:
-            return
-        if QMessageBox.question(
-            self,
-            self.tr("Confirm"),
-            self.tr("Replace the current user settings with the selected file?"),
-        ) != QMessageBox.Yes:
-            return
-        try:
-            import_settings = QSettings(path, QSettings.IniFormat)
-            self.settings.clear()
-            for key in import_settings.allKeys():
-                self.settings.setValue(key, import_settings.value(key))
-            self.settings.sync()
-            self.i18n.load_from_settings()
-        except Exception as exc:
+            topics_added, lessons_added, questions_added = import_curriculum_structure(
+                self.controller.db,
+                program_id,
+                discipline_id,
+                new_name,
+                parsed_topics,
+            )
+        except (OSError, ValueError, RuntimeError, sqlite3.Error, TypeError) as exc:
             QMessageBox.warning(self, self.tr("Import error"), str(exc))
             return
         QMessageBox.information(
             self,
-            self.tr("Import user settings"),
-            self.tr("User settings imported. Restart the app."),
+            self.tr("Import complete"),
+            self.tr("Added topics: {0}\nAdded lessons: {1}\nAdded questions: {2}").format(
+                topics_added, lessons_added, questions_added
+            ),
         )
-
-    def _save_user_settings(self) -> None:
-        try:
-            self.settings.sync()
-        except Exception as exc:
-            QMessageBox.warning(self, self.tr("Import error"), str(exc))
-            return
-        QMessageBox.information(self, self.tr("Save user settings"), self.tr("User settings saved."))
-
-    def _serialize_settings(self, settings: QSettings) -> str:
-        import base64
-        import json
-
-        data = {}
-        for key in settings.allKeys():
-            value = settings.value(key)
-            if isinstance(value, QByteArray):
-                data[key] = {
-                    "__type__": "QByteArray",
-                    "data": base64.b64encode(bytes(value)).decode("ascii"),
-                }
-            else:
-                data[key] = value
-        return json.dumps(data, ensure_ascii=False, indent=2)
-
-    def _deserialize_settings(self, settings: QSettings, content: str) -> None:
-        import base64
-        import json
-
-        data = json.loads(content)
-        settings.clear()
-        for key, value in data.items():
-            if isinstance(value, dict) and value.get("__type__") == "QByteArray":
-                raw = base64.b64decode(value.get("data", ""))
-                settings.setValue(key, QByteArray(raw))
-            else:
-                settings.setValue(key, value)
-
-    def _refresh_material_associations(self) -> None:
-        material = self._current_entity(self.materials_table)
-        if not material:
-            return
-        self.material_assoc_available.clear()
-        entity_type = self.material_assoc_type.currentData()
-        if entity_type == "program":
-            entities = self.controller.get_programs()
-            for entity in entities:
-                item = QListWidgetItem(entity.name)
-                item.setData(Qt.UserRole, entity)
-                self.material_assoc_available.addItem(item)
-        elif entity_type == "discipline":
-            entities = self.controller.get_disciplines()
-            for entity in entities:
-                item = QListWidgetItem(entity.name)
-                item.setData(Qt.UserRole, entity)
-                self.material_assoc_available.addItem(item)
-        elif entity_type == "topic":
-            entities = self.controller.get_topics()
-            for entity in entities:
-                item = QListWidgetItem(entity.title)
-                item.setData(Qt.UserRole, entity)
-                self.material_assoc_available.addItem(item)
-        elif entity_type == "lesson":
-            entities = self.controller.get_lessons()
-            for entity in entities:
-                item = QListWidgetItem(entity.title)
-                item.setData(Qt.UserRole, entity)
-                self.material_assoc_available.addItem(item)
-
-    def _add_teacher_to_material(self) -> None:
-        material = self._current_entity(self.materials_table)
-        item = self.material_teachers_available.currentItem()
-        if not material or not item:
-            return
-        teacher = item.data(Qt.UserRole)
-        self.controller.add_teacher_to_material(teacher.id, material.id)
-        self._refresh_materials()
-
-    def _remove_teacher_from_material(self) -> None:
-        material = self._current_entity(self.materials_table)
-        item = self.material_teachers_assigned.currentItem()
-        if not material or not item:
-            return
-        teacher = item.data(Qt.UserRole)
-        self.controller.remove_teacher_from_material(teacher.id, material.id)
-        self._refresh_materials()
-
-    def _link_material_association(self) -> None:
-        material = self._current_entity(self.materials_table)
-        item = self.material_assoc_available.currentItem()
-        if not material or not item:
-            return
-        entity_type = self.material_assoc_type.currentData()
-        entity = item.data(Qt.UserRole)
-        self.controller.add_material_to_entity(material.id, entity_type, entity.id)
-        self._refresh_materials()
-
-    def _unlink_material_association(self) -> None:
-        material = self._current_entity(self.materials_table)
-        item = self.material_assoc_assigned.currentItem()
-        if not material or not item:
-            return
-        entity_type, entity_id = item.data(Qt.UserRole)
-        self.controller.remove_material_from_entity(material.id, entity_type, entity_id)
-        self._refresh_materials()
-
-    def _on_import_curriculum(self) -> None:
-        run_import_curriculum(self)
+        self._refresh_all()
 
     def _on_import_teachers(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -4552,8 +1893,8 @@ class AdminDialog(QDialog):
         if not path:
             return
         try:
-            added, skipped = run_import_teachers(self, path)
-        except (ValueError, sqlite3.Error) as exc:
+            added, skipped = import_teachers_from_docx(self.controller.db, path)
+        except (OSError, ValueError, RuntimeError, TypeError, sqlite3.Error) as exc:
             QMessageBox.warning(self, self.tr("Import error"), str(exc))
             return
         QMessageBox.information(
@@ -4562,484 +1903,6 @@ class AdminDialog(QDialog):
             self.tr("Added teachers: {0}\nSkipped: {1}").format(added, skipped),
         )
         self._refresh_teachers()
-
-    def _current_entity(self, table: QTableWidget):
-        row = table.currentRow()
-        if row < 0:
-            return None
-        item = table.item(row, 0)
-        if not item:
-            return None
-        return item.data(Qt.UserRole)
-
-    def _selected_entities(self, table: QTableWidget):
-        entities = []
-        rows = {index.row() for index in table.selectionModel().selectedRows()}
-        for row in sorted(rows):
-            item = table.item(row, 0)
-            if item:
-                entity = item.data(Qt.UserRole)
-                if entity:
-                    entities.append(entity)
-        return entities
-
-    def _translate_entity_type(self, entity_type: str) -> str:
-        mapping = {
-            "program": self.tr("Program"),
-            "discipline": self.tr("Discipline"),
-            "topic": self.tr("Topic"),
-            "lesson": self.tr("Lesson"),
-            "question": self.tr("Question"),
-            "teacher": self.tr("Teacher"),
-            "material": self.tr("Material"),
-        }
-        return mapping.get(entity_type, entity_type)
-
-    def _translate_material_type(self, material_type: str) -> str:
-        mapping = {
-            "plan": self.tr("plan"),
-            "guide": self.tr("guide"),
-            "presentation": self.tr("presentation"),
-            "attachment": self.tr("attachment"),
-        }
-        return mapping.get(material_type or "", material_type or "")
-
-    def _teacher_sort_key(self, teacher) -> tuple:
-        return teacher_sort_key(teacher)
-
-    def _show_context_menu(self, table: QTableWidget, pos, on_edit, on_delete) -> None:  # noqa: ANN001
-        item = table.itemAt(pos)
-        if not item:
-            return
-        table.selectRow(item.row())
-        menu = QMenu(table)
-        edit_action = menu.addAction(self.tr("Edit"))
-        delete_action = menu.addAction(self.tr("Delete"))
-        action = menu.exec(table.viewport().mapToGlobal(pos))
-        if action == edit_action:
-            on_edit()
-        elif action == delete_action:
-            on_delete()
-
-    def _show_structure_context_menu(self, pos) -> None:  # noqa: ANN001
-        item = self.structure_tree.itemAt(pos)
-        if not item:
-            return
-        self.structure_tree.setCurrentItem(item)
-        menu = QMenu(self.structure_tree)
-        edit_action = menu.addAction(self.tr("Edit"))
-        delete_action = menu.addAction(self.tr("Delete"))
-        duplicate_action = menu.addAction(self.tr("Duplicate"))
-        copy_action = menu.addAction(self.tr("Copy"))
-        action = menu.exec(self.structure_tree.viewport().mapToGlobal(pos))
-        if action == edit_action:
-            self._edit_structure_selected()
-        elif action == delete_action:
-            self._delete_structure_selected()
-        elif action == duplicate_action:
-            self._duplicate_structure_selected()
-        elif action == copy_action:
-            self._copy_structure_selected()
-
-    def _show_about(self) -> None:
-        text = "\n".join(
-            [
-                self.tr(
-                    "Copyright on the program idea belongs to the Department of Military Leadership "
-                    "of the Military Academy, Odesa."
-                ),
-                self.tr("Developer: Lieutenant Heorhii FYLYPOVYCH."),
-                self.tr(
-                    "Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova."
-                ),
-            ]
-        )
-        QMessageBox.information(self, self.tr("About"), text)
-
-    def _restart_application(self) -> None:
-        QProcess.startDetached(sys.executable, sys.argv)
-        QApplication.quit()
-
-    def _close_application(self) -> None:
-        QApplication.quit()
-
-    def retranslate_ui(self, *_args) -> None:
-        self.setWindowTitle(self.tr("Admin Panel"))
-        for child in self.findChildren(QMenuBar):
-            child.clear()
-            app_menu = child.addMenu(self.tr("Application"))
-            action_about = app_menu.addAction(self.tr("About"))
-            action_restart = app_menu.addAction(self.tr("Restart application"))
-            action_exit = app_menu.addAction(self.tr("Exit application"))
-            action_about.triggered.connect(self._show_about)
-            action_restart.triggered.connect(self._restart_application)
-            action_exit.triggered.connect(self._close_application)
-        self.tabs.setTabText(0, self.tr("Main"))
-        self.tabs.setTabText(1, self.tr("Import & Sync"))
-        self.tabs.setTabText(2, self.tr("System"))
-        self.main_tabs.setTabText(0, self.tr("Structure"))
-        self.main_tabs.setTabText(1, self.tr("Materials"))
-        self.main_tabs.setTabText(2, self.tr("Teachers"))
-        self.sync_tabs.setTabText(0, self.tr("Synchronization"))
-        self.sync_tabs.setTabText(1, self.tr("Internet"))
-        self.system_tabs.setTabText(0, self.tr("Log"))
-        self.system_tabs.setTabText(1, self.tr("Settings"))
-        if hasattr(self, "sync_hint"):
-            self.sync_hint.setText(
-                self.tr(
-                    "Use this section to compare the current database with another local source "
-                    "before applying synchronization."
-                )
-            )
-        if hasattr(self, "sync_steps_hint"):
-            self.sync_steps_hint.setText(
-                self.tr(
-                    "Recommended order: 1) choose synchronization mode, 2) choose programs, "
-                    "3) review differences, 4) apply changes."
-                )
-            )
-        if hasattr(self, "internet_sync_hint"):
-            self.internet_sync_hint.setText(
-                self.tr(
-                    "Use this section to connect to the Internet database and synchronize data safely."
-                )
-            )
-        if hasattr(self, "internet_sync_steps_hint"):
-            self.internet_sync_steps_hint.setText(
-                self.tr(
-                    "Recommended order: 1) enter connection settings, 2) connect, "
-                    "3) choose synchronization direction, 4) review conflicts, 5) apply changes."
-                )
-            )
-        if hasattr(self, "sync_mapping_hint"):
-            self.sync_mapping_hint.setText(
-                self.tr(
-                    "Choose the current local program on the left and the source program to compare on the right."
-                )
-            )
-        if hasattr(self, "sync_compare_hint"):
-            self.sync_compare_hint.setText(
-                self.tr(
-                    "Left side shows the current local structure. Right side shows the source structure "
-                    "that will be imported or used for synchronization."
-                )
-            )
-        if hasattr(self, "sync_target_label"):
-            self.sync_target_label.setText(self.tr("Target program:"))
-        if hasattr(self, "sync_source_label"):
-            self.sync_source_label.setText(self.tr("Source program:"))
-        if hasattr(self, "sync_mode_label"):
-            self.sync_mode_label.setText(self.tr("Mode:"))
-        if hasattr(self, "sync_mode_import"):
-            self.sync_mode_import.setText(self.tr("Import program fully"))
-        if hasattr(self, "sync_mode_sync"):
-            self.sync_mode_sync.setText(self.tr("Synchronize with existing program"))
-        if hasattr(self, "sync_import_label"):
-            self.sync_import_label.setText(self.tr("Program to import:"))
-        if hasattr(self, "sync_import_apply"):
-            self.sync_import_apply.setText(self.tr("Import program"))
-        if hasattr(self, "materials_group"):
-            self.materials_group.setTitle(self.tr("Material types"))
-        if hasattr(self, "lesson_types_group"):
-            self.lesson_types_group.setTitle(self.tr("Lesson types"))
-        if hasattr(self, "structure_hint"):
-            self.structure_hint.setText(
-                self._tr_or_fallback(
-                    "Use the tree on the left to choose a program element. "
-                    "Use the action bar above to add, edit, copy, or import structure items.",
-                    "\u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u0434\u0435\u0440\u0435\u0432\u043e \u043b\u0456\u0432\u043e\u0440\u0443\u0447, \u0449\u043e\u0431 \u0432\u0438\u0431\u0440\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438. \u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u043f\u0430\u043d\u0435\u043b\u044c \u0434\u0456\u0439 \u0443\u0433\u043e\u0440\u0456, \u0449\u043e\u0431 \u0434\u043e\u0434\u0430\u0432\u0430\u0442\u0438, \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438, \u043a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438 \u0430\u0431\u043e \u0456\u043c\u043f\u043e\u0440\u0442\u0443\u0432\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0438 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438.",
-                )
-            )
-        if hasattr(self, "structure_materials_hint"):
-            self.structure_materials_hint.setText(
-                self._tr_or_fallback(
-                    "Materials below belong to the currently selected program element.",
-                    "\u041c\u0430\u0442\u0435\u0440\u0456\u0430\u043b\u0438 \u043d\u0438\u0436\u0447\u0435 \u043d\u0430\u043b\u0435\u0436\u0430\u0442\u044c \u0434\u043e \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u0433\u043e \u0432\u0438\u0431\u0440\u0430\u043d\u043e\u0433\u043e \u0435\u043b\u0435\u043c\u0435\u043d\u0442\u0430 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438.",
-                )
-            )
-        if hasattr(self, "material_types_hint"):
-            self.material_types_hint.setText(
-                self.tr(
-                    "Manage reference lists for material types and lesson types here. "
-                    "These values are used across the whole database."
-                )
-            )
-        self.structure_tree.setHeaderLabels([self.tr("Structure")])
-        self.structure_add_program.setText(
-            self._tr_or_fallback("Add program", "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0443")
-        )
-        self.structure_add_discipline.setText(self.tr("Add discipline"))
-        self.structure_add_topic.setText(self.tr("Add topic"))
-        self.structure_add_lesson.setText(self.tr("Add lesson"))
-        self.structure_add_question.setText(self.tr("Add question"))
-        self.structure_import.setText(
-            self._tr_or_fallback(
-                "Import curriculum structure",
-                "\u0406\u043c\u043f\u043e\u0440\u0442 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0438 \u043d\u0430\u0432\u0447\u0430\u043b\u044c\u043d\u043e\u0457 \u043f\u0440\u043e\u0433\u0440\u0430\u043c\u0438",
-            )
-        )
-        self.structure_refresh.setText(self.tr("Refresh"))
-        self.structure_edit.setText(self.tr("Edit"))
-        self.structure_delete.setText(self.tr("Delete"))
-        self.structure_duplicate.setText(
-            self._tr_or_fallback("Duplicate", "\u0414\u0443\u0431\u043b\u044e\u0432\u0430\u0442\u0438")
-        )
-        self.structure_copy.setText(
-            self._tr_or_fallback("Copy", "\u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438")
-        )
-
-        if hasattr(self, "database_path_label"):
-            self.database_path_label.setText(self.tr("Database file"))
-        if hasattr(self, "ui_settings_path_label"):
-            self.ui_settings_path_label.setText(self.tr("UI settings file"))
-        if hasattr(self, "settings_hint"):
-            self.settings_hint.setText(
-                self.tr(
-                    "Use this section to manage file locations, database maintenance, and user settings backups."
-                )
-            )
-        if hasattr(self, "internet_db_group"):
-            self.internet_db_group.setTitle(self.tr("Internet database connection"))
-            self.internet_db_host_label.setText(self.tr("Host"))
-            self.internet_db_port_label.setText(self.tr("Port"))
-            self.internet_db_name_label.setText(self.tr("Database"))
-            self.internet_db_user_label.setText(self.tr("Login"))
-            self.internet_db_password_label.setText(self.tr("Password"))
-            self.internet_db_save.setText(self.tr("Save"))
-            self.internet_db_connect.setText(self.tr("Connect to Internet DB"))
-            self.internet_db_sync.setText(self.tr("Start synchronization"))
-            if self.internet_sync_direction.count() >= 2:
-                self.internet_sync_direction.setItemText(0, self.tr("Upload local changes to Internet DB"))
-                self.internet_sync_direction.setItemText(1, self.tr("Download Internet DB changes to local database"))
-        if hasattr(self, "internet_direction_hint"):
-            self.internet_direction_hint.setText(
-                self.tr("Choose where the changes should go before starting synchronization.")
-            )
-        if hasattr(self, "internet_db_status") and not self.internet_db_status.text().strip():
-            self.internet_db_status.setText(self.tr("Not connected"))
-        if hasattr(self, "log_table"):
-            self.log_table.setHorizontalHeaderLabels(
-                [
-                    self.tr("Time"),
-                    self.tr("User"),
-                    self.tr("Mode"),
-                    self.tr("Action"),
-                    self.tr("Details"),
-                ]
-            )
-            self.log_refresh_btn.setText(self.tr("Refresh log"))
-            self.log_clear_btn.setText(self.tr("Clear log entries"))
-        if hasattr(self, "log_hint"):
-            self.log_hint.setText(
-                self.tr("Use the log to review user actions and recent administrative changes.")
-            )
-
-        if hasattr(self, "teachers_table"):
-            self.teachers_table.setHorizontalHeaderLabels(
-                [
-                    self.tr("Full name"),
-                    self.tr("Military rank"),
-                    self.tr("Position"),
-                    self.tr("Department"),
-                    self.tr("Email"),
-                    self.tr("Phone"),
-                ]
-            )
-        if hasattr(self, "programs_table"):
-            self.programs_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Level"), self.tr("Duration")])
-        if hasattr(self, "disciplines_table"):
-            self.disciplines_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Order")])
-        if hasattr(self, "topics_table"):
-            self.topics_table.setHorizontalHeaderLabels([self.tr("Title"), self.tr("Order")])
-        if hasattr(self, "lessons_table"):
-            self.lessons_table.setHorizontalHeaderLabels(
-                [self.tr("Title"), self.tr("Total hours"), self.tr("Type"), self.tr("Order")]
-            )
-        if hasattr(self, "lesson_types_table"):
-            self.lesson_types_table.setHorizontalHeaderLabels([self.tr("Name"), self.tr("Synonyms")])
-        if hasattr(self, "questions_table"):
-            self.questions_table.setHorizontalHeaderLabels([self.tr("Question")])
-        if hasattr(self, "materials_table"):
-            self.materials_table.setHorizontalHeaderLabels(
-                [self.tr("Title"), self.tr("Type"), self.tr("File"), self.tr("Authors")]
-            )
-
-        if hasattr(self, "teacher_add"):
-            self.teacher_add.setText(self.tr("Add"))
-        if hasattr(self, "teacher_edit"):
-            self.teacher_edit.setText(self.tr("Edit"))
-        if hasattr(self, "teacher_delete"):
-            self.teacher_delete.setText(self.tr("Delete"))
-        if hasattr(self, "teacher_import"):
-            self.teacher_import.setText(self.tr("Import teachers from DOCX"))
-        if hasattr(self, "teachers_hint"):
-            self.teachers_hint.setText(
-                self.tr(
-                    "Use this section to manage teachers. Select a teacher in the table, then assign disciplines below."
-                )
-            )
-        if hasattr(self, "teacher_disciplines_label"):
-            self.teacher_disciplines_label.setText(
-                self.tr("Available disciplines on the left, assigned disciplines on the right")
-            )
-            self.teacher_discipline_add.setText(self.tr("Add ->"))
-            self.teacher_discipline_remove.setText(self.tr("<- Remove"))
-        if hasattr(self, "program_add"):
-            self.program_add.setText(self.tr("Add"))
-        if hasattr(self, "program_edit"):
-            self.program_edit.setText(self.tr("Edit"))
-        if hasattr(self, "program_delete"):
-            self.program_delete.setText(self.tr("Delete"))
-        if hasattr(self, "programs_hint"):
-            self.programs_hint.setText(
-                self.tr("Select a program in the table, then manage its discipline links below.")
-            )
-        if hasattr(self, "program_disciplines_label"):
-            self.program_disciplines_label.setText(self.tr("Program disciplines"))
-        if hasattr(self, "program_discipline_add"):
-            self.program_discipline_add.setText(self.tr("Add ->"))
-        if hasattr(self, "program_discipline_remove"):
-            self.program_discipline_remove.setText(self.tr("<- Remove"))
-
-        if hasattr(self, "discipline_add"):
-            self.discipline_add.setText(self.tr("Add"))
-        if hasattr(self, "discipline_edit"):
-            self.discipline_edit.setText(self.tr("Edit"))
-        if hasattr(self, "discipline_delete"):
-            self.discipline_delete.setText(self.tr("Delete"))
-        if hasattr(self, "disciplines_hint"):
-            self.disciplines_hint.setText(
-                self.tr("Select a discipline in the table, then manage its topic links below.")
-            )
-        if hasattr(self, "discipline_topics_label"):
-            self.discipline_topics_label.setText(self.tr("Discipline topics"))
-        if hasattr(self, "discipline_topic_add"):
-            self.discipline_topic_add.setText(self.tr("Add ->"))
-        if hasattr(self, "discipline_topic_remove"):
-            self.discipline_topic_remove.setText(self.tr("<- Remove"))
-
-        if hasattr(self, "topic_add"):
-            self.topic_add.setText(self.tr("Add"))
-        if hasattr(self, "topic_edit"):
-            self.topic_edit.setText(self.tr("Edit"))
-        if hasattr(self, "topic_delete"):
-            self.topic_delete.setText(self.tr("Delete"))
-        if hasattr(self, "topics_hint"):
-            self.topics_hint.setText(
-                self.tr("Select a topic in the table, then manage linked lessons and topic materials below.")
-            )
-        if hasattr(self, "topic_lessons_label"):
-            self.topic_lessons_label.setText(self.tr("Topic lessons"))
-        if hasattr(self, "topic_lesson_add"):
-            self.topic_lesson_add.setText(self.tr("Add ->"))
-        if hasattr(self, "topic_lesson_remove"):
-            self.topic_lesson_remove.setText(self.tr("<- Remove"))
-        if hasattr(self, "topic_materials_label"):
-            self.topic_materials_label.setText(self.tr("Topic materials"))
-        if hasattr(self, "topic_material_add"):
-            self.topic_material_add.setText(self.tr("Add ->"))
-        if hasattr(self, "topic_material_remove"):
-            self.topic_material_remove.setText(self.tr("<- Remove"))
-
-        if hasattr(self, "lesson_add"):
-            self.lesson_add.setText(self.tr("Add"))
-        if hasattr(self, "lesson_edit"):
-            self.lesson_edit.setText(self.tr("Edit"))
-        if hasattr(self, "lesson_delete"):
-            self.lesson_delete.setText(self.tr("Delete"))
-        if hasattr(self, "lessons_hint"):
-            self.lessons_hint.setText(
-                self.tr("Select a lesson in the table, then manage linked questions and lesson materials below.")
-            )
-        if hasattr(self, "lesson_questions_label"):
-            self.lesson_questions_label.setText(self.tr("Lesson questions"))
-        if hasattr(self, "lesson_question_add"):
-            self.lesson_question_add.setText(self.tr("Add ->"))
-        if hasattr(self, "lesson_question_remove"):
-            self.lesson_question_remove.setText(self.tr("<- Remove"))
-        if hasattr(self, "lesson_materials_label"):
-            self.lesson_materials_label.setText(self.tr("Lesson materials"))
-        if hasattr(self, "lesson_material_add"):
-            self.lesson_material_add.setText(self.tr("Add ->"))
-        if hasattr(self, "lesson_material_remove"):
-            self.lesson_material_remove.setText(self.tr("<- Remove"))
-
-        if hasattr(self, "lesson_type_add"):
-            self.lesson_type_add.setText(self.tr("Add"))
-        if hasattr(self, "lesson_type_edit"):
-            self.lesson_type_edit.setText(self.tr("Edit"))
-        if hasattr(self, "lesson_type_delete"):
-            self.lesson_type_delete.setText(self.tr("Delete"))
-
-        if hasattr(self, "question_add"):
-            self.question_add.setText(self.tr("Add"))
-        if hasattr(self, "question_edit"):
-            self.question_edit.setText(self.tr("Edit"))
-        if hasattr(self, "question_delete"):
-            self.question_delete.setText(self.tr("Delete"))
-        if hasattr(self, "questions_hint"):
-            self.questions_hint.setText(self.tr("Use this section to manage standalone question records."))
-
-        if hasattr(self, "material_add"):
-            self.material_add.setText(self.tr("Add"))
-        if hasattr(self, "material_edit"):
-            self.material_edit.setText(self.tr("Edit"))
-        if hasattr(self, "material_delete"):
-            self.material_delete.setText(self.tr("Delete"))
-        if hasattr(self, "material_open"):
-            self.material_open.setText(self.tr("Open file"))
-        if hasattr(self, "material_show"):
-            self.material_show.setText(self.tr("Show folder"))
-        if hasattr(self, "material_copy"):
-            self.material_copy.setText(self.tr("Save copy"))
-        if hasattr(self, "material_types_table"):
-            self.material_types_table.setHorizontalHeaderLabels([self.tr("Name")])
-            self.material_type_add.setText(self.tr("Add"))
-            self.material_type_edit.setText(self.tr("Edit"))
-            self.material_type_delete.setText(self.tr("Delete"))
-
-        self.materials_location_label.setText(self.tr("Materials location"))
-        self.materials_location_browse.setText(self.tr("Change..."))
-        if hasattr(self, "database_path_label"):
-            self.database_path_label.setText(self.tr("Database file"))
-        if hasattr(self, "database_path_browse"):
-            self.database_path_browse.setText(self.tr("Change..."))
-        if hasattr(self, "ui_settings_path_label"):
-            self.ui_settings_path_label.setText(self.tr("UI settings file"))
-        if hasattr(self, "ui_settings_path_browse"):
-            self.ui_settings_path_browse.setText(self.tr("Change..."))
-        if hasattr(self, "translations_path_label"):
-            self.translations_path_label.setText(self.tr("Translations file"))
-        if hasattr(self, "translations_path_browse"):
-            self.translations_path_browse.setText(self.tr("Change..."))
-        for child in self.findChildren(QGroupBox):
-            title = child.title()
-            if title == "Database maintenance" or title == self.tr("Database maintenance"):
-                child.setTitle(self.tr("Database maintenance"))
-            elif title == "User settings backup" or title == self.tr("User settings backup"):
-                child.setTitle(self.tr("User settings backup"))
-            elif title == "Teacher discipline assignment" or title == self.tr("Teacher discipline assignment"):
-                child.setTitle(self.tr("Teacher discipline assignment"))
-        self.db_export.setText(self.tr("Export DB copy"))
-        self.db_import.setText(self.tr("Import DB file"))
-        self.db_check.setText(self.tr("Check DB"))
-        self.db_cleanup.setText(self.tr("Cleanup unused data"))
-        self.db_repair.setText(self.tr("Repair DB"))
-        self.user_settings_export.setText(self.tr("Export settings copy"))
-        self.user_settings_import.setText(self.tr("Import settings file"))
-        self.user_settings_save.setText(self.tr("Save current settings"))
-        if hasattr(self, "sync_start"):
-            self.sync_start.setText(self.tr("Start synchronization"))
-            self.sync_apply.setText(self.tr("Apply synchronization"))
-            self.sync_left_tree.setHeaderLabels([self.tr("Current structure")])
-            self.sync_right_tree.setHeaderLabels([self.tr("Source structure")])
-            self.sync_type_program.setText(self.tr("Program"))
-            self.sync_type_discipline.setText(self.tr("Discipline"))
-            self.sync_type_topic.setText(self.tr("Topic"))
-            self.sync_type_lesson.setText(self.tr("Lesson"))
-            self.sync_type_question.setText(self.tr("Question"))
-            self.sync_type_materials.setText(self.tr("Materials"))
-
 
 class _WrapItemDelegate(QStyledItemDelegate):
     def __init__(self, view):

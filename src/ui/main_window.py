@@ -2,6 +2,8 @@
 import os
 import re
 import sys
+import time
+import sqlite3
 from typing import Callable, Dict, Tuple
 from PySide6.QtCore import Qt, QSettings, QSize, QRect
 from PySide6.QtWidgets import (
@@ -31,9 +33,8 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QStyle,
     QApplication,
-    QMenu,
 )
-from PySide6.QtGui import QActionGroup, QFont, QColor, QBrush, QTextDocument, QFontMetrics
+from PySide6.QtGui import QFont, QColor, QBrush, QTextDocument, QFontMetrics
 from PySide6.QtCore import QProcess
 from ..controllers.main_controller import MainController
 from ..ui.admin_dialog import AdminDialog
@@ -41,12 +42,13 @@ from ..ui.editor_wizard import EditorWizardDialog
 from ..services.auth_service import AuthService
 from ..services.i18n import I18nManager
 from ..services.file_storage import FileStorageManager
-from ..services.teacher_sorting import teacher_sort_key
 from ..ui.dialogs import TeacherLoginDialog
 
 
 class MainWindow(QMainWindow):
     """Main window for user mode."""
+    AUTH_MAX_ATTEMPTS = 5
+    AUTH_COOLDOWN_SECONDS = 30
 
     def __init__(self, controller: MainController, i18n: I18nManager, settings: QSettings):
         super().__init__()
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
         self.last_program_id = None
         self.last_discipline_id = None
         self.active_teacher = None
+        self._auth_blocked_until: Dict[str, float] = {}
         self.setWindowTitle(self.tr("Educational Program Manager"))
         self.resize(1200, 720)
         self._build_ui()
@@ -68,7 +71,6 @@ class MainWindow(QMainWindow):
         self._load_programs()
         self._load_settings()
         self.i18n.language_changed.connect(self._on_language_changed)
-        self.retranslate_ui()
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -87,15 +89,22 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self.search_label)
         self.search_input = QLineEdit()
         self.search_button = QPushButton(self.tr("Search"))
-        self.settings_button = QPushButton(self.tr("Settings"))
-        self.administration_button = QPushButton(self.tr("Administration"))
-        self.active_teacher_label = QLabel(self.tr("Active teacher: not selected"))
+        self.language_combo = QComboBox()
+        self.language_combo.addItem(self.tr("Ukrainian"), "uk")
+        self.language_combo.addItem(self.tr("English"), "en")
+        self.font_combo = QComboBox()
+        self.font_combo.addItems(["10", "11", "12", "13", "14", "15", "16", "18"])
+        self.editor_button = QPushButton(self.tr("Editor Mode"))
+        self.admin_button = QPushButton(self.tr("Admin Mode"))
+        self.active_teacher_label = QLabel(self.tr("User: not selected"))
         top_bar.addWidget(self.search_input)
         top_bar.addWidget(self.search_button)
+        top_bar.addWidget(self.language_combo)
+        top_bar.addWidget(self.font_combo)
         top_bar.addStretch(1)
         top_bar.addWidget(self.active_teacher_label)
-        top_bar.addWidget(self.settings_button)
-        top_bar.addWidget(self.administration_button)
+        top_bar.addWidget(self.editor_button)
+        top_bar.addWidget(self.admin_button)
         layout.addLayout(top_bar)
 
         self.main_splitter = QSplitter()
@@ -127,23 +136,6 @@ class MainWindow(QMainWindow):
         self.report_table.horizontalHeader().setStretchLastSection(True)
         self.report_table.verticalHeader().setVisible(False)
         self.report_label = QLabel(self.tr("Report"))
-        self.report_hint = QLabel(
-            self.tr(
-                "The report shows lessons in rows and teachers in columns. "
-                "Use it to quickly see who is assigned to each lesson."
-            )
-        )
-        self._style_hint_label(self.report_hint)
-        self.report_legend = QLabel(
-            self.tr(
-                "Color legend: green = complete set, yellow = partially filled, red = no materials."
-            )
-        )
-        self._style_hint_label(self.report_legend)
-        self.report_selection_hint = QLabel(
-            self.tr("Select a lesson or teacher cell to see the related details and materials.")
-        )
-        self._style_hint_label(self.report_selection_hint)
 
         self.structure_tabs = QTabWidget()
         structure_tab = QWidget()
@@ -151,9 +143,6 @@ class MainWindow(QMainWindow):
         structure_layout.addWidget(self._wrap_with_label(self.content_tree, self.structure_label))
         report_tab = QWidget()
         report_layout = QVBoxLayout(report_tab)
-        report_layout.addWidget(self.report_hint)
-        report_layout.addWidget(self.report_legend)
-        report_layout.addWidget(self.report_selection_hint)
         report_layout.addWidget(self._wrap_with_label(self.report_table, self.report_label))
         self.structure_tabs.addTab(structure_tab, self.tr("Structure"))
         self.structure_tabs.addTab(report_tab, self.tr("Report"))
@@ -162,6 +151,8 @@ class MainWindow(QMainWindow):
 
         self.search_results = QTableWidget(0, 3)
         self.search_results.setHorizontalHeaderLabels([self.tr("Type"), self.tr("Title"), self.tr("Description")])
+        self.language_combo.setItemText(0, self.tr("Ukrainian"))
+        self.language_combo.setItemText(1, self.tr("English"))
         self.search_results.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.search_results.horizontalHeader().setStretchLastSection(True)
         self.search_results_label = QLabel(self.tr("Search Results"))
@@ -198,20 +189,12 @@ class MainWindow(QMainWindow):
         self.materials_label = QLabel(self.tr("Methodical Materials"))
         right_layout.addWidget(self._wrap_with_label(self.materials_list, self.materials_label))
 
-        self.open_material_button = QPushButton(self.tr("Open file"))
-        self.show_material_button = QPushButton(self.tr("Show folder"))
-        self.copy_material_button = QPushButton(self.tr("Save copy"))
-        self._compact_action_buttons(
-            self.open_material_button,
-            self.show_material_button,
-            self.copy_material_button,
-        )
-        material_actions = QHBoxLayout()
-        material_actions.addWidget(self.open_material_button)
-        material_actions.addWidget(self.show_material_button)
-        material_actions.addWidget(self.copy_material_button)
-        material_actions.addStretch(1)
-        right_layout.addLayout(material_actions)
+        self.open_material_button = QPushButton(self.tr("Open Selected File"))
+        self.show_material_button = QPushButton(self.tr("Show in folder"))
+        self.copy_material_button = QPushButton(self.tr("Copy file as..."))
+        right_layout.addWidget(self.open_material_button)
+        right_layout.addWidget(self.show_material_button)
+        right_layout.addWidget(self.copy_material_button)
 
         self.main_splitter.addWidget(right_panel)
         self.main_splitter.setStretchFactor(1, 2)
@@ -226,81 +209,15 @@ class MainWindow(QMainWindow):
         self.content_tree.itemSelectionChanged.connect(self._on_tree_selected)
         self.search_results.cellDoubleClicked.connect(self._on_search_result_activated)
         self.search_results.itemSelectionChanged.connect(self._on_search_result_selected)
+        self.admin_button.clicked.connect(self._on_open_admin)
+        self.editor_button.clicked.connect(self._on_open_editor)
         self.materials_list.itemDoubleClicked.connect(self._on_open_material_item)
         self.report_table.itemSelectionChanged.connect(self._on_report_selection_changed)
         self.open_material_button.clicked.connect(self._on_open_material)
         self.show_material_button.clicked.connect(self._on_show_material)
         self.copy_material_button.clicked.connect(self._on_copy_material)
-        self._build_v2_menus()
-
-    def _build_v2_menus(self) -> None:
-        self.settings_menu = QMenu(self)
-        self.settings_button.setMenu(self.settings_menu)
-        self.language_menu = self.settings_menu.addMenu(self.tr("Language"))
-        self.font_menu = self.settings_menu.addMenu(self.tr("Font size"))
-
-        self.language_action_group = QActionGroup(self)
-        self.language_action_group.setExclusive(True)
-        self.language_actions = {}
-        for label, code in ((self.tr("Ukrainian"), "uk"), (self.tr("English"), "en")):
-            action = self.language_menu.addAction(label)
-            action.setCheckable(True)
-            action.triggered.connect(lambda _checked=False, lang=code: self._set_language_choice(lang))
-            self.language_action_group.addAction(action)
-            self.language_actions[code] = action
-
-        self.font_action_group = QActionGroup(self)
-        self.font_action_group.setExclusive(True)
-        self.font_actions = {}
-        for size in ["10", "11", "12", "13", "14", "15", "16", "18"]:
-            action = self.font_menu.addAction(size)
-            action.setCheckable(True)
-            action.triggered.connect(lambda _checked=False, value=size: self._set_font_size_choice(value))
-            self.font_action_group.addAction(action)
-            self.font_actions[size] = action
-
-        self.administration_menu = QMenu(self)
-        self.administration_button.setMenu(self.administration_menu)
-        self.editor_mode_action = self.administration_menu.addAction(self.tr("Editor Mode"))
-        self.admin_mode_action = self.administration_menu.addAction(self.tr("Admin Mode"))
-        self.editor_mode_action.triggered.connect(self._on_open_editor)
-        self.admin_mode_action.triggered.connect(self._on_open_admin)
-
-    def _style_hint_label(self, label: QLabel) -> None:
-        label.setWordWrap(True)
-        label.setContentsMargins(0, 0, 0, 4)
-        label.setStyleSheet("color: #444444;")
-
-    def _tr_or_fallback(self, source: str, fallback: str) -> str:
-        text = self.tr(source)
-        stripped = (text or "").strip()
-        normalized = "".join(ch for ch in stripped if ch not in " \t\r\n.,:;!?-()[]{}<>/\\\"'")
-        if (not stripped) or stripped == source or (normalized and set(normalized) == {"?"}):
-            return fallback
-        return text
-
-    def _compact_action_buttons(self, *buttons: QPushButton) -> None:
-        for button in buttons:
-            button.setMinimumHeight(28)
-
-    def _set_language_choice(self, language: str) -> None:
-        if language:
-            self.i18n.set_language(language)
-
-    def _set_font_size_choice(self, value: str) -> None:
-        if not value:
-            return
-        try:
-            size = int(value)
-        except ValueError:
-            return
-        font = QFont(self.font())
-        font.setPointSize(size)
-        self.setFont(font)
-        self.settings.setValue("ui/font_size", size)
-        action = self.font_actions.get(str(size))
-        if action:
-            action.setChecked(True)
+        self.language_combo.currentIndexChanged.connect(self._on_language_combo_changed)
+        self.font_combo.currentTextChanged.connect(self._on_font_size_changed)
 
     def ensure_teacher_login(self) -> bool:
         teachers = list(self.controller.teacher_repo.get_all())
@@ -310,12 +227,12 @@ class MainWindow(QMainWindow):
             self._update_active_teacher_label()
             QMessageBox.information(
                 self,
-                self.tr("Select active teacher"),
-                self.tr("No teachers found. Continue in guest mode and add a teacher in Administration."),
+                self.tr("Teacher Login"),
+                self.tr("No teachers found. Continue in guest mode and add a teacher in admin mode."),
             )
             return True
 
-        teachers.sort(key=teacher_sort_key)
+        teachers.sort(key=lambda t: ((t.full_name or "").strip().casefold(), t.id or 0))
         preferred_teacher_id = self.settings.value("session/teacher_id")
         preferred_teacher_id = int(preferred_teacher_id) if preferred_teacher_id else None
         dialog = TeacherLoginDialog(teachers, selected_teacher_id=preferred_teacher_id, parent=self)
@@ -332,12 +249,12 @@ class MainWindow(QMainWindow):
 
     def _update_active_teacher_label(self) -> None:
         if not self.active_teacher:
-            self.active_teacher_label.setText(self.tr("Active teacher: not selected"))
+            self.active_teacher_label.setText(self.tr("User: not selected"))
             return
         name = self.active_teacher.full_name or self.tr("Unknown teacher")
         if self.active_teacher.military_rank:
             name = f"{self.active_teacher.military_rank} {name}"
-        self.active_teacher_label.setText(self.tr("Active teacher: {0}").format(name))
+        self.active_teacher_label.setText(self.tr("User: {0}").format(name))
 
     def _active_user_name(self) -> str:
         if not self.active_teacher:
@@ -551,9 +468,6 @@ class MainWindow(QMainWindow):
         if entity_type == "program":
             for discipline in self.controller.get_program_disciplines(entity_id):
                 materials.extend(self.controller.get_materials_for_entity("discipline", discipline.id))
-        elif entity_type == "discipline":
-            # keep only discipline-level materials
-            pass
         unique = {material.id: material for material in materials if material.id is not None}
         for material in unique.values():
             material_type_label = self._translate_material_type(material.material_type)
@@ -687,7 +601,7 @@ class MainWindow(QMainWindow):
         self.search_results.setRowCount(0)
         try:
             results = self.controller.search(keyword)
-        except Exception as exc:
+        except (sqlite3.Error, ValueError, RuntimeError, OSError, TypeError) as exc:
             QMessageBox.critical(
                 self,
                 self.tr("Search Error"),
@@ -788,27 +702,30 @@ class MainWindow(QMainWindow):
         self.content_tree.scrollToItem(item)
 
     def _on_open_admin(self) -> None:
-        from ..ui.dialogs import PasswordDialog, PasswordSetupDialog
+        from ..ui.dialogs import PasswordDialog
         from ..controllers.admin_controller import AdminController
 
         admin_controller = AdminController(self.controller.db)
-        if not self._ensure_mode_password(
-            "admin",
-            admin_controller.auth_service,
-            PasswordSetupDialog,
+        if not admin_controller.auth_service.has_admin_credentials():
+            new_password = self._prompt_new_password(
+                self.tr("Setup Admin Password"),
+                self.tr("Create admin password:"),
+            )
+            if not new_password:
+                return
+            admin_controller.auth_service.set_admin_password(new_password)
+            QMessageBox.information(
+                self,
+                self.tr("Password Created"),
+                self.tr("Admin password has been created."),
+            )
+        if not self._verify_password_with_limit(
+            mode="admin",
+            verify_callback=admin_controller.verify_password,
+            title=self.tr("Admin Access"),
+            label=self.tr("Enter admin password:"),
         ):
             return
-        while True:
-            dialog = PasswordDialog(
-                self,
-                title=self._tr_or_fallback("Admin Access", "Доступ адміністратора"),
-                label=self._tr_or_fallback("Enter admin password:", "Введіть пароль адміністратора:"),
-            )
-            if dialog.exec() != QDialog.Accepted:
-                return
-            if admin_controller.verify_password(dialog.get_password()):
-                break
-            QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid admin password."))
 
         dialog = AdminDialog(
             self.controller.db,
@@ -830,25 +747,21 @@ class MainWindow(QMainWindow):
             self._refresh_report(self.last_program_id)
 
     def _on_open_editor(self) -> None:
-        from ..ui.dialogs import PasswordDialog, PasswordSetupDialog
+        if not self.auth_service.has_editor_credentials():
+            QMessageBox.warning(
+                self,
+                self.tr("Access denied"),
+                self.tr("Editor password is not set. Configure it in Admin Mode -> Settings."),
+            )
+            return
 
-        if not self._ensure_mode_password(
-            "editor",
-            self.auth_service,
-            PasswordSetupDialog,
+        if not self._verify_password_with_limit(
+            mode="editor",
+            verify_callback=self.auth_service.verify_editor_password,
+            title=self.tr("Editor Access"),
+            label=self.tr("Enter editor password:"),
         ):
             return
-        while True:
-            dialog = PasswordDialog(
-                self,
-                title=self._tr_or_fallback("Editor Access", "Доступ редактора"),
-                label=self._tr_or_fallback("Enter editor password:", "Введіть пароль редактора:"),
-            )
-            if dialog.exec() != QDialog.Accepted:
-                return
-            if self.auth_service.verify_editor_password(dialog.get_password()):
-                break
-            QMessageBox.warning(self, self.tr("Access denied"), self.tr("Invalid editor password."))
         wizard = EditorWizardDialog(
             self.controller.db,
             self.i18n,
@@ -865,42 +778,76 @@ class MainWindow(QMainWindow):
         if self.last_program_id:
             self._refresh_report(self.last_program_id)
 
-    def _ensure_mode_password(self, role: str, auth_service: AuthService, setup_dialog_cls) -> bool:
-        has_password = auth_service.has_admin_password() if role == "admin" else auth_service.has_editor_password()
-        if has_password:
-            return True
-        if role == "admin":
-            title = self._tr_or_fallback("Create admin password", "Створення пароля адміністратора")
-            label = self._tr_or_fallback(
-                "Create a local admin password.", "Створіть локальний пароль адміністратора."
+    def _prompt_new_password(self, title: str, label: str) -> str | None:
+        from ..ui.dialogs import PasswordDialog
+
+        first = PasswordDialog(self, title=title, label=label)
+        if first.exec() != QDialog.Accepted:
+            return None
+        new_password = first.get_password()
+        min_length = self.auth_service.MIN_PASSWORD_LENGTH
+        if len(new_password) < min_length:
+            QMessageBox.warning(
+                self,
+                self.tr("Validation"),
+                self.tr("Password must be at least {0} characters.").format(min_length),
             )
-        else:
-            title = self._tr_or_fallback("Create editor password", "Створення пароля редактора")
-            label = self._tr_or_fallback(
-                "Create a local editor password.", "Створіть локальний пароль редактора."
+            return None
+        confirm = PasswordDialog(self, title=title, label=self.tr("Confirm password:"))
+        if confirm.exec() != QDialog.Accepted:
+            return None
+        if confirm.get_password() != new_password:
+            QMessageBox.warning(
+                self,
+                self.tr("Validation"),
+                self.tr("Passwords do not match."),
             )
-        dialog = setup_dialog_cls(
+            return None
+        return new_password
+
+    def _verify_password_with_limit(
+        self,
+        mode: str,
+        verify_callback: Callable[[str], bool],
+        title: str,
+        label: str,
+    ) -> bool:
+        from ..ui.dialogs import PasswordDialog
+
+        now = time.monotonic()
+        blocked_until = self._auth_blocked_until.get(mode, 0.0)
+        if blocked_until > now:
+            wait_seconds = int(blocked_until - now) + 1
+            QMessageBox.warning(
+                self,
+                self.tr("Access denied"),
+                self.tr("Too many failed attempts. Try again in {0} seconds.").format(wait_seconds),
+            )
+            return False
+
+        attempts_left = self.AUTH_MAX_ATTEMPTS
+        while attempts_left > 0:
+            dialog = PasswordDialog(self, title=title, label=label)
+            if dialog.exec() != QDialog.Accepted:
+                return False
+            if verify_callback(dialog.get_password()):
+                self._auth_blocked_until.pop(mode, None)
+                return True
+            attempts_left -= 1
+            if attempts_left > 0:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Access denied"),
+                    self.tr("Invalid password. Attempts left: {0}.").format(attempts_left),
+                )
+
+        self._auth_blocked_until[mode] = time.monotonic() + self.AUTH_COOLDOWN_SECONDS
+        QMessageBox.warning(
             self,
-            title=title,
-            label=label,
+            self.tr("Access denied"),
+            self.tr("Too many failed attempts. Access is temporarily blocked."),
         )
-        if dialog.exec() != QDialog.Accepted:
-            return False
-        password = dialog.get_password()
-        confirm_password = dialog.get_confirm_password()
-        if password != confirm_password:
-            QMessageBox.warning(self, self.tr("Validation"), self.tr("Passwords do not match."))
-            return False
-        try:
-            if role == "admin":
-                auth_service.set_admin_password(password)
-            else:
-                auth_service.set_editor_password(password)
-        except ValueError as exc:
-            QMessageBox.warning(self, self.tr("Validation"), str(exc))
-            return False
-        QMessageBox.information(self, self.tr("Password created"), self.tr("Password has been saved."))
-        return True
+        return False
 
     def _on_open_material(self) -> None:
         items = self.materials_list.selectedItems()
@@ -1007,7 +954,7 @@ class MainWindow(QMainWindow):
     def _execute_material_file_action(action: Callable[[], bool]) -> tuple[bool | None, str | None]:
         try:
             return action(), None
-        except ValueError as exc:
+        except (ValueError, OSError) as exc:
             return None, str(exc)
 
     def _run_material_file_action(
@@ -1086,12 +1033,12 @@ class MainWindow(QMainWindow):
 
         teachers = sorted(
             teachers,
-            key=lambda t: (t.id not in teachers_with_materials, *teacher_sort_key(t)),
+            key=lambda t: (t.id not in teachers_with_materials, t.full_name.lower()),
         )
 
         self.report_table.setRowCount(len(lessons))
         self.report_table.setColumnCount(len(teachers) + 1)
-        headers = [self.tr("Lesson code")] + [
+        headers = [self.tr("Lesson")] + [
             (f"{t.military_rank}\n{t.full_name}" if t.military_rank else t.full_name) for t in teachers
         ]
         self.report_table.setHorizontalHeaderLabels(headers)
@@ -1122,10 +1069,6 @@ class MainWindow(QMainWindow):
                         item.setBackground(QBrush(QColor(255, 242, 204)))
                     else:
                         item.setBackground(QBrush(QColor(255, 199, 206)))
-                teacher_name = teacher.full_name or self.tr("Unknown teacher")
-                item.setToolTip(
-                    self.tr("Teacher: {0}\nMaterials: {1}").format(teacher_name, len(titles))
-                )
                 self.report_table.setItem(row_index, col_offset, item)
 
         for idx, info in enumerate(lessons):
@@ -1150,24 +1093,11 @@ class MainWindow(QMainWindow):
         if col > 0 and not item.text().strip():
             self._show_details({})
             self.materials_list.clear()
-            self.report_selection_hint.setText(
-                self.tr("No materials are assigned in the selected teacher cell.")
-            )
             return
         lesson = self._report_rows[row]
         details = self.controller.get_entity_details("lesson", lesson.id)
         self._show_details(details)
         self._load_materials("lesson", lesson.id)
-        if col == 0:
-            self.report_selection_hint.setText(
-                self.tr("Showing lesson details and all lesson materials.")
-            )
-        else:
-            header_item = self.report_table.horizontalHeaderItem(col)
-            teacher_label = header_item.text().replace("\n", " ") if header_item else self.tr("selected teacher")
-            self.report_selection_hint.setText(
-                self.tr("Showing lesson details. Selected teacher column: {0}").format(teacher_label)
-            )
 
     def _material_copy_name_parts(self, material) -> Tuple[str, str]:
         original = material.original_filename or ""
@@ -1221,15 +1151,15 @@ class MainWindow(QMainWindow):
             self.program_list.setCurrentItem(self.program_items[int(last_program)])
 
         current_language = self.i18n.current_language()
-        if current_language in self.language_actions:
-            self.language_actions[current_language].setChecked(True)
+        index = self.language_combo.findData(current_language)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
 
         font_size = self.settings.value("ui/font_size")
         if font_size:
-            action = self.font_actions.get(str(font_size))
-            if action:
-                action.setChecked(True)
-                self._set_font_size_choice(str(font_size))
+            idx = self.font_combo.findText(str(font_size))
+            if idx >= 0:
+                self.font_combo.setCurrentIndex(idx)
 
     def closeEvent(self, event) -> None:
         self.settings.setValue("ui/main_geometry", self.saveGeometry())
@@ -1242,6 +1172,23 @@ class MainWindow(QMainWindow):
         self.settings.sync()
         super().closeEvent(event)
 
+    def _on_language_combo_changed(self) -> None:
+        language = self.language_combo.currentData()
+        if language:
+            self.i18n.set_language(language)
+
+    def _on_font_size_changed(self, value: str) -> None:
+        if not value:
+            return
+        try:
+            size = int(value)
+        except ValueError:
+            return
+        font = QFont(self.font())
+        font.setPointSize(size)
+        self.setFont(font)
+        self.settings.setValue("ui/font_size", size)
+
     def _on_language_changed(self, _language: str) -> None:
         self.retranslate_ui()
 
@@ -1249,8 +1196,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.tr("Educational Program Manager"))
         self.search_label.setText(self.tr("Search:"))
         self.search_button.setText(self.tr("Search"))
-        self.settings_button.setText(self.tr("Settings"))
-        self.administration_button.setText(self.tr("Administration"))
+        self.editor_button.setText(self.tr("Editor Mode"))
+        self.admin_button.setText(self.tr("Admin Mode"))
         self._update_active_teacher_label()
         self.menuBar().clear()
         app_menu = self.menuBar().addMenu(self.tr("Application"))
@@ -1262,44 +1209,17 @@ class MainWindow(QMainWindow):
         self.action_exit.triggered.connect(self._close_application)
         self.program_label.setText(self.tr("Programs"))
         self.structure_label.setText(self.tr("Program Structure"))
-        self.report_label.setText(self.tr("Report"))
-        self.report_hint.setText(
-            self.tr(
-                "The report shows lessons in rows and teachers in columns. "
-                "Use it to quickly see who is assigned to each lesson."
-            )
-        )
-        self.report_legend.setText(
-            self.tr(
-                "Color legend: green = complete set, yellow = partially filled, red = no materials."
-            )
-        )
-        self.report_selection_hint.setText(
-            self.tr("Select a lesson or teacher cell to see the related details and materials.")
-        )
         self.search_results_label.setText(self.tr("Search Results"))
         self.details_label.setText(self.tr("Details"))
         self.materials_label.setText(self.tr("Methodical Materials"))
+        self.open_material_button.setText(self.tr("Open Selected File"))
+        self.show_material_button.setText(self.tr("Show in folder"))
+        self.copy_material_button.setText(self.tr("Copy file as..."))
         self.content_tree.setHeaderLabels([self.tr("Title"), self.tr("Type")])
         self.search_results.setHorizontalHeaderLabels([self.tr("Type"), self.tr("Title"), self.tr("Description")])
-        self.open_material_button.setText(self.tr("Open file"))
-        self.show_material_button.setText(self.tr("Show folder"))
-        self.copy_material_button.setText(self.tr("Save copy"))
-        self._retranslate_v2_menus()
         self._load_program_structure(self.last_program_id) if self.last_program_id else None
         if self.content_tree.currentItem():
             self._on_tree_selected()
-
-    def _retranslate_v2_menus(self) -> None:
-        self.settings_menu.setTitle(self.tr("Settings"))
-        self.language_menu.setTitle(self.tr("Language"))
-        self.font_menu.setTitle(self.tr("Font size"))
-        self.administration_menu.setTitle(self.tr("Administration"))
-        self.editor_mode_action.setText(self.tr("Editor Mode"))
-        self.admin_mode_action.setText(self.tr("Admin Mode"))
-        language_labels = {"uk": self.tr("Ukrainian"), "en": self.tr("English")}
-        for code, action in self.language_actions.items():
-            action.setText(language_labels.get(code, code))
 
     def _build_search_context(self, result) -> str:
         navigation = self.controller.resolve_search_navigation(result)

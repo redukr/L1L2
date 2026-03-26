@@ -571,7 +571,7 @@ class EditorWizardDialog(QDialog):
                 self.controller.attach_material_file(material, attach_path)
             elif existing_path:
                 self.controller.attach_existing_material_file(material, existing_path)
-        except Exception as exc:
+        except (OSError, ValueError, RuntimeError, TypeError) as exc:
             QMessageBox.warning(self, self.tr("Import error"), str(exc))
         self._log_action("add_material", material.title)
         self._created_counts["materials"] += 1
