@@ -1029,8 +1029,7 @@ class MainWindow(QMainWindow):
                     material_teachers[teacher.id] = teacher
                     key = (lesson_row, teacher.id)
                     cell_map.setdefault(key, []).append(material.title)
-                    raw_type = (material.material_type or "").strip().lower()
-                    normalized = "guide" if raw_type == "metod" else raw_type
+                    normalized = self._normalize_report_material_type(material.material_type or "")
                     cell_types.setdefault(key, set()).add(normalized)
 
         if self.report_include_all_teachers.isChecked():
@@ -1113,6 +1112,29 @@ class MainWindow(QMainWindow):
             name_block = full_name
         rank = (teacher.military_rank or "").strip()
         return f"{rank}\n{name_block}" if rank else name_block
+
+    @staticmethod
+    def _normalize_report_material_type(material_type: str) -> str:
+        raw = (material_type or "").strip().casefold()
+        if not raw:
+            return ""
+        if raw == "metod":
+            return "guide"
+
+        plan_markers = ("plan", "план", "план-конспект", "конспект")
+        guide_markers = ("guide", "method", "метод", "методич", "посібник", "рекомендац", "настанова")
+        presentation_markers = ("presentation", "презентац", "слайд")
+        attachment_markers = ("attachment", "додат", "appendix", "файл")
+
+        if any(marker in raw for marker in plan_markers):
+            return "plan"
+        if any(marker in raw for marker in guide_markers):
+            return "guide"
+        if any(marker in raw for marker in presentation_markers):
+            return "presentation"
+        if any(marker in raw for marker in attachment_markers):
+            return "attachment"
+        return raw
 
     def _on_report_selection_changed(self) -> None:
         item = self.report_table.currentItem()

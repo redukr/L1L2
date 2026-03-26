@@ -6,8 +6,11 @@ from contextlib import closing
 from pathlib import Path
 import sqlite3
 
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from ..controllers.admin_controller import AdminController
+from ..models.database import Database
 from ..services.app_paths import get_settings_dir, make_relative_to_app, resolve_app_path
 
 
@@ -71,8 +74,9 @@ class AdminDialogDatabaseMixin:
 
     def _change_database_path(self) -> None:
         current = self.bootstrap_settings.value("app/db_path", "")
-        start_dir = str(resolve_app_path(current)) if current else str(self.controller.db.db_path)
-        path, _ = QFileDialog.getSaveFileName(
+        start_path = resolve_app_path(current) if current else Path(self.controller.db.db_path)
+        start_dir = str(start_path.parent if start_path.suffix else start_path)
+        path, _ = QFileDialog.getOpenFileName(
             self,
             self.tr("Select database file"),
             start_dir,
@@ -80,19 +84,26 @@ class AdminDialogDatabaseMixin:
         )
         if not path:
             return
-        self.bootstrap_settings.setValue("app/db_path", make_relative_to_app(path))
+        selected = Path(path)
+        if not selected.exists():
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Database file not found."))
+            return
+        self.bootstrap_settings.setValue("app/db_path", make_relative_to_app(selected))
         self.bootstrap_settings.sync()
-        self.database_path.setText(path)
+        self.database_path.setText(str(selected))
+        self.controller = AdminController(Database(str(selected)))
+        self._refresh_all()
         QMessageBox.information(
             self,
-            self.tr("Restart required"),
-            self.tr("Database selection saved. Restart the app to apply changes."),
+            self.tr("Database file"),
+            self.tr("Database file applied."),
         )
 
     def _change_ui_settings_path(self) -> None:
         current = self.bootstrap_settings.value("app/ui_settings_path", "")
-        start_dir = str(resolve_app_path(current)) if current else str(get_settings_dir() / "user_settings.ini")
-        path, _ = QFileDialog.getSaveFileName(
+        start_path = resolve_app_path(current) if current else (get_settings_dir() / "user_settings.ini")
+        start_dir = str(start_path.parent if start_path.suffix else start_path)
+        path, _ = QFileDialog.getOpenFileName(
             self,
             self.tr("Select UI settings file"),
             start_dir,
@@ -100,13 +111,22 @@ class AdminDialogDatabaseMixin:
         )
         if not path:
             return
-        self.bootstrap_settings.setValue("app/ui_settings_path", make_relative_to_app(path))
+        selected = Path(path)
+        if not selected.exists():
+            QMessageBox.warning(self, self.tr("Validation"), self.tr("Settings file not found."))
+            return
+        self.bootstrap_settings.setValue("app/ui_settings_path", make_relative_to_app(selected))
         self.bootstrap_settings.sync()
-        self.ui_settings_path.setText(path)
+        self.ui_settings_path.setText(str(selected))
+        self.settings = QSettings(str(selected), QSettings.IniFormat)
+        if hasattr(self.i18n, "_settings"):
+            self.i18n._settings = self.settings
+        if self.parent() is not None and hasattr(self.parent(), "settings"):
+            self.parent().settings = self.settings
         QMessageBox.information(
             self,
-            self.tr("Restart required"),
-            self.tr("UI settings path saved. Restart the app to apply changes."),
+            self.tr("UI settings file"),
+            self.tr("UI settings file applied."),
         )
 
     def _change_translations_path(self) -> None:

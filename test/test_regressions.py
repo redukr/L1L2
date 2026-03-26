@@ -15,6 +15,7 @@ from src.repositories.topic_repository import TopicRepository
 import src.services.auth_service as auth_module
 import src.services.activity_log as activity_log_module
 import src.ui.admin_dialog_settings_mixin as settings_mixin_module
+import src.app as app_module
 from src.services.ui_fallback_translations import UK_UI_FALLBACKS
 from src.services.file_storage import FileStorageManager
 from src.services.file_storage import StorageScopeError
@@ -625,6 +626,19 @@ class RegressionTests(unittest.TestCase):
             finally:
                 i18n_module.QSettings = original_qsettings
                 i18n_module.get_translations_dir = original_get_translations_dir
+
+    def test_report_material_type_normalization_supports_ukrainian_names(self):
+        self.assertEqual(MainWindow._normalize_report_material_type("План-конспект"), "plan")
+        self.assertEqual(MainWindow._normalize_report_material_type("Методичні рекомендації"), "guide")
+        self.assertEqual(MainWindow._normalize_report_material_type("Презентація"), "presentation")
+
+    def test_app_resolve_existing_or_fallback_prefers_existing_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fallback = Path(tmp_dir) / "settings.ini"
+            fallback.write_text("", encoding="utf-8")
+            resolved, changed = app_module._resolve_existing_or_fallback("missing/path.ini", fallback)
+            self.assertEqual(Path(resolved).resolve(), fallback.resolve())
+            self.assertTrue(changed)
 
 
 if __name__ == "__main__":
