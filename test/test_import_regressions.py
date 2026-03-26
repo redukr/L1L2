@@ -6,6 +6,7 @@ from src.models.database import Database
 from src.services.import_service import (
     build_batch_import_plan,
     extract_text_from_file,
+    import_curriculum_structure_by_names,
     import_teachers_from_docx,
     parse_curriculum_text,
     summarize_curriculum_topics,
@@ -84,3 +85,26 @@ class ImportRegressionTests(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 build_batch_import_plan([str(path)])
+
+    def test_import_allows_duplicate_lesson_titles_in_same_topic(self):
+        text = "\n".join(
+            [
+                "Назва теми\tЗаняття\tПитання",
+                "Тема 1\tЗаняття 44\t1. Q1",
+                "\tЗаняття 44\t2. Q2",
+            ]
+        )
+        topics = parse_curriculum_text(text)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db = Database(str(Path(tmp_dir) / "edu.db"))
+            t_added, l_added, q_added = import_curriculum_structure_by_names(
+                db,
+                "Program X",
+                "Discipline Y",
+                topics,
+            )
+
+            self.assertEqual(t_added, 1)
+            self.assertEqual(l_added, 1)
+            self.assertEqual(q_added, 2)

@@ -2,6 +2,7 @@
 from typing import Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
 from pathlib import Path
+import re
 from PySide6.QtCore import QObject, Signal, QSettings
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtCore import QTranslator
@@ -86,6 +87,40 @@ class I18nManager(QObject):
         language = self._settings.value("ui/language", "uk")
         self.set_language(language, persist=False)
 
+    @staticmethod
+    def _derive_language_path(base_path: Path, language: str) -> Path:
+        stem = base_path.stem
+        match = re.match(r"^(.*?)(?:[_-](uk|en))$", stem, flags=re.IGNORECASE)
+        if not match:
+            return base_path
+        prefix = match.group(1)
+        if not prefix:
+            return base_path
+        return base_path.with_name(f"{prefix}_{language}{base_path.suffix}")
+
+    def _resolve_language_translation_paths(self, language: str) -> tuple[Path | None, Path | None]:
+        settings = QSettings()
+        translations_path = settings.value("app/translations_path", "")
+        if translations_path:
+            configured_path = resolve_app_path(translations_path)
+            if str(configured_path) != str(translations_path):
+                settings.setValue("app/translations_path", make_relative_to_app(configured_path))
+            language_path = self._derive_language_path(configured_path, language)
+            if language_path.suffix.lower() == ".qm":
+                qm_path = language_path
+                ts_path = language_path.with_suffix(".ts")
+            else:
+                ts_path = language_path
+                qm_path = language_path.with_suffix(".qm")
+            if (qm_path and qm_path.exists()) or (ts_path and ts_path.exists()):
+                return qm_path, ts_path
+
+        translations_dir = get_translations_dir()
+        return (
+            translations_dir / f"app_{language}.qm",
+            translations_dir / f"app_{language}.ts",
+        )
+
     def set_language(self, language: str, persist: bool = True) -> None:
         language = "uk" if language not in {"uk", "en"} else language
         if self._current_language == language and self._translators:
@@ -95,22 +130,7 @@ class I18nManager(QObject):
             QCoreApplication.removeTranslator(translator)
         self._translators = []
 
-        settings = QSettings()
-        translations_path = settings.value("app/translations_path", "")
-        if translations_path:
-            path = resolve_app_path(translations_path)
-            if str(path) != str(translations_path):
-                settings.setValue("app/translations_path", make_relative_to_app(path))
-            if path.suffix.lower() == ".qm":
-                qm_path = path
-                ts_path = None
-            else:
-                ts_path = path
-                qm_path = None
-        else:
-            translations_dir = get_translations_dir()
-            qm_path = translations_dir / f"app_{language}.qm"
-            ts_path = translations_dir / f"app_{language}.ts"
+        qm_path, ts_path = self._resolve_language_translation_paths(language)
 
         backend_translators: List[QTranslator] = []
         if qm_path and qm_path.exists():

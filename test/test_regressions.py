@@ -1,6 +1,8 @@
 import tempfile
 import unittest
 import json
+import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import sqlite3
 from contextlib import closing
@@ -13,11 +15,13 @@ from src.repositories.topic_repository import TopicRepository
 import src.services.auth_service as auth_module
 import src.services.activity_log as activity_log_module
 import src.ui.admin_dialog_settings_mixin as settings_mixin_module
+from src.services.ui_fallback_translations import UK_UI_FALLBACKS
 from src.services.file_storage import FileStorageManager
 from src.services.file_storage import StorageScopeError
 from src.services.import_service import extract_text_from_file, parse_curriculum_text
 from src.services.search_service import SearchService
 from src.services import storage_settings
+import src.services.i18n as i18n_module
 from src.models.entities import MethodicalMaterial
 from src.controllers.admin_controller import AdminController
 from src.ui.admin_dialog_internet_sync_mixin import AdminDialogInternetSyncMixin
@@ -557,6 +561,70 @@ class RegressionTests(unittest.TestCase):
         )
         self.assertIsNone(ok)
         self.assertEqual(error, "io-fail")
+
+    def test_uk_translation_coverage_for_tr_strings(self):
+        root = Path(__file__).resolve().parents[1]
+        pattern = re.compile(r'\btr\(\s*"((?:[^"\\]|\\.)*)"\s*\)')
+        strings = set()
+        for path in (root / "src").rglob("*.py"):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in pattern.finditer(text):
+                strings.add(bytes(match.group(1), "utf-8").decode("unicode_escape"))
+
+        ts_root = ET.parse(root / "translations" / "app_uk.ts").getroot()
+        translated = {}
+        for message in ts_root.findall(".//message"):
+            source = message.findtext("source") or ""
+            translation = message.find("translation")
+            text = "".join(translation.itertext()).strip() if translation is not None else ""
+            translated[source] = text
+
+        missing = [
+            source
+            for source in sorted(strings)
+            if not translated.get(source, "").strip()
+            and not str(UK_UI_FALLBACKS.get(source, "")).strip()
+        ]
+        self.assertEqual(missing, [])
+
+    def test_i18n_derive_language_path_switches_uk_en_suffix(self):
+        path = Path("C:/tmp/translations/app_uk.ts")
+        derived = i18n_module.I18nManager._derive_language_path(path, "en")
+        self.assertEqual(derived.name, "app_en.ts")
+
+        path2 = Path("C:/tmp/translations/custom-en.ts")
+        derived2 = i18n_module.I18nManager._derive_language_path(path2, "uk")
+        self.assertEqual(derived2.name, "custom_uk.ts")
+
+    def test_i18n_resolve_language_translation_paths_uses_language_sibling_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            custom_dir = root / "custom"
+            custom_dir.mkdir(parents=True)
+            (custom_dir / "app_uk.ts").write_text("<TS></TS>", encoding="utf-8")
+            (custom_dir / "app_en.ts").write_text("<TS></TS>", encoding="utf-8")
+
+            class FakeQSettings:
+                def value(self, key, default=""):
+                    if key == "app/translations_path":
+                        return str(custom_dir / "app_uk.ts")
+                    return default
+
+                def setValue(self, _key, _value):
+                    pass
+
+            original_qsettings = i18n_module.QSettings
+            original_get_translations_dir = i18n_module.get_translations_dir
+            i18n_module.QSettings = FakeQSettings
+            i18n_module.get_translations_dir = lambda: root / "fallback"
+            try:
+                manager = i18n_module.I18nManager(FakeQSettings())
+                qm_path, ts_path = manager._resolve_language_translation_paths("en")
+                self.assertEqual(ts_path.resolve(), (custom_dir / "app_en.ts").resolve())
+                self.assertEqual(qm_path.resolve(), (custom_dir / "app_en.qm").resolve())
+            finally:
+                i18n_module.QSettings = original_qsettings
+                i18n_module.get_translations_dir = original_get_translations_dir
 
 
 if __name__ == "__main__":

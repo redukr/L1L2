@@ -116,7 +116,7 @@ class AdminDialogDatabaseMixin:
             self,
             self.tr("Select translations file"),
             start_dir,
-            self.tr("Translation files (*.json);;All files (*)"),
+            self.tr("Translation files (*.ts *.qm);;All files (*)"),
         )
         if not path:
             return

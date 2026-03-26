@@ -1390,12 +1390,12 @@ Skipped: {1}</translation>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4651" />
         <source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source>
-        <translation>Developer: Lieutenant Heorhii FYLYPOVYCH.</translation>
+        <translation>Developer: Lieutenant Georgii FYLYPOVYCH.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4654" />
         <source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source>
-        <translation>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</translation>
+        <translation>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha ODYNTSOVA.</translation>
     </message>
 </context>
 <context>
@@ -2223,12 +2223,12 @@ Skipped: {1}</translation>
     <message>
         <location filename="../src/ui/main_window.py" line="398" />
         <source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source>
-        <translation>Developer: Lieutenant Heorhii FYLYPOVYCH.</translation>
+        <translation>Developer: Lieutenant Georgii FYLYPOVYCH.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="401" />
         <source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source>
-        <translation>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</translation>
+        <translation>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha ODYNTSOVA.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="439" />

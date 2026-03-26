@@ -6,12 +6,12 @@
         <location filename="../src/ui/admin_dialog.py" line="132" />
         <location filename="../src/ui/admin_dialog.py" line="4667" />
         <source>Admin Panel</source>
-        <translation />
+        <translation>Панель адміністратора</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="170" />
         <source>Access denied</source>
-        <translation />
+        <translation>Доступ заборонено</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="170" />
@@ -77,26 +77,26 @@
         <location filename="../src/ui/admin_dialog.py" line="198" />
         <location filename="../src/ui/admin_dialog.py" line="4670" />
         <source>Application</source>
-        <translation />
+        <translation>Програма</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="199" />
         <location filename="../src/ui/admin_dialog.py" line="4657" />
         <location filename="../src/ui/admin_dialog.py" line="4671" />
         <source>About</source>
-        <translation />
+        <translation>Про програму</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="200" />
         <location filename="../src/ui/admin_dialog.py" line="4672" />
         <source>Restart application</source>
-        <translation />
+        <translation>Перезавантажити програму</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="201" />
         <location filename="../src/ui/admin_dialog.py" line="4673" />
         <source>Exit application</source>
-        <translation />
+        <translation>Закрити програму</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="210" />
@@ -169,7 +169,7 @@
         <location filename="../src/ui/admin_dialog.py" line="259" />
         <location filename="../src/ui/admin_dialog.py" line="4880" />
         <source>Use this section to manage teachers. Select a teacher in the table, then assign disciplines below.</source>
-        <translation />
+        <translation>Використовуйте цей розділ для керування викладачами. Виберіть викладача в таблиці, а потім призначайте дисципліни нижче.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="263" />
@@ -191,7 +191,7 @@
         <location filename="../src/ui/admin_dialog.py" line="4984" />
         <location filename="../src/ui/admin_dialog.py" line="4997" />
         <source>Add</source>
-        <translation />
+        <translation>Додати</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="264" />
@@ -217,7 +217,7 @@
         <location filename="../src/ui/admin_dialog.py" line="4986" />
         <location filename="../src/ui/admin_dialog.py" line="4998" />
         <source>Edit</source>
-        <translation />
+        <translation>Редагувати</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="265" />
@@ -243,37 +243,37 @@
         <location filename="../src/ui/admin_dialog.py" line="4988" />
         <location filename="../src/ui/admin_dialog.py" line="4999" />
         <source>Delete</source>
-        <translation />
+        <translation>Видалити</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="266" />
         <location filename="../src/ui/admin_dialog.py" line="4874" />
         <source>Import teachers from DOCX</source>
-        <translation />
+        <translation>Імпорт викладачів з DOCX</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="282" />
         <location filename="../src/ui/admin_dialog.py" line="4840" />
         <source>Full name</source>
-        <translation />
+        <translation>Повне ім'я</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="283" />
         <location filename="../src/ui/admin_dialog.py" line="4841" />
         <source>Military rank</source>
-        <translation />
+        <translation>Військове звання</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="284" />
         <location filename="../src/ui/admin_dialog.py" line="4842" />
         <source>Position</source>
-        <translation />
+        <translation>Посада</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="285" />
         <location filename="../src/ui/admin_dialog.py" line="4843" />
         <source>Department</source>
-        <translation />
+        <translation>Кафедра</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="286" />
@@ -285,19 +285,19 @@
         <location filename="../src/ui/admin_dialog.py" line="287" />
         <location filename="../src/ui/admin_dialog.py" line="4845" />
         <source>Phone</source>
-        <translation />
+        <translation>Телефон</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="300" />
         <location filename="../src/ui/admin_dialog.py" line="5022" />
         <source>Teacher discipline assignment</source>
-        <translation />
+        <translation>Призначення дисциплін викладачу</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="304" />
         <location filename="../src/ui/admin_dialog.py" line="4884" />
         <source>Available disciplines on the left, assigned disciplines on the right</source>
-        <translation />
+        <translation>Зліва доступні дисципліни, справа призначені дисципліни</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="309" />
@@ -315,7 +315,7 @@
         <location filename="../src/ui/admin_dialog.py" line="4957" />
         <location filename="../src/ui/admin_dialog.py" line="4963" />
         <source>Add -&gt;</source>
-        <translation />
+        <translation>Додати -&gt;</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="310" />
@@ -333,7 +333,7 @@
         <location filename="../src/ui/admin_dialog.py" line="4959" />
         <location filename="../src/ui/admin_dialog.py" line="4965" />
         <source>&lt;- Remove</source>
-        <translation />
+        <translation>&lt;- Прибрати</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="454" />
@@ -391,7 +391,7 @@
         <location filename="../src/ui/admin_dialog.py" line="4856" />
         <location filename="../src/ui/admin_dialog.py" line="4864" />
         <source>Title</source>
-        <translation />
+        <translation>Назва</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="560" />
@@ -411,7 +411,7 @@
         <location filename="../src/ui/admin_dialog.py" line="561" />
         <location filename="../src/ui/admin_dialog.py" line="4865" />
         <source>Authors</source>
-        <translation />
+        <translation>Автори</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="608" />
@@ -435,19 +435,19 @@
         <location filename="../src/ui/admin_dialog.py" line="615" />
         <location filename="../src/ui/admin_dialog.py" line="4849" />
         <source>Level</source>
-        <translation />
+        <translation>Рівень</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="615" />
         <location filename="../src/ui/admin_dialog.py" line="4849" />
         <source>Duration</source>
-        <translation />
+        <translation>Тривалість</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="634" />
         <location filename="../src/ui/admin_dialog.py" line="4898" />
         <source>Program disciplines</source>
-        <translation />
+        <translation>Дисципліни програми</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="666" />
@@ -463,13 +463,13 @@
         <location filename="../src/ui/admin_dialog.py" line="4853" />
         <location filename="../src/ui/admin_dialog.py" line="4857" />
         <source>Order</source>
-        <translation />
+        <translation>Порядок</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="692" />
         <location filename="../src/ui/admin_dialog.py" line="4915" />
         <source>Discipline topics</source>
-        <translation />
+        <translation>Теми дисципліни</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="724" />
@@ -481,7 +481,7 @@
         <location filename="../src/ui/admin_dialog.py" line="750" />
         <location filename="../src/ui/admin_dialog.py" line="4932" />
         <source>Topic lessons</source>
-        <translation />
+        <translation>Заняття теми</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="768" />
@@ -499,13 +499,13 @@
         <location filename="../src/ui/admin_dialog.py" line="811" />
         <location filename="../src/ui/admin_dialog.py" line="4856" />
         <source>Total hours</source>
-        <translation />
+        <translation>Всього годин</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="831" />
         <location filename="../src/ui/admin_dialog.py" line="4955" />
         <source>Lesson questions</source>
-        <translation />
+        <translation>Питання заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="849" />
@@ -550,7 +550,7 @@
         <location filename="../src/ui/admin_dialog.py" line="962" />
         <location filename="../src/ui/admin_dialog.py" line="4859" />
         <source>Synonyms</source>
-        <translation />
+        <translation>Синоніми</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="996" />
@@ -600,7 +600,7 @@
         <location filename="../src/ui/admin_dialog.py" line="4810" />
         <location filename="../src/ui/admin_dialog.py" line="5032" />
         <source>Start synchronization</source>
-        <translation />
+        <translation>Почати синхронізацію</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1059" />
@@ -646,7 +646,7 @@
         <location filename="../src/ui/admin_dialog.py" line="4591" />
         <location filename="../src/ui/admin_dialog.py" line="5039" />
         <source>Lesson</source>
-        <translation />
+        <translation>Заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1095" />
@@ -663,19 +663,19 @@
         <location filename="../src/ui/admin_dialog.py" line="1108" />
         <location filename="../src/ui/admin_dialog.py" line="5034" />
         <source>Current structure</source>
-        <translation />
+        <translation>Поточна структура</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1116" />
         <location filename="../src/ui/admin_dialog.py" line="5035" />
         <source>Source structure</source>
-        <translation />
+        <translation>Структура джерела</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1127" />
         <location filename="../src/ui/admin_dialog.py" line="5033" />
         <source>Apply synchronization</source>
-        <translation />
+        <translation>Застосувати синхронізацію</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1153" />
@@ -791,37 +791,37 @@
         <location filename="../src/ui/admin_dialog.py" line="1271" />
         <location filename="../src/ui/admin_dialog.py" line="4823" />
         <source>Time</source>
-        <translation />
+        <translation>Час</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1272" />
         <location filename="../src/ui/admin_dialog.py" line="4824" />
         <source>User</source>
-        <translation />
+        <translation>Користувач</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1273" />
         <location filename="../src/ui/admin_dialog.py" line="4825" />
         <source>Mode</source>
-        <translation />
+        <translation>Режим</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1274" />
         <location filename="../src/ui/admin_dialog.py" line="4826" />
         <source>Action</source>
-        <translation />
+        <translation>Дія</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1275" />
         <location filename="../src/ui/admin_dialog.py" line="4827" />
         <source>Details</source>
-        <translation />
+        <translation>Деталі</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1289" />
         <location filename="../src/ui/admin_dialog.py" line="4830" />
         <source>Refresh log</source>
-        <translation />
+        <translation>Оновити журнал</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1290" />
@@ -887,7 +887,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1350" />
         <location filename="../src/ui/admin_dialog.py" line="4809" />
         <source>Connect to Internet DB</source>
-        <translation />
+        <translation>Підключитися до Internet DB</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1351" />
@@ -917,13 +917,13 @@
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1540" />
         <source>Full name is required.</source>
-        <translation />
+        <translation>Потрібне повне ім'я.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1566" />
         <location filename="../src/ui/admin_dialog.py" line="1567" />
         <source>Delete selected teacher?</source>
-        <translation />
+        <translation>Видалити вибраного викладача?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1569" />
@@ -952,7 +952,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1835" />
         <location filename="../src/ui/admin_dialog.py" line="2173" />
         <source>Program name is required.</source>
-        <translation />
+        <translation>Program name is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1847" />
@@ -965,7 +965,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1854" />
         <location filename="../src/ui/admin_dialog.py" line="2261" />
         <source>Discipline name is required.</source>
-        <translation />
+        <translation>Discipline name is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1867" />
@@ -978,7 +978,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1874" />
         <location filename="../src/ui/admin_dialog.py" line="2398" />
         <source>Topic title is required.</source>
-        <translation />
+        <translation>Topic title is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1887" />
@@ -989,7 +989,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1897" />
         <location filename="../src/ui/admin_dialog.py" line="2571" />
         <source>Lesson title is required.</source>
-        <translation />
+        <translation>Потрібна назва заняття.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1911" />
@@ -1000,13 +1000,13 @@
         <location filename="../src/ui/admin_dialog.py" line="1918" />
         <location filename="../src/ui/admin_dialog.py" line="2792" />
         <source>Question text is required.</source>
-        <translation />
+        <translation>Question text is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1979" />
         <location filename="../src/ui/admin_dialog.py" line="2314" />
         <source>Select a discipline from the same program.</source>
-        <translation />
+        <translation>Оберіть дисципліну з цієї ж програми.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2071" />
@@ -1017,59 +1017,59 @@
         <location filename="../src/ui/admin_dialog.py" line="2194" />
         <location filename="../src/ui/admin_dialog.py" line="2195" />
         <source>Delete selected program?</source>
-        <translation />
+        <translation>Видалити вибрану програму?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2308" />
         <source>Discipline is not linked to any program.</source>
-        <translation />
+        <translation>Дисципліна не прив'язана до жодної програми.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2330" />
         <location filename="../src/ui/admin_dialog.py" line="2331" />
         <source>Delete selected discipline?</source>
-        <translation />
+        <translation>Видалити вибрану дисципліну?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2446" />
         <source>Topic is not linked to any discipline.</source>
-        <translation />
+        <translation>Тема не прив'язана до жодної дисципліни.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2462" />
         <location filename="../src/ui/admin_dialog.py" line="2463" />
         <source>Delete selected topic?</source>
-        <translation />
+        <translation>Видалити вибрану тему?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2597" />
         <location filename="../src/ui/admin_dialog.py" line="2598" />
         <source>Delete selected lesson?</source>
-        <translation />
+        <translation>Видалити вибране заняття?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2709" />
         <location filename="../src/ui/admin_dialog.py" line="2878" />
         <source>Name is required.</source>
-        <translation />
+        <translation>Потрібна назва.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2732" />
         <location filename="../src/ui/admin_dialog.py" line="2733" />
         <source>Delete selected lesson type?</source>
-        <translation />
+        <translation>Видалити вибраний тип заняття?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2813" />
         <location filename="../src/ui/admin_dialog.py" line="2814" />
         <source>Delete selected question?</source>
-        <translation />
+        <translation>Видалити вибране питання?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2853" />
         <location filename="../src/ui/admin_dialog.py" line="2854" />
         <source>Delete selected material?</source>
-        <translation />
+        <translation>Видалити вибраний матеріал?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2900" />
@@ -1085,26 +1085,26 @@
         <location filename="../src/ui/admin_dialog.py" line="2943" />
         <location filename="../src/ui/admin_dialog.py" line="2956" />
         <source>No File</source>
-        <translation />
+        <translation>Файлу немає</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2923" />
         <location filename="../src/ui/admin_dialog.py" line="2933" />
         <location filename="../src/ui/admin_dialog.py" line="2943" />
         <source>This material has no attached file.</source>
-        <translation />
+        <translation>Цей матеріал не має прикріпленого файлу.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2926" />
         <location filename="../src/ui/admin_dialog.py" line="2936" />
         <location filename="../src/ui/admin_dialog.py" line="2956" />
         <source>File is missing in storage.</source>
-        <translation />
+        <translation>Файл відсутній у сховищі.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2949" />
         <source>Copy file as...</source>
-        <translation />
+        <translation>Копіювати файл як...</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="2951" />
@@ -1114,7 +1114,7 @@
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3029" />
         <source>Clear all log records?</source>
-        <translation />
+        <translation>Очистити всі записи журналу?</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3077" />
@@ -1238,18 +1238,18 @@
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3262" />
         <source>Sync folder not found.</source>
-        <translation />
+        <translation>Папку sync не знайдено.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3268" />
         <source>Sync database not found.</source>
-        <translation />
+        <translation>Базу даних у sync не знайдено.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3277" />
         <location filename="../src/ui/admin_dialog.py" line="3278" />
         <source>Select database</source>
-        <translation />
+        <translation>Оберіть базу даних</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3305" />
@@ -1270,7 +1270,7 @@
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3910" />
         <source>Synchronization completed.</source>
-        <translation />
+        <translation>Синхронізацію завершено.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="3928" />
@@ -1323,12 +1323,12 @@
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4548" />
         <source>Import teachers</source>
-        <translation />
+        <translation>Імпорт викладачів</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4550" />
         <source>Word documents (*.docx);;All files (*)</source>
-        <translation />
+        <translation>Документи Word (*.docx);;Усі файли (*)</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4561" />
@@ -1339,7 +1339,8 @@
         <location filename="../src/ui/admin_dialog.py" line="4562" />
         <source>Added teachers: {0}
 Skipped: {1}</source>
-        <translation />
+        <translation>Додано викладачів: {0}
+Пропущено: {1}</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4593" />
@@ -1349,27 +1350,27 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4594" />
         <source>Material</source>
-        <translation />
+        <translation>Матеріал</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4600" />
         <source>plan</source>
-        <translation />
+        <translation>план</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4601" />
         <source>guide</source>
-        <translation />
+        <translation>методичний посібник</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4602" />
         <source>presentation</source>
-        <translation />
+        <translation>презентація</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4603" />
         <source>attachment</source>
-        <translation />
+        <translation>додаток</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4632" />
@@ -1384,17 +1385,17 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4650" />
         <source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source>
-        <translation />
+        <translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4651" />
-        <source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source>
-        <translation />
+        <source>Developer: Lieutenant Georgii FYLYPOVYCH.</source>
+        <translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="4654" />
-        <source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source>
-        <translation />
+        <source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha ODYNTSOVA.</source>
+        <translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі ОДИНЦОВІЙ.</translation>
     </message>
 </context>
 <context>
@@ -1407,7 +1408,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="1070" />
         <source>Check the detected targets before import. Each row shows which program and discipline will receive the parsed content.</source>
-        <translation />
+        <translation>Перевірте визначені цілі перед імпортом. Кожен рядок показує, до якої програми та дисципліни буде додано розібраний вміст.</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="1077" />
@@ -1447,7 +1448,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="1104" />
         <source>Back</source>
-        <translation />
+        <translation>Назад</translation>
     </message>
 </context>
 <context>
@@ -1483,12 +1484,12 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="360" />
         <source>Description</source>
-        <translation />
+        <translation>Опис</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="361" />
         <source>Order index</source>
-        <translation />
+        <translation>Порядковий індекс</translation>
     </message>
 </context>
 <context>
@@ -1497,37 +1498,37 @@ Skipped: {1}</source>
         <location filename="../src/ui/editor_wizard.py" line="53" />
         <location filename="../src/ui/editor_wizard.py" line="592" />
         <source>Editor Wizard</source>
-        <translation />
+        <translation>Майстер редактора</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="69" />
         <source>Application</source>
-        <translation />
+        <translation>Програма</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="70" />
         <source>Restart application</source>
-        <translation />
+        <translation>Перезавантажити програму</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="71" />
         <source>Exit application</source>
-        <translation />
+        <translation>Закрити програму</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="93" />
         <source>Back</source>
-        <translation />
+        <translation>Назад</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="94" />
         <source>Next</source>
-        <translation />
+        <translation>Далі</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="95" />
         <source>Finish</source>
-        <translation />
+        <translation>Готово</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="96" />
@@ -1537,7 +1538,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="113" />
         <source>Step 1: Select context</source>
-        <translation />
+        <translation>Крок 1: Виберіть контекст</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="120" />
@@ -1573,43 +1574,43 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="148" />
         <source>Step 2: Add lessons</source>
-        <translation />
+        <translation>Крок 2: Додайте заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="168" />
         <source>Title</source>
-        <translation />
+        <translation>Назва</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="169" />
         <source>Description</source>
-        <translation />
+        <translation>Опис</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="170" />
         <source>Total hours</source>
-        <translation />
+        <translation>Всього годин</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="171" />
         <source>Classroom hours</source>
-        <translation />
+        <translation>Аудиторні години</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="172" />
         <source>Self-study hours</source>
-        <translation />
+        <translation>Самостійні години</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="173" />
         <source>Lesson type</source>
-        <translation />
+        <translation>Тип заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="174" />
         <location filename="../src/ui/editor_wizard.py" line="206" />
         <source>Order index</source>
-        <translation />
+        <translation>Порядковий індекс</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="178" />
@@ -1619,14 +1620,14 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="196" />
         <source>Step 3: Add questions</source>
-        <translation />
+        <translation>Крок 3: Додайте питання</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="204" />
         <location filename="../src/ui/editor_wizard.py" line="234" />
         <location filename="../src/ui/editor_wizard.py" line="237" />
         <source>Lesson</source>
-        <translation />
+        <translation>Заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="205" />
@@ -1641,22 +1642,22 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="228" />
         <source>Step 4: Add materials</source>
-        <translation />
+        <translation>Крок 4: Додайте матеріали</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="236" />
         <source>Target</source>
-        <translation />
+        <translation>Призначення</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="241" />
         <source>Add material</source>
-        <translation />
+        <translation>Додати матеріал</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="267" />
         <source>Step 5: Summary</source>
-        <translation />
+        <translation>Крок 5: Підсумок</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="290" />
@@ -1688,12 +1689,12 @@ Skipped: {1}</source>
         <location filename="../src/ui/editor_wizard.py" line="357" />
         <location filename="../src/ui/editor_wizard.py" line="358" />
         <source>N/A</source>
-        <translation />
+        <translation>Н/Д</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="435" />
         <source>Program name is required.</source>
-        <translation />
+        <translation>Program name is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="448" />
@@ -1703,7 +1704,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="455" />
         <source>Discipline name is required.</source>
-        <translation />
+        <translation>Discipline name is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="469" />
@@ -1713,12 +1714,12 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="476" />
         <source>Topic title is required.</source>
-        <translation />
+        <translation>Topic title is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="494" />
         <source>Lesson title is required.</source>
-        <translation />
+        <translation>Потрібна назва заняття.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="521" />
@@ -1728,12 +1729,12 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="525" />
         <source>Question text is required.</source>
-        <translation />
+        <translation>Question text is required.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="550" />
         <source>Select a target first.</source>
-        <translation />
+        <translation>Спочатку виберіть призначення.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="561" />
@@ -1756,12 +1757,12 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="941" />
         <source>Single import: choose one file or paste text and preview it before import. Batch import: choose multiple files and confirm filename-based targets.</source>
-        <translation />
+        <translation>Одиночний імпорт: виберіть один файл або вставте текст і перегляньте прев’ю перед імпортом. Пакетний імпорт: виберіть кілька файлів і підтвердьте цілі, визначені за назвами файлів.</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="949" />
         <source>New discipline name</source>
-        <translation />
+        <translation>Нова назва дисципліни</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="951" />
@@ -1776,32 +1777,32 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="953" />
         <source>New discipline</source>
-        <translation />
+        <translation>Нова дисципліна</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="957" />
         <source>Paste table text here...</source>
-        <translation />
+        <translation>Вставте текст таблиці сюди...</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="961" />
         <source>Open single file</source>
-        <translation />
+        <translation>Відкрити один файл</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="962" />
         <source>Open batch files</source>
-        <translation />
+        <translation>Відкрити пакет файлів</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="963" />
         <source>Preview single import</source>
-        <translation />
+        <translation>Переглянути одиночний імпорт</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="971" />
         <source>Start import</source>
-        <translation />
+        <translation>Почати імпорт</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="972" />
@@ -1811,18 +1812,18 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="999" />
         <source>Create new...</source>
-        <translation />
+        <translation>Створити нову...</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="1008" />
         <source>Open table file</source>
-        <translation />
+        <translation>Відкрити файл таблиці</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="1010" />
         <location filename="../src/ui/dialogs.py" line="1027" />
         <source>Documents (*.txt *.tsv *.csv *.docx *.doc);;All files (*)</source>
-        <translation />
+        <translation>Документи (*.txt *.tsv *.csv *.docx *.doc);;Усі файли (*)</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="1018" />
@@ -1833,17 +1834,17 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="1025" />
         <source>Open table files</source>
-        <translation />
+        <translation>Відкрити файли таблиць</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="1038" />
         <source>Preview</source>
-        <translation />
+        <translation>Перегляд</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="1039" />
         <source>Preview is available for single-file import only.</source>
-        <translation />
+        <translation>Перегляд доступний лише для імпорту одного файлу.</translation>
     </message>
 </context>
 <context>
@@ -1851,7 +1852,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="881" />
         <source>Import preview</source>
-        <translation />
+        <translation>Перегляд імпорту</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="885" />
@@ -1861,12 +1862,12 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="894" />
         <source>Title</source>
-        <translation />
+        <translation>Назва</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="894" />
         <source>Details</source>
-        <translation />
+        <translation>Деталі</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="903" />
@@ -1881,12 +1882,12 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="918" />
         <source>Use this preview</source>
-        <translation />
+        <translation>Використати це прев’ю</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="919" />
         <source>Close</source>
-        <translation />
+        <translation>Закрити</translation>
     </message>
 </context>
 <context>
@@ -1894,7 +1895,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="490" />
         <source>Lesson</source>
-        <translation />
+        <translation>Заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="531" />
@@ -1904,42 +1905,42 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="532" />
         <source>Edit</source>
-        <translation />
+        <translation>Редагувати</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="533" />
         <source>Remove</source>
-        <translation />
+        <translation>Прибрати</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="546" />
         <source>Title</source>
-        <translation />
+        <translation>Назва</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="547" />
         <source>Description</source>
-        <translation />
+        <translation>Опис</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="548" />
         <source>Total hours</source>
-        <translation />
+        <translation>Всього годин</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="549" />
         <source>Classroom hours</source>
-        <translation />
+        <translation>Аудиторні години</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="550" />
         <source>Self-study hours</source>
-        <translation />
+        <translation>Самостійні години</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="551" />
         <source>Lesson type</source>
-        <translation />
+        <translation>Тип заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="553" />
@@ -1949,7 +1950,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="555" />
         <source>Order index</source>
-        <translation />
+        <translation>Порядковий індекс</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="581" />
@@ -1959,7 +1960,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="581" />
         <source>Question text is required.</source>
-        <translation />
+        <translation>Question text is required.</translation>
     </message>
 </context>
 <context>
@@ -1967,7 +1968,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="642" />
         <source>Lesson type</source>
-        <translation />
+        <translation>Тип заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="647" />
@@ -1977,7 +1978,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="648" />
         <source>Synonyms (comma-separated)</source>
-        <translation />
+        <translation>Синоніми (через кому)</translation>
     </message>
 </context>
 <context>
@@ -1986,44 +1987,44 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="64" />
         <location filename="../src/ui/main_window.py" line="1249" />
         <source>Educational Program Manager</source>
-        <translation />
+        <translation>Менеджер освітніх програм</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="77" />
         <location filename="../src/ui/main_window.py" line="1256" />
         <source>Application</source>
-        <translation />
+        <translation>Програма</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="78" />
         <location filename="../src/ui/main_window.py" line="404" />
         <location filename="../src/ui/main_window.py" line="1257" />
         <source>About</source>
-        <translation />
+        <translation>Про програму</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="79" />
         <location filename="../src/ui/main_window.py" line="1258" />
         <source>Restart application</source>
-        <translation />
+        <translation>Перезавантажити програму</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="80" />
         <location filename="../src/ui/main_window.py" line="1259" />
         <source>Exit application</source>
-        <translation />
+        <translation>Закрити програму</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="86" />
         <location filename="../src/ui/main_window.py" line="1250" />
         <source>Search:</source>
-        <translation />
+        <translation>Пошук:</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="89" />
         <location filename="../src/ui/main_window.py" line="1251" />
         <source>Search</source>
-        <translation />
+        <translation>Пошук</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="90" />
@@ -2043,13 +2044,13 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="92" />
         <location filename="../src/ui/main_window.py" line="335" />
         <source>Active teacher: not selected</source>
-        <translation />
+        <translation>Активний викладач: не вибрано</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="106" />
         <location filename="../src/ui/main_window.py" line="1263" />
         <source>Programs</source>
-        <translation />
+        <translation>Програми</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="114" />
@@ -2057,7 +2058,7 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="1283" />
         <location filename="../src/ui/main_window.py" line="1284" />
         <source>Title</source>
-        <translation />
+        <translation>Назва</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="114" />
@@ -2071,32 +2072,32 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="124" />
         <location filename="../src/ui/main_window.py" line="1264" />
         <source>Program Structure</source>
-        <translation />
+        <translation>Структура програми</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="129" />
         <location filename="../src/ui/main_window.py" line="159" />
         <location filename="../src/ui/main_window.py" line="1265" />
         <source>Report</source>
-        <translation />
+        <translation>Звіт</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="135" />
         <location filename="../src/ui/main_window.py" line="1271" />
         <source>The report shows lessons in rows and teachers in columns. Use it to quickly see who is assigned to each lesson.</source>
-        <translation />
+        <translation>Звіт показує заняття в рядках і викладачів у стовпцях. Використовуйте його, щоб швидко бачити, хто призначений до кожного заняття.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="141" />
         <location filename="../src/ui/main_window.py" line="1276" />
         <source>Color legend: green = complete set, yellow = partially filled, red = no materials.</source>
-        <translation />
+        <translation>Позначення кольорів: зелений = повний комплект, жовтий = частково заповнено, червоний = матеріали відсутні.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="145" />
         <location filename="../src/ui/main_window.py" line="1279" />
         <source>Select a lesson or teacher cell to see the related details and materials.</source>
-        <translation />
+        <translation>Виберіть заняття або комірку викладача, щоб побачити пов’язані деталі та матеріали.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="158" />
@@ -2107,25 +2108,25 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="164" />
         <location filename="../src/ui/main_window.py" line="1284" />
         <source>Description</source>
-        <translation />
+        <translation>Опис</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="167" />
         <location filename="../src/ui/main_window.py" line="1280" />
         <source>Search Results</source>
-        <translation />
+        <translation>Результати пошуку</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="178" />
         <location filename="../src/ui/main_window.py" line="1281" />
         <source>Details</source>
-        <translation />
+        <translation>Деталі</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="198" />
         <location filename="../src/ui/main_window.py" line="1282" />
         <source>Methodical Materials</source>
-        <translation />
+        <translation>Методичні матеріали</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="201" />
@@ -2161,25 +2162,25 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="245" />
         <location filename="../src/ui/main_window.py" line="1300" />
         <source>Ukrainian</source>
-        <translation />
+        <translation>Українська</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="245" />
         <location filename="../src/ui/main_window.py" line="1301" />
         <source>English</source>
-        <translation />
+        <translation>Англійська</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="264" />
         <location filename="../src/ui/main_window.py" line="1298" />
         <source>Editor Mode</source>
-        <translation />
+        <translation>Режим редактора</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="265" />
         <location filename="../src/ui/main_window.py" line="1299" />
         <source>Admin Mode</source>
-        <translation />
+        <translation>Режим адміністратора</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="313" />
@@ -2189,7 +2190,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/main_window.py" line="314" />
         <source>No teachers found. Continue in guest mode and add a teacher in Administration.</source>
-        <translation />
+        <translation>Викладачів не знайдено. Продовжуйте в гостьовому режимі та додайте викладача в розділі «Адміністрування».</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="326" />
@@ -2201,7 +2202,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/main_window.py" line="326" />
         <source>Teacher selection is required.</source>
-        <translation />
+        <translation>Потрібно обрати викладача.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="338" />
@@ -2212,22 +2213,22 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/main_window.py" line="340" />
         <source>Active teacher: {0}</source>
-        <translation />
+        <translation>Активний викладач: {0}</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="397" />
         <source>Copyright on the program idea belongs to the Department of Military Leadership of the Military Academy, Odesa.</source>
-        <translation />
+        <translation>Авторські права на ідею програми належать Кафедрі Військового Лідерства Військової Академії м. Одеса.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="398" />
         <source>Developer: Lieutenant Heorhii FYLYPOVYCH.</source>
-        <translation />
+        <translation>Розробник: лейтенант Георгій ФИЛИПОВИЧ.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="401" />
         <source>Special thanks: Major Vitalii SAVCHUK, Lieutenant Colonel Olha Odyntsova.</source>
-        <translation />
+        <translation>Окрема подяка: майору Віталію САВЧУКУ, підполковнику Ользі Одинцовій.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="439" />
@@ -2245,7 +2246,7 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="449" />
         <location filename="../src/ui/main_window.py" line="1330" />
         <source>Lesson</source>
-        <translation />
+        <translation>Заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="454" />
@@ -2257,17 +2258,17 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="522" />
         <location filename="../src/ui/main_window.py" line="539" />
         <source>N/A</source>
-        <translation />
+        <translation>Н/Д</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="529" />
         <source>No file</source>
-        <translation />
+        <translation>Немає файлу</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="532" />
         <source>Not assigned</source>
-        <translation />
+        <translation>Не призначено</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="693" />
@@ -2292,7 +2293,7 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="977" />
         <location filename="../src/ui/main_window.py" line="1002" />
         <source>No File</source>
-        <translation />
+        <translation>Файлу немає</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="733" />
@@ -2301,7 +2302,7 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="944" />
         <location filename="../src/ui/main_window.py" line="961" />
         <source>This material has no attached file.</source>
-        <translation />
+        <translation>Цей матеріал не має прикріпленого файлу.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="737" />
@@ -2331,13 +2332,13 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="978" />
         <location filename="../src/ui/main_window.py" line="1003" />
         <source>File is missing in storage.</source>
-        <translation />
+        <translation>Файл відсутній у сховищі.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="811" />
         <location filename="../src/ui/main_window.py" line="851" />
         <source>Access denied</source>
-        <translation />
+        <translation>Доступ заборонено</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="811" />
@@ -2347,7 +2348,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/main_window.py" line="851" />
         <source>Invalid editor password.</source>
-        <translation />
+        <translation>Невірний пароль редактора.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="892" />
@@ -2368,7 +2369,7 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="967" />
         <location filename="../src/ui/main_window.py" line="982" />
         <source>Copy file as...</source>
-        <translation />
+        <translation>Копіювати файл як...</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="969" />
@@ -2378,23 +2379,24 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/main_window.py" line="1095" />
         <source>Lesson code</source>
-        <translation />
+        <translation>Код заняття</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1127" />
         <source>Teacher: {0}
 Materials: {1}</source>
-        <translation />
+        <translation>Викладач: {0}
+Матеріали: {1}</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1155" />
         <source>No materials are assigned in the selected teacher cell.</source>
-        <translation />
+        <translation>У вибраній комірці викладача матеріали не призначені.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1164" />
         <source>Showing lesson details and all lesson materials.</source>
-        <translation />
+        <translation>Показано деталі заняття та всі матеріали заняття.</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1168" />
@@ -2404,7 +2406,7 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/main_window.py" line="1169" />
         <source>Showing lesson details. Selected teacher column: {0}</source>
-        <translation />
+        <translation>Показано деталі заняття. Вибраний стовпець викладача: {0}</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1327" />
@@ -2419,27 +2421,27 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/main_window.py" line="1333" />
         <source>Material</source>
-        <translation />
+        <translation>Матеріал</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1339" />
         <source>plan</source>
-        <translation />
+        <translation>план</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1340" />
         <source>guide</source>
-        <translation />
+        <translation>методичний посібник</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1341" />
         <source>presentation</source>
-        <translation />
+        <translation>презентація</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="1342" />
         <source>attachment</source>
-        <translation />
+        <translation>додаток</translation>
     </message>
 </context>
 <context>
@@ -2447,32 +2449,32 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="704" />
         <source>Methodical Material</source>
-        <translation />
+        <translation>Методичний матеріал</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="729" />
         <source>Default</source>
-        <translation />
+        <translation>За замовчуванням</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="730" />
         <source>Full name</source>
-        <translation />
+        <translation>Повне ім'я</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="731" />
         <source>Military rank</source>
-        <translation />
+        <translation>Військове звання</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="732" />
         <source>Position</source>
-        <translation />
+        <translation>Посада</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="733" />
         <source>Department</source>
-        <translation />
+        <translation>Кафедра</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="734" />
@@ -2482,13 +2484,13 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="735" />
         <source>Phone</source>
-        <translation />
+        <translation>Телефон</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="736" />
         <location filename="../src/ui/dialogs.py" line="820" />
         <source>A-Z</source>
-        <translation />
+        <translation>A-Z</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="744" />
@@ -2505,7 +2507,7 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="748" />
         <source>Title</source>
-        <translation />
+        <translation>Назва</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="749" />
@@ -2515,27 +2517,27 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="750" />
         <source>Description</source>
-        <translation />
+        <translation>Опис</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="751" />
         <source>Sort authors</source>
-        <translation />
+        <translation>Сортування авторів</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="752" />
         <source>Authors</source>
-        <translation />
+        <translation>Автори</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="753" />
         <source>Attached file</source>
-        <translation />
+        <translation>Прикріплений файл</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="820" />
         <source>Z-A</source>
-        <translation />
+        <translation>Z-A</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="828" />
@@ -2585,7 +2587,7 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="112" />
         <source>Save password</source>
-        <translation />
+        <translation>Зберегти пароль</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="113" />
@@ -2598,7 +2600,7 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="284" />
         <source>Educational Program</source>
-        <translation />
+        <translation>Освітня програма</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="300" />
@@ -2608,22 +2610,22 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="301" />
         <source>Description</source>
-        <translation />
+        <translation>Опис</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="302" />
         <source>Level</source>
-        <translation />
+        <translation>Рівень</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="303" />
         <source>Year</source>
-        <translation />
+        <translation>Рік</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="304" />
         <source>Duration (hours)</source>
-        <translation />
+        <translation>Тривалість (год)</translation>
     </message>
 </context>
 <context>
@@ -2637,7 +2639,7 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="675" />
         <source>Order index</source>
-        <translation />
+        <translation>Порядковий індекс</translation>
     </message>
 </context>
 <context>
@@ -2645,47 +2647,47 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="183" />
         <source>Synchronization conflict</source>
-        <translation />
+        <translation>Конфлікт синхронізації</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="191" />
         <source>Choose which version to keep for this record. The selected version will be written during synchronization.</source>
-        <translation />
+        <translation>Оберіть, яку версію залишити для цього запису. Під час синхронізації буде збережено вибраний варіант.</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="194" />
         <source>Entity: {0}</source>
-        <translation />
+        <translation>Сутність: {0}</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="195" />
         <source>Record ID: {0}</source>
-        <translation />
+        <translation>ID запису: {0}</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="199" />
         <source>Local version</source>
-        <translation />
+        <translation>Локальна версія</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="207" />
         <source>Internet DB version</source>
-        <translation />
+        <translation>Версія з Internet DB</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="215" />
         <source>Keep local version (Recommended)</source>
-        <translation />
+        <translation>Залишити локальну версію (Рекомендовано)</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="216" />
         <source>Keep Internet DB version</source>
-        <translation />
+        <translation>Залишити версію з Internet DB</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="217" />
         <source>Skip this record for now</source>
-        <translation />
+        <translation>Поки що пропустити цей запис</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="224" />
@@ -2695,7 +2697,7 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="225" />
         <source>Cancel synchronization</source>
-        <translation />
+        <translation>Скасувати синхронізацію</translation>
     </message>
 </context>
 <context>
@@ -2708,22 +2710,22 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="257" />
         <source>Full name</source>
-        <translation />
+        <translation>Повне ім'я</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="258" />
         <source>Military rank</source>
-        <translation />
+        <translation>Військове звання</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="259" />
         <source>Position</source>
-        <translation />
+        <translation>Посада</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="260" />
         <source>Department</source>
-        <translation />
+        <translation>Кафедра</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="261" />
@@ -2733,7 +2735,7 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="262" />
         <source>Phone</source>
-        <translation />
+        <translation>Телефон</translation>
     </message>
 </context>
 <context>
@@ -2782,17 +2784,17 @@ Materials: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="439" />
         <source>Title</source>
-        <translation />
+        <translation>Назва</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="440" />
         <source>Description</source>
-        <translation />
+        <translation>Опис</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="441" />
         <source>Order index</source>
-        <translation />
+        <translation>Порядковий індекс</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs.py" line="454" />
@@ -2932,12 +2934,12 @@ Added questions: {2}</source>
     <message>
         <location filename="../src/ui/admin_dialog_material_ops.py" line="200" />
         <source>Cleanup completed.</source>
-        <translation />
+        <translation>Очищення завершено.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog_material_ops.py" line="201" />
         <source>Backup saved to: {0}</source>
-        <translation />
+        <translation>Резервну копію збережено до: {0}</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog_sync_ops.py" line="19" />

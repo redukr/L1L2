@@ -686,15 +686,13 @@ def _validate_curriculum_topics(topics: List[CurriculumTopic]) -> None:
         seen_topics.add(topic_key)
         if not topic.lessons:
             raise ValueError(f"Topic has no lessons: {topic_title}")
-        seen_lessons: set[str] = set()
         for lesson in topic.lessons:
             lesson_title = _normalize_text(lesson.title)
             if not lesson_title:
                 raise ValueError(f"Lesson title cannot be empty in topic: {topic_title}")
-            lesson_key = _key(lesson_title)
-            if lesson_key in seen_lessons:
-                raise ValueError(f"Duplicate lesson title in topic '{topic_title}': {lesson_title}")
-            seen_lessons.add(lesson_key)
+            # Duplicate lesson titles can legitimately exist in some source files.
+            # We allow them here; import stage merges them by normalized title
+            # within the same topic and appends missing metadata/questions.
             for question in lesson.questions:
                 if not _normalize_text(question.text):
                     raise ValueError(f"Question text cannot be empty in lesson: {lesson_title}")
