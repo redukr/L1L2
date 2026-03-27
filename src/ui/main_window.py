@@ -134,8 +134,10 @@ class MainWindow(QMainWindow):
         self.content_tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustIgnored)
         self.structure_label = QLabel(self.tr("Program Structure"))
         self.report_table = QTableWidget(0, 0)
-        self.report_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.report_table.horizontalHeader().setStretchLastSection(True)
+        report_header = self.report_table.horizontalHeader()
+        report_header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        report_header.setStretchLastSection(True)
+        report_header.setDefaultAlignment(Qt.AlignCenter)
         self.report_table.verticalHeader().setVisible(False)
         self.report_label = QLabel(self.tr("Report"))
 
@@ -297,6 +299,7 @@ class MainWindow(QMainWindow):
         self.content_tree.viewport().update()
         self.program_list.doItemsLayout()
         self.materials_list.doItemsLayout()
+        self._adjust_report_header_geometry()
         self.report_table.resizeRowsToContents()
         self.report_table.resizeColumnsToContents()
 
@@ -1047,6 +1050,7 @@ class MainWindow(QMainWindow):
             self._format_report_teacher_header(t) for t in teachers
         ]
         self.report_table.setHorizontalHeaderLabels(headers)
+        self._adjust_report_header_geometry()
 
         for row_index, info in enumerate(lessons):
             row_code_item = QTableWidgetItem(info["code"])
@@ -1102,16 +1106,36 @@ class MainWindow(QMainWindow):
                 row_item.setToolTip(tooltip)
         self.report_table.resizeRowsToContents()
         self.report_table.resizeColumnsToContents()
+        self._adjust_report_header_geometry()
 
     def _format_report_teacher_header(self, teacher) -> str:  # noqa: ANN001
         full_name = (teacher.full_name or "").strip()
         parts = [p for p in full_name.split() if p]
-        if len(parts) >= 2:
-            name_block = f"{parts[0]}\n{' '.join(parts[1:])}"
-        else:
-            name_block = full_name
         rank = (teacher.military_rank or "").strip()
-        return f"{rank}\n{name_block}" if rank else name_block
+        combined_parts = ([rank] if rank else []) + parts
+        if combined_parts:
+            return "\n".join(combined_parts)
+        return full_name
+
+    def _adjust_report_header_geometry(self) -> None:
+        header = self.report_table.horizontalHeader()
+        model = self.report_table.model()
+        if header is None or model is None:
+            return
+        line_count = 1
+        metrics = QFontMetrics(header.font())
+        for column in range(model.columnCount()):
+            header_text = model.headerData(column, Qt.Horizontal, Qt.DisplayRole) or ""
+            lines = str(header_text).splitlines() or [""]
+            count = len(lines)
+            if count > line_count:
+                line_count = count
+            min_width = max(metrics.horizontalAdvance(line) for line in lines) + 20
+            if self.report_table.columnWidth(column) < min_width:
+                self.report_table.setColumnWidth(column, min_width)
+        height = (metrics.lineSpacing() * line_count) + 12
+        header.setMinimumHeight(height)
+        header.setFixedHeight(height)
 
     @staticmethod
     def _normalize_report_material_type(material_type: str) -> str:
@@ -1252,6 +1276,7 @@ class MainWindow(QMainWindow):
         font = QFont(self.font())
         font.setPointSize(size)
         self.setFont(font)
+        self._adjust_report_header_geometry()
         self.settings.setValue("ui/font_size", size)
 
     def _on_language_changed(self, _language: str) -> None:
@@ -1286,6 +1311,7 @@ class MainWindow(QMainWindow):
         self._load_program_structure(self.last_program_id) if self.last_program_id else None
         if self.content_tree.currentItem():
             self._on_tree_selected()
+        self._adjust_report_header_geometry()
 
     def _build_search_context(self, result) -> str:
         navigation = self.controller.resolve_search_navigation(result)

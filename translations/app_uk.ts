@@ -952,7 +952,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1835" />
         <location filename="../src/ui/admin_dialog.py" line="2173" />
         <source>Program name is required.</source>
-        <translation>Program name is required.</translation>
+        <translation>Потрібна назва програми.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1847" />
@@ -965,7 +965,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1854" />
         <location filename="../src/ui/admin_dialog.py" line="2261" />
         <source>Discipline name is required.</source>
-        <translation>Discipline name is required.</translation>
+        <translation>Потрібна назва дисципліни.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1867" />
@@ -978,7 +978,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1874" />
         <location filename="../src/ui/admin_dialog.py" line="2398" />
         <source>Topic title is required.</source>
-        <translation>Topic title is required.</translation>
+        <translation>Потрібна назва теми.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1887" />
@@ -1000,7 +1000,7 @@
         <location filename="../src/ui/admin_dialog.py" line="1918" />
         <location filename="../src/ui/admin_dialog.py" line="2792" />
         <source>Question text is required.</source>
-        <translation>Question text is required.</translation>
+        <translation>Потрібен текст питання.</translation>
     </message>
     <message>
         <location filename="../src/ui/admin_dialog.py" line="1979" />
@@ -1694,7 +1694,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="435" />
         <source>Program name is required.</source>
-        <translation>Program name is required.</translation>
+        <translation>Потрібна назва програми.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="448" />
@@ -1704,7 +1704,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="455" />
         <source>Discipline name is required.</source>
-        <translation>Discipline name is required.</translation>
+        <translation>Потрібна назва дисципліни.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="469" />
@@ -1714,7 +1714,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="476" />
         <source>Topic title is required.</source>
-        <translation>Topic title is required.</translation>
+        <translation>Потрібна назва теми.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="494" />
@@ -1729,7 +1729,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="525" />
         <source>Question text is required.</source>
-        <translation>Question text is required.</translation>
+        <translation>Потрібен текст питання.</translation>
     </message>
     <message>
         <location filename="../src/ui/editor_wizard.py" line="550" />
@@ -1960,7 +1960,7 @@ Skipped: {1}</source>
     <message>
         <location filename="../src/ui/dialogs.py" line="581" />
         <source>Question text is required.</source>
-        <translation>Question text is required.</translation>
+        <translation>Потрібен текст питання.</translation>
     </message>
 </context>
 <context>
@@ -2150,13 +2150,13 @@ Skipped: {1}</source>
         <location filename="../src/ui/main_window.py" line="239" />
         <location filename="../src/ui/main_window.py" line="1295" />
         <source>Language</source>
-        <translation />
+        <translation>Мова</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="240" />
         <location filename="../src/ui/main_window.py" line="1296" />
         <source>Font size</source>
-        <translation />
+        <translation>Розмір шрифту</translation>
     </message>
     <message>
         <location filename="../src/ui/main_window.py" line="245" />
